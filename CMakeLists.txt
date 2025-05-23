@@ -192,11 +192,12 @@ add_executable(main101
 
     # main core methods and classes
     source/ParticleInformation/RECParticle.cxx
-    source/Cuts/ElectronCut.cxx
     source/DrawHist/DrawAndSave.cxx
     source/core/FilesInPath.cxx
     source/Cuts/EventCut.cxx
     source/Math/RECParticleKinematic.cxx
+    source/Math/MathKinematicVariable.cxx
+    source/Math/ParticleMassTable.cxx
     
 )
 

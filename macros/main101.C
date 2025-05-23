@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <chrono> // 用于计时
 #include "RHipoDS.hxx"
 #include "TCanvas.h"
 #include <optional>
@@ -7,16 +8,29 @@
 using namespace ROOT;
 using namespace ROOT::RDF;
 
-void Run101(const std::string& FilePath);
+void Run101(const float beam_energy, const std::string& FilePath);
 
 int main(int argc, char **argv) {
-    //ROOT::EnableImplicitMT(2);
-    if(argc < 2){
-        std::cout << "Please specify a HIPO data file on the command line. (Only one file.) \n";
+    // 记录程序开始时间
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    if(argc < 3){
+        std::cout << "ERROR: WRONG INPUT! usage: ./main101 <beam_energy> <hipo_file_folder_path>\n";
         return 1;
     }else{
-        std::cout << "Opening file " << argv[1] << std::endl;
+        std::cout << "Opening files in " << argv[2] << std::endl;
+        std::cout << "Beam energy: " << argv[1] << std::endl;
     }
 
-    Run101(argv[1]);
+    float beam_energy = std::stof(argv[1]);
+    Run101(beam_energy, argv[2]);
+
+    // 记录程序结束时间
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    // 计算总运行时间
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
+    std::cout << "Total runtime: " << duration << " seconds" << std::endl;
+
+    return 0;
 }
