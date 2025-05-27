@@ -3,44 +3,44 @@
 #include <cmath>
 #include <iomanip>
 
-// 构造函数
+// Constructor
 EventCut::EventCut() = default;
 
-// 析构函数
+// Destructor
 EventCut::~EventCut() = default;
 
-// 设置电荷范围
+// Set charge range
 void EventCut::SetChargeCut(int Charge, bool ChargeSelection) {
     fCharge = Charge;
     fChargeSelection = ChargeSelection;
 }
 
-// 设置动量范围
+// Set momentum range
 void EventCut::SetMomentumCut(float minMomentum, float maxMomentum) {
     fMinMomentum = minMomentum;
     fMaxMomentum = maxMomentum;
 }
 
-// 设置顶点位置范围
+// Set vertex position range
 void EventCut::SetVzCut(float minVz, float maxVz) {
     fMinVz = minVz;
     fMaxVz = maxVz;
 }
 
-// 设置 Chi2PID 范围
+// Set Chi2PID range
 void EventCut::SetChi2PIDCut(float minChi2PID, float maxChi2PID) {
     fMinChi2PID = minChi2PID;
     fMaxChi2PID = maxChi2PID;
 }
 
-// 设置特定 PID 的数量限制
+// Set the count limit for a specific PID
 void EventCut::SetPIDCountCut(int selectedPID, int minCount, int maxCount) {
     fSelectedPID = selectedPID;
     fMinPIDCount = minCount;
     fMaxPIDCount = maxCount;
 }
 
-// 筛选逻辑
+// Filtering logic
 bool EventCut::operator()(const std::vector<int>& pid,
                           const std::vector<float>& px,
                           const std::vector<float>& py,
@@ -52,35 +52,38 @@ bool EventCut::operator()(const std::vector<int>& pid,
                           const std::vector<int>& charge,
                           const std::vector<float>& beta,
                           const std::vector<float>& chi2pid,
-                          const std::vector<int>& status) const {
-    int pidCount = 0; // 统计目标 PID 的数量
-    bool selected = true; // 是否选择了目标 PID
+                          const std::vector<int>& status,
+                          const std::vector<int>& REC_Traj_pass
+                          ) const {
+    int pidCount = 0; // Count the number of target PIDs
+    bool selected = true; // Whether the target PID is selected
     
     for (size_t i = 0; i < pid.size(); ++i) {
-        // 统计目标 PID 的数量
+        // Count the number of target PIDs
         if (pid[i] == fSelectedPID && 
-            std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i])>0.01 &&
-            (static_cast<int8_t>(charge[i])==fCharge)) {
+            std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) > 0.01 &&
+            (static_cast<int8_t>(charge[i]) == fCharge) &&
+            REC_Traj_pass[i] == 1 &&
+            IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)) {
             pidCount++;
             float momentum = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
-            if (!((static_cast<int8_t>(charge[i])==fCharge) &&
+            if (!((static_cast<int8_t>(charge[i]) == fCharge) &&
                 IsInRange(momentum, fMinMomentum, fMaxMomentum) &&
-                IsInRange(vz[i], fMinVz, fMaxVz) &&
-                IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID))) {
+                IsInRange(vz[i], fMinVz, fMaxVz))) {
                 selected = false;
-                //std::cout <<pid[i] << " " << actual_charge << " " << momentum << " " << vz[i] << " " << chi2pid[i] << std::endl;
+                //std::cout << pid[i] << " " << actual_charge << " " << momentum << " " << vz[i] << " " << chi2pid[i] << std::endl;
             }
         }
     }
     
-    // 检查目标 PID 的数量是否在范围内
+    // Check if the number of target PIDs is within the range
     if (IsInRange(pidCount, fMinPIDCount, fMaxPIDCount) && selected) {
         //std::cout << "Event selected!" << std::endl;
         return true;
     }
-    // Debug 输出为表的形式
+    // Debug output in table format
     /*
-    if (pidCount>0){
+    if (pidCount > 0) {
     std::cout << "Debug Information:" << std::endl;
     std::cout << "-------------------------------------------------------------" << std::endl;
     std::cout << "| Index | PID    | Charge | Momentum  | Vz       | Chi2PID | Selected |";
@@ -97,7 +100,7 @@ bool EventCut::operator()(const std::vector<int>& pid,
                   << " | " << std::setw(8) << vz[i] 
                   << " | " << std::setw(7) << chi2pid[i] 
                   << " | " << std::setw(8) << (isSelected ? "Yes" : "No") 
-                  << " |" << std::setw(9) << (charge[i]==fCharge)
+                  << " |" << std::setw(9) << (charge[i] == fCharge)
                   << " |" << std::setw(10) << IsInRange(momentum, fMinMomentum, fMaxMomentum)
                   << " |" << std::setw(11) << IsInRange(vz[i], fMinVz, fMaxVz)
                   << " |" << std::setw(12) << IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)

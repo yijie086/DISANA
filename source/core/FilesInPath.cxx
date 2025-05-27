@@ -12,6 +12,6 @@ std::vector<std::string> GetHipoFilesInPath(const std::string& directory) {
             std::cout << "Found file: " << entry.path() << std::endl;
         }
     }
-    std::cout << "************ " << files.size() << " Files Found ************" << std::endl;
+    std::cout << "================ " << files.size() << " Files Found ================" << std::endl;
     return files;
 }

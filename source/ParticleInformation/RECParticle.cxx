@@ -23,7 +23,7 @@ const std::vector<std::string>& RECParticle::All() {
 
 const std::vector<std::string>& RECParticle::Extend() {
     static const std::vector<std::string> extended = [] {
-        std::vector<std::string> base = RECParticle::All();  // 拷贝 All 的内容
+        std::vector<std::string> base = RECParticle::All();  
         base.push_back("REC_Particle_phi");
         base.push_back("REC_Particle_theta");
         base.push_back("REC_Particle_p");

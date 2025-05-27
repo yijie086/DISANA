@@ -3,7 +3,6 @@
 #include "MathKinematicVariable.h"
 #include "ParticleMassTable.h"
 
-// 返回计算 theta 的 lambda 函数
 RECStoreType RECParticletheta() {
     return [](const std::vector<int>& pid,
               const std::vector<float>& px,

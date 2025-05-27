@@ -11,7 +11,7 @@ using namespace ROOT::RDF;
 void Run101(const float beam_energy, const std::string& FilePath);
 
 int main(int argc, char **argv) {
-    // 记录程序开始时间
+
     auto start_time = std::chrono::high_resolution_clock::now();
 
     if(argc < 3){
@@ -25,10 +25,9 @@ int main(int argc, char **argv) {
     float beam_energy = std::stof(argv[1]);
     Run101(beam_energy, argv[2]);
 
-    // 记录程序结束时间
     auto end_time = std::chrono::high_resolution_clock::now();
 
-    // 计算总运行时间
+
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time).count();
     std::cout << "Total runtime: " << duration << " seconds" << std::endl;
 

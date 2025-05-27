@@ -6,11 +6,10 @@
 #include <functional>
 
 struct RECParticle {
-    // 所有列名
     static const std::vector<std::string>& All();
     static const std::vector<std::string>& Extend();
 
-    // 类型别名：和 All() 顺序、类型完全一致
+
     using AllTypes = std::tuple<
         const std::vector<int>&,      // pid
         const std::vector<float>&,    // px
