@@ -28,11 +28,11 @@ struct RECParticle {
 
 
 
-std::function<std::vector<float>(const std::vector<float>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&)> 
+std::function<std::vector<float>(const std::vector<float>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&, const std::vector<int>&)> 
 get_RECParticle_float_var(int target_pid, int target_charge);
 
 
-std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&)> 
+std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&, const std::vector<int>&)> 
 get_RECParticle_int_var(int target_pid, int target_charge);
 
 #endif
