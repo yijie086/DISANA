@@ -195,6 +195,7 @@ add_executable(main101
     source/ParticleInformation/RECTraj.cxx
     source/DrawHist/DrawAndSave.cxx
     source/core/FilesInPath.cxx
+    source/core/Columns.cxx
     source/Cuts/EventCut.cxx
     source/Cuts/TrackCut.cxx
     source/Math/RECParticleKinematic.cxx
@@ -205,6 +206,35 @@ add_executable(main101
 
 # Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
 target_link_libraries(main101
+    ${ROOT_LIBS}
+    pthread
+    Clas12Root  # Link against the precompiled Clas12Root library
+    Clas12Banks
+    hipo4
+    HipoDataFrame
+)
+
+add_executable(main102fiducialcut
+    macros/main102fiducialcut.C
+    macros/Run102fiducialcut.C
+
+    # main core methods and classes
+    source/ParticleInformation/RECParticle.cxx
+    source/ParticleInformation/RECTraj.cxx
+    source/ParticleInformation/RECTrack.cxx
+    source/DrawHist/DrawAndSave.cxx
+    source/core/FilesInPath.cxx
+    source/core/Columns.cxx
+    source/Cuts/EventCut.cxx
+    source/Cuts/TrackCut.cxx
+    source/Math/RECParticleKinematic.cxx
+    source/Math/MathKinematicVariable.cxx
+    source/Math/ParticleMassTable.cxx
+    
+)
+
+# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
+target_link_libraries(main102fiducialcut
     ${ROOT_LIBS}
     pthread
     Clas12Root  # Link against the precompiled Clas12Root library

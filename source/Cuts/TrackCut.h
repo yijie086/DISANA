@@ -11,6 +11,7 @@ public:
     virtual ~TrackCut();
 
     // 设置筛选条件
+    void SetSectorCut(int SSector, bool selectSector);
     void SetPositionCut(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);
     void SetDirectionCut(float minCX, float maxCX, float minCY, float maxCY, float minCZ, float maxCZ);
     void SetPathLengthCut(float minPath, float maxPath);
@@ -46,22 +47,10 @@ public:
                                    const std::vector<float>& edge,
                                    const int& REC_Particle_num)> RECTrajPass() const;
     
-    std::function<std::vector<float>(const std::vector<int16_t>& pindex,
-                                   const std::vector<int16_t>& index,
-                                   const std::vector<int16_t>& detector,
-                                   const std::vector<int16_t>& layer,
-                                   const std::vector<float>& x,
-                                   const std::vector<float>& y,
-                                   const std::vector<float>& z,
-                                   const std::vector<float>& cx,
-                                   const std::vector<float>& cy,
-                                   const std::vector<float>& cz,
-                                   const std::vector<float>& path,
-                                   const std::vector<float>& edge,
-                                   const int& REC_Particle_num)> RECTrajedge(int target_detector, int target_layer) const;
 
 private:
     // 筛选条件
+    float fSector = -1; bool fselectSector = false;
     float fMinX = -999999, fMaxX = 999999;
     float fMinY = -999999, fMaxY = 999999;
     float fMinZ = -999999, fMaxZ = 999999;

@@ -9,6 +9,12 @@ TrackCut::TrackCut() = default;
 TrackCut::~TrackCut() = default;
 
 // 设置位置范围筛选条件
+
+void TrackCut::SetSectorCut(int SSector, bool selectSector) {
+    fSector = SSector;
+    fselectSector = selectSector;
+}
+
 void TrackCut::SetPositionCut(float minX, float maxX, float minY, float maxY, float minZ, float maxZ) {
     fMinX = minX; fMaxX = maxX;
     fMinY = minY; fMaxY = maxY;
@@ -102,6 +108,48 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
                 if (!IsInRange(edge[i], fECALMinEdge, fECALMaxEdge)) {
                     pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
                 }
+                float temp_phi = std::atan2(y[i], x[i]);
+                if (temp_phi < 0) {
+                    temp_phi += 2 * M_PI; // 确保 phi 在 [0, 2π] 范围内
+                }
+                if (fselectSector && layer[i] == 1) { // PCAL
+                    if ((temp_phi>=0 && temp_phi<30*M_PI/180)||(temp_phi>=330*M_PI/180 && temp_phi<360*M_PI/180)){
+                        if (fSector != 1) {
+                            pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                        }
+                        //std::cout << "PCAL sector 1 " << temp_phi*180/M_PI <<std::endl;
+                    }
+                    if (temp_phi>=30*M_PI/180 && temp_phi<90*M_PI/180) {
+                        if (fSector != 2) {
+                            pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                        }
+                        //std::cout << "PCAL sector 2 " << temp_phi*180/M_PI<<std::endl;
+                    }
+                    if (temp_phi>=90*M_PI/180 && temp_phi<150*M_PI/180) {
+                        if (fSector != 3) {
+                            pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                        }
+                        //std::cout << "PCAL sector 3 " << temp_phi*180/M_PI<<std::endl;
+                    }
+                    if (temp_phi>=150*M_PI/180 && temp_phi<210*M_PI/180) {
+                        if (fSector != 4) {
+                            pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                        }
+                        //std::cout << "PCAL sector 4 " << temp_phi*180/M_PI<<std::endl;
+                    }
+                    if (temp_phi>=210*M_PI/180 && temp_phi<270*M_PI/180) {
+                        if (fSector != 5) {
+                            pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                        }
+                        //std::cout << "PCAL sector 5 " << temp_phi*180/M_PI<<std::endl;
+                    }
+                    if (temp_phi>=270*M_PI/180 && temp_phi<330*M_PI/180) {
+                        if (fSector != 6) {
+                            pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                        }
+                        //std::cout << "PCAL sector 6 " << temp_phi*180/M_PI<<std::endl;
+                    }
+                }
                 
             }
             if (detector[i] == 6){//DC
@@ -115,41 +163,3 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
     };
 }
 
-std::function<std::vector<float>(const std::vector<int16_t>& pindex,
-                                 const std::vector<int16_t>& index,
-                                 const std::vector<int16_t>& detector,
-                                 const std::vector<int16_t>& layer,
-                                 const std::vector<float>& x,
-                                 const std::vector<float>& y,
-                                 const std::vector<float>& z,
-                                 const std::vector<float>& cx,
-                                 const std::vector<float>& cy,
-                                 const std::vector<float>& cz,
-                                 const std::vector<float>& path,
-                                 const std::vector<float>& edge,
-                                 const int& REC_Particle_num)> TrackCut::RECTrajedge(int target_detector, int target_layer) const {
-    return [this,target_detector, target_layer](
-                  const std::vector<int16_t>& pindex,
-                  const std::vector<int16_t>& index,
-                  const std::vector<int16_t>& detector,
-                  const std::vector<int16_t>& layer,
-                  const std::vector<float>& x,
-                  const std::vector<float>& y,
-                  const std::vector<float>& z,
-                  const std::vector<float>& cx,
-                  const std::vector<float>& cy,
-                  const std::vector<float>& cz,
-                  const std::vector<float>& path,
-                  const std::vector<float>& edge,
-                  const int& REC_Particle_num) -> std::vector<float> {
-        // 初始化 pass_values，大小为 REC_Particle_num，默认所有粒子通过
-        std::vector<float> edge_values(REC_Particle_num, 9999);
-        for (size_t i = 0; i < pindex.size(); ++i) {
-            if (detector[i] == target_detector && layer[i]==target_layer){
-                edge_values[pindex[i]] = edge[i];
-            }
-        }
-
-        return edge_values;
-    };
-}

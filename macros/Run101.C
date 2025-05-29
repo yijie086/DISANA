@@ -10,18 +10,11 @@
 #include "../source/Cuts/ElectronCut.h"
 #include "../source/DrawHist/DrawAndSave.h"
 #include "../source/core/FilesInPath.h"
+#include "../source/core/Columns.h"
 #include "../source/Cuts/EventCut.h"
 #include "../source/Cuts/TrackCut.h"
 #include "../source/Math/RECParticleKinematic.h"
 #include "../source/Math/ParticleMassTable.h"
-
-template <typename... Args>
-std::vector<std::string> CombineColumns(const Args&... vectors) {
-    std::vector<std::string> combined;
-    // 使用 fold expression 合并所有输入的 std::vector<std::string>
-    (combined.insert(combined.end(), vectors.begin(), vectors.end()), ...);
-    return combined;
-}
 
 void Run101(const float beam_energy, const std::string& FilePath) {
     std::vector<std::string> inputFiles = GetHipoFilesInPath(FilePath);
@@ -37,15 +30,15 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     TFile* fout = new TFile("test.root", "RECREATE");
 
     EventCut Electron_cut;
-    Electron_cut.SetChargeCut(-1,true);
+    Electron_cut.SetChargeCut(-1);
     Electron_cut.SetPIDCountCut(11, 1, 1);
 
     EventCut Proton_cut;
-    Proton_cut.SetChargeCut(1,true);
+    Proton_cut.SetChargeCut(1);
     Proton_cut.SetPIDCountCut(2212, 1, 1);
 
     EventCut Photon_cut;
-    Photon_cut.SetChargeCut(0,true);
+    Photon_cut.SetChargeCut(0);
     Photon_cut.SetPIDCountCut(22, 1, 1);
 
     TrackCut trackCut1;
@@ -75,12 +68,6 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
     dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
     dfSelected = dfSelected.Filter(Photon_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
-    //auto disp = dfSelected.Display({"REC_Particle_pid","REC_Particle_num", "REC_Traj_pass"},100,48);
-    //disp->Print();
-
-    //dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All()));
-    //dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All()));
-    //dfSelected = dfSelected.Filter(Photon_cut, CombineColumns(RECParticle::All()));
 
     dfSelected = dfSelected.Define("REC_Particle_theta", RECParticletheta(), RECParticle::All());
     dfSelected = dfSelected.Define("REC_Particle_phi", RECParticlephi(), RECParticle::All());
@@ -108,34 +95,33 @@ void Run101(const float beam_energy, const std::string& FilePath) {
                                                                       //std::vector<std::string>{"REC_Particle_edgeECAL7"}
                                                                       ));
 
-    //example of how to draw a 1D histogram
-
+    //example of how to draw histograms
     DrawAndSaveEventQ2(dfSelected, 11, -1, fout, 
-                              500, 0, 5); // Q2 histogram: bins, min, max
+                              500, 0, 5, ""); // Q2 histogram: bins, min, max
     DrawAndSaveEventxB(dfSelected, 11, -1, fout,
-                              500, 0, 1.5); // xB histogram: bins, min, max
+                              500, 0, 1.5, ""); // xB histogram: bins, min, max
     DrawAndSaveEventNu(dfSelected, 11, -1, fout,
-                              500, 0, 6); // Nu histogram: bins, min, max
+                              500, 0, 6, ""); // Nu histogram: bins, min, max
     DrawAndSaveEventW(dfSelected, 11, -1, fout,
-                              500, 0, 4); // W histogram: bins, min, max
+                              500, 0, 4, ""); // W histogram: bins, min, max
     DrawAndSaveEventmt(dfSelected, 2212, 1, fout,
-                              500, 0, 6); // t histogram: bins, min, max
+                              500, 0, 6, ""); // t histogram: bins, min, max
     DrawAndSaveQ2vsxB(dfSelected, 11, -1, fout,
                               500, 0, 5,        // Q2 histogram: bins, min, max
-                              500, 0, 1.5);     // xB histogram: bins, min, max
+                              500, 0, 1.5, "");     // xB histogram: bins, min, max
 
     DrawAndSaveParticleHistograms(dfSelected, 11, -1, fout, 
                               500, 0, 1,        // Theta histogram: bins, min, max
                               500, 0, 2 * M_PI, // Phi histogram: bins, min, max
-                              500, 0, 9);       // Momentum histogram: bins, min, max
+                              500, 0, 9, "");       // Momentum histogram: bins, min, max
     DrawAndSaveParticleHistograms(dfSelected, 2212, 1, fout, 
                               500, 0, 2,        // Theta histogram: bins, min, max
                               500, 0, 2 * M_PI, // Phi histogram: bins, min, max
-                              500, 0, 5);       // Momentum histogram: bins, min, max
+                              500, 0, 5, "");       // Momentum histogram: bins, min, max
     DrawAndSaveParticleHistograms(dfSelected, 22, 0, fout,
                               500, 0, 1,        // Theta histogram: bins, min, max
                               500, 0, 2 * M_PI, // Phi histogram: bins, min, max
-                              500, 0, 9);       // Momentum histogram: bins, min, max
+                              500, 0, 9, "");       // Momentum histogram: bins, min, max
     
 
     fout->Close();

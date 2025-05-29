@@ -10,15 +10,24 @@ EventCut::EventCut() = default;
 EventCut::~EventCut() = default;
 
 // Set charge range
-void EventCut::SetChargeCut(int Charge, bool ChargeSelection) {
+void EventCut::SetChargeCut(int Charge) {
     fCharge = Charge;
-    fChargeSelection = ChargeSelection;
 }
 
 // Set momentum range
 void EventCut::SetMomentumCut(float minMomentum, float maxMomentum) {
     fMinMomentum = minMomentum;
     fMaxMomentum = maxMomentum;
+}
+
+void EventCut::SetthetaCut(float minTheta, float maxTheta) {
+    fMinTheta = minTheta;
+    fMaxTheta = maxTheta;
+}
+
+void EventCut::SetPhiCut(float minPhi, float maxPhi) {
+    fMinPhi = minPhi;
+    fMaxPhi = maxPhi;
 }
 
 // Set vertex position range
@@ -67,8 +76,15 @@ bool EventCut::operator()(const std::vector<int>& pid,
             IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)) {
             pidCount++;
             float momentum = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
+            float theta = std::atan2(std::sqrt(px[i] * px[i] + py[i] * py[i]), pz[i]);
+            float phi = std::atan2(py[i], px[i]);
+            if (phi < 0) {
+                phi += 2 * M_PI;
+            }
             if (!((static_cast<int8_t>(charge[i]) == fCharge) &&
                 IsInRange(momentum, fMinMomentum, fMaxMomentum) &&
+                IsInRange(theta, fMinTheta, fMaxTheta) &&
+                IsInRange(phi, fMinPhi, fMaxPhi) &&
                 IsInRange(vz[i], fMinVz, fMaxVz))) {
                 selected = false;
                 //std::cout << pid[i] << " " << actual_charge << " " << momentum << " " << vz[i] << " " << chi2pid[i] << std::endl;

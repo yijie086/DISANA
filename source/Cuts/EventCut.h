@@ -11,8 +11,10 @@ public:
     virtual ~EventCut();
 
     // Set filtering conditions
-    void SetChargeCut(int Charge, bool ChargeSelection);
+    void SetChargeCut(int Charge);
     void SetMomentumCut(float minMomentum, float maxMomentum);
+    void SetthetaCut(float minTheta, float maxTheta);
+    void SetPhiCut(float minPhi, float maxPhi);
     void SetVzCut(float minVz, float maxVz);
     void SetChi2PIDCut(float minChi2PID, float maxChi2PID);
     void SetPIDCountCut(int selectedPID, int minCount, int maxCount);
@@ -35,8 +37,10 @@ public:
 
 private:
     // Filtering condition ranges
-    int fCharge = -1; bool fChargeSelection = false;
+    int fCharge = -1;
     float fMinMomentum = -99999, fMaxMomentum = 99999;
+    float fMinTheta = -999999, fMaxTheta = 999999;
+    float fMinPhi = -999999, fMaxPhi = 999999;
     float fMinVz = -999999, fMaxVz = 999999;
     float fMinChi2PID = -999999, fMaxChi2PID = 999999;
 
