@@ -40,7 +40,9 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
     //trackCut1.SetDCEdgeCut(1, 100000000);
 
     int detector_investigate = 6; // 6 for for DC
-    int layer_investigate = 6; // 6,18,36 for DC
+    int layer_investigate1 = 6; // 6,18,36 for DC
+    int layer_investigate2 = 18;
+    int layer_investigate3 = 36;
 
 
     //ROOT::RDF::RNode dfSelected = dfNode.value();
@@ -51,9 +53,13 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
 
     //dfSelected = dfSelected.Define("REC_Traj_pass", trackCut1.RECTrajPass(), 
     //                            CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
-    dfSelected = dfSelected.Define("REC_Traj_pedge", RECTrajedge(detector_investigate,layer_investigate),
+    dfSelected = dfSelected.Define("REC_Traj_pedgeR1", RECTrajedge(detector_investigate,layer_investigate1),
                                 CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
-    dfSelected = dfSelected.Define("REC_Track_chi2perndf", RECTrackchi2perndf(detector_investigate, layer_investigate), 
+    dfSelected = dfSelected.Define("REC_Traj_pedgeR2", RECTrajedge(detector_investigate,layer_investigate2),
+                                CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
+    dfSelected = dfSelected.Define("REC_Traj_pedgeR3", RECTrajedge(detector_investigate,layer_investigate3),
+                                CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
+    dfSelected = dfSelected.Define("REC_Track_chi2perndf", RECTrackchi2perndf(detector_investigate), 
                                 CombineColumns(RECTrack::All(), std::vector<std::string>{"REC_Particle_num"}));
     //if want to take a look at the edge of the DC or ECAL, uncomment the following lines
     //dfSelected = dfSelected.Define("REC_Traj_ECAL_PCAL_X", RECTrajXYZ(7,1,1), CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
@@ -77,15 +83,19 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
     //disp->Print();
 
 
-    for (int i=0; i<6; i++){
+    for (int i=0; i<5; i++){
             for (int j=1; j<=6; j++){
             dfSelected = dfSelected0;
             int theta_min = (5+i*5); // 5, 10, 15, 20, 25, 30 degrees
             int theta_max = (10+i*5); // 10, 15, 20, 25, 30, 35 degrees
-            if (i==5) {
+            if (i==4) {
                 theta_max = 40;
             }
             std::string outputname = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j);
+            std::string outputname1 = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j)+"_R1";
+            std::string outputname2 = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j)+"_R2";
+            std::string outputname3 = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j)+"_R3";
+            
 
             trackCut1.SetSectorCut(j, true); // 设置扇区范围
             dfSelected = dfSelected.Define("REC_Traj_pass", trackCut1.RECTrajPass(), 
@@ -95,13 +105,27 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
             dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
             std::cout << "df_selected count: " << *dfSelected.Count() << std::endl;
 
-            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate, 11, -1, fout, 
-                                    20, 0, 20, outputname); // Edge histogram: bins, min, max
-            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate, 11, -1, fout,
+            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout, 
+                                    25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1); // Edge histogram: bins, min, max
+            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
-                                    20, 0, 20, outputname);     // Edge histogram: bins, min, max
-            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate, 11, -1, fout,
-                                    5000, 0, 500, outputname); // Chi2 histogram: bins, min, max
+                                    25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1);     // Edge histogram: bins, min, max
+            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
+                                    25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2); // Edge histogram: bins, min, max
+            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
+                                    5000, 0, 500,       // Chi2 histogram: bins, min, max
+                                    25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2);     // Edge histogram: bins, min, max
+            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
+                                    25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3); // Edge histogram: bins, min, max
+            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
+                                    5000, 0, 500,       // Chi2 histogram: bins, min, max
+                                    25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3);     // Edge histogram: bins, min, max
+            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout,
+                                    5000, 0, 500, outputname1); // Chi2 histogram: bins, min, max
+            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
+                                    5000, 0, 500, outputname2); // Chi2 histogram: bins, min, max
+            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
+                                    5000, 0, 500, outputname3); // Chi2 histogram: bins, min, max
 
             DrawAndSaveParticleHistograms(dfSelected, 11, -1, fout, 
                                     500, 0, 1,        // Theta histogram: bins, min, max

@@ -35,9 +35,9 @@ void DrawAndSaveQ2vsxB(ROOT::RDF::RNode df, int pid, int charge, TFile* fout,
 
 void DrawAndSavechi2perndfvsedge(ROOT::RDF::RNode df, int detector, int layer, int pid, int charge, TFile* fout, 
                            int bins_chi2, double min_chi2, double max_chi2,
-                           int bins_edge, double min_edge, double max_edge, std::string output_name);
+                           int bins_edge, double min_edge, double max_edge, std::vector<std::string> input_name_edge, std::string output_name);
 void DrawAndSaveedge(ROOT::RDF::RNode df, int detector, int layer, int pid, int charge, TFile* fout, 
-                           int bins_edge, double min_edge, double max_edge, std::string output_name);
+                           int bins_edge, double min_edge, double max_edge, std::vector<std::string> input_name_edge, std::string output_name);
 void DrawAndSavechi2perndf(ROOT::RDF::RNode df, int detector, int layer, int pid, int charge, TFile* fout,
                            int bins_chi2, double min_chi2, double max_chi2, std::string output_name);
 

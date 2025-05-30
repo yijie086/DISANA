@@ -8,6 +8,7 @@
 
 #include "../ParticleInformation/RECParticle.h"
 #include "../ParticleInformation/RECTraj.h"
+#include "../core/Columns.h"
 
 void Draw1DHist(TH1* hist, const std::string& histname, int nbins, double xmin, double xmax) {
     hist->SetBins(nbins, xmin, xmax);
@@ -115,14 +116,17 @@ void DrawAndSaveQ2vsxB(ROOT::RDF::RNode df, int pid, int charge, TFile* fout,
 
 void DrawAndSavechi2perndfvsedge(ROOT::RDF::RNode df, int detector, int layer, int pid, int charge, TFile* fout, 
                           int bins_chi2, double min_chi2, double max_chi2,
-                          int bins_edge, double min_edge, double max_edge, std::string output_name) {
+                          int bins_edge, double min_edge, double max_edge, std::vector<std::string> input_name_edge, std::string output_name) {
     std::string char_name = "h_" + output_name +"_chi2perndf_vs_edge";
     std::string char_title = output_name + "_chi2perndf_vs_edge";
     std::string profile_name = "h_" + char_title + "_profile";
     std::string profile_title = char_title + "_profile";
     auto h_chi2vsedge = df
-        .Define("chi2", get_RECTraj_float_var(detector, layer, pid, charge), {"REC_Track_chi2perndf", "REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
-        .Define("edge", get_RECTraj_float_var(detector, layer, pid, charge), {"REC_Traj_pedge", "REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
+        .Define("chi2", get_RECTraj_float_var(detector, layer, pid, charge), 
+                {"REC_Track_chi2perndf", "REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
+        .Define("edge", get_RECTraj_float_var(detector, layer, pid, charge), 
+                CombineColumns(input_name_edge, std::vector<std::string>{"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"}))
+                //{"REC_Traj_pedge", "REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
         .Histo2D({char_title.c_str(), char_title.c_str(), bins_edge, min_edge, max_edge, bins_chi2, min_chi2, max_chi2}, "edge", "chi2");
     Draw2DHist(h_chi2vsedge.GetPtr(), char_name.c_str(), bins_edge, min_edge, max_edge, bins_chi2, min_chi2, max_chi2);
     Save2DHist(h_chi2vsedge.GetPtr(), char_title.c_str(), fout);
@@ -131,11 +135,13 @@ void DrawAndSavechi2perndfvsedge(ROOT::RDF::RNode df, int detector, int layer, i
     SaveTProfile(h_chi2vsedge.GetPtr()->ProfileX(profile_title.c_str(), 1, -1, "s"), profile_title.c_str(), fout);
 }
 void DrawAndSaveedge(ROOT::RDF::RNode df, int detector, int layer, int pid, int charge, TFile* fout, 
-                                   int bins_edge, double min_edge, double max_edge, std::string output_name) {
+                                   int bins_edge, double min_edge, double max_edge, std::vector<std::string> input_name_edge, std::string output_name) {
     std::string edge_name = "h_" + output_name + "_edge";
     std::string edge_title = output_name + "_edge";
     auto h_edge = df
-        .Define("edge", get_RECTraj_float_var(detector, layer, pid, charge), {"REC_Traj_pedge", "REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
+        .Define("edge", get_RECTraj_float_var(detector, layer, pid, charge), 
+                CombineColumns(input_name_edge, std::vector<std::string>{"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"}))
+                //{"REC_Traj_pedge", "REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
         .Histo1D({edge_title.c_str(), edge_title.c_str(), bins_edge, min_edge, max_edge}, "edge");
     Draw1DHist(h_edge.GetPtr(), edge_name.c_str(), bins_edge, min_edge, max_edge);
     Save1DHist(h_edge.GetPtr(), edge_title.c_str(), fout);

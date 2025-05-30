@@ -24,6 +24,6 @@ std::function<std::vector<float>(const std::vector<int16_t>& pindex,
                                  const std::vector<int16_t>& sector,
                                  const std::vector<float>& chi2,
                                  const std::vector<int16_t>& NDF,
-                                 const int& REC_Particle_num)> RECTrackchi2perndf(int target_detector, int target_layer);
+                                 const int& REC_Particle_num)> RECTrackchi2perndf(int target_detector);
 
 #endif // RECTRACK_H
