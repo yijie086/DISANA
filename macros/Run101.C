@@ -32,6 +32,8 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     EventCut Electron_cut;
     Electron_cut.SetChargeCut(-1);
     Electron_cut.SetPIDCountCut(11, 1, 1);
+
+/*
     EventCut Proton_cut;
     Proton_cut.SetChargeCut(1);
     Proton_cut.SetPIDCountCut(2212, 1, 1);
@@ -39,10 +41,10 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     EventCut Photon_cut;
     Photon_cut.SetChargeCut(0);
     Photon_cut.SetPIDCountCut(22, 1, 1);
-
+*/
     TrackCut trackCut1;
-    trackCut1.SetECALEdgeCut(9, 100000000); // 设置边缘距离范围
-    trackCut1.SetDCEdgeCut(1, 100000000); // 设置边缘距离范围
+    //trackCut1.SetECALEdgeCut(9, 100000000);
+    //trackCut1.SetDCEdgeCut(1, 100000000);
 
 
     //ROOT::RDF::RNode dfSelected = dfNode.value();
@@ -65,8 +67,8 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     */
 
     dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
-    dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
-    dfSelected = dfSelected.Filter(Photon_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
+    //dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
+    //dfSelected = dfSelected.Filter(Photon_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
 
     dfSelected = dfSelected.Define("REC_Particle_theta", RECParticletheta(), RECParticle::All());
     dfSelected = dfSelected.Define("REC_Particle_phi", RECParticlephi(), RECParticle::All());
@@ -76,7 +78,7 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     dfSelected = dfSelected.Define("REC_Event_xB", EventxB(beam_energy,11,-1,getParticleMass(2212)), RECParticle::All());
     dfSelected = dfSelected.Define("REC_Event_Nu", EventNu(beam_energy,11,-1), RECParticle::All());
     dfSelected = dfSelected.Define("REC_Event_W", EventW(beam_energy,11,-1,getParticleMass(2212)), RECParticle::All());
-    dfSelected = dfSelected.Define("REC_Event_mt", Eventmt(beam_energy,2212,1,getParticleMass(2212)), RECParticle::All());
+    //dfSelected = dfSelected.Define("REC_Event_mt", Eventmt(beam_energy,2212,1,getParticleMass(2212)), RECParticle::All());
 
     //auto disp = dfSelected.Display({ "REC_Traj_pass","REC_Particle_edgeDC6","REC_Particle_edgeDC18","REC_Particle_edgeDC36"},100,48);
     //disp->Print();
@@ -103,8 +105,8 @@ void Run101(const float beam_energy, const std::string& FilePath) {
                               500, 0, 6, ""); // Nu histogram: bins, min, max
     DrawAndSaveEventW(dfSelected, 11, -1, fout,
                               500, 0, 4, ""); // W histogram: bins, min, max
-    DrawAndSaveEventmt(dfSelected, 2212, 1, fout,
-                              500, 0, 6, ""); // t histogram: bins, min, max
+    //DrawAndSaveEventmt(dfSelected, 2212, 1, fout,
+    //                          500, 0, 6, ""); // t histogram: bins, min, max
     DrawAndSaveQ2vsxB(dfSelected, 11, -1, fout,
                               500, 0, 5,        // Q2 histogram: bins, min, max
                               500, 0, 1.5, "");     // xB histogram: bins, min, max
@@ -113,6 +115,7 @@ void Run101(const float beam_energy, const std::string& FilePath) {
                               500, 0, 1,        // Theta histogram: bins, min, max
                               500, 0, 2 * M_PI, // Phi histogram: bins, min, max
                               500, 0, 9, "");       // Momentum histogram: bins, min, max
+    /*
     DrawAndSaveParticleHistograms(dfSelected, 2212, 1, fout, 
                               500, 0, 2,        // Theta histogram: bins, min, max
                               500, 0, 2 * M_PI, // Phi histogram: bins, min, max
@@ -121,7 +124,7 @@ void Run101(const float beam_energy, const std::string& FilePath) {
                               500, 0, 1,        // Theta histogram: bins, min, max
                               500, 0, 2 * M_PI, // Phi histogram: bins, min, max
                               500, 0, 9, "");       // Momentum histogram: bins, min, max
-    
+    */
 
     fout->Close();
 }
