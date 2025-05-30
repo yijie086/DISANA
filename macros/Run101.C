@@ -32,7 +32,6 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     EventCut Electron_cut;
     Electron_cut.SetChargeCut(-1);
     Electron_cut.SetPIDCountCut(11, 1, 1);
-
     EventCut Proton_cut;
     Proton_cut.SetChargeCut(1);
     Proton_cut.SetPIDCountCut(2212, 1, 1);

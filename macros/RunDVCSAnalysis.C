@@ -1,57 +1,47 @@
-#include "./../DreamAN/DVCSAnalysis.h"
-#include "./../DreamAN/EventProcessor.h"
-#include "./../DreamAN/AnalysisTaskManager.h"
+#include "./../source/core/DVCSAnalysis.h"
+#include "./../source/core/EventProcessor.h"
+#include "./../source/core/AnalysisTaskManager.h"
 #include <iostream>
 
-void RunDVCSAnalysis(const std::string& inputFile) {
-    bool testFile = false; // just to see if file exists;
-    if (inputFile == "") {
-        std::cerr << "Usage: " << inputFile << " <input_file>" << std::endl;
+void RunDVCSAnalysis(const std::string& inputDir) {
+    if (inputDir.empty()) {
+        std::cerr << "Usage: RunDVCSAnalysis(<inputDir>)" << std::endl;
         return;
     }
 
-    if(testFile){
-    std::string fileName = "/cache/clas12/rg-b/production/recon/spring2019/torus-1/pass2/v0/dst/train/jpsi/jpsi_006334.hipo";
-    clas12::clas12reader reader(fileName);
-    
-    std::cout << "File name: " << reader.getFilename() << std::endl;
-    std::cout << "Is file open: " << reader.isOpen() << std::endl;
-    
-    if (!reader.isOpen()) {
-        std::cerr << "Failed to open file." << std::endl;
-        return ;
-    }
-    return ;
-    }
+    AnalysisTaskManager mgr;
+    mgr.CreateOutputFile("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/rdf_dvcs_output.root", "DVCS");
 
-    AnalysisTaskManager taskManager;
+    // Track Cuts
+    auto* trackCuts = new TrackCut();
+    trackCuts->SetECALEdgeCut(9, 100000000);
+    trackCuts->SetDCEdgeCut(1, 100000000); 
 
-    TrackCuts *PhotonCuts =TrackCuts::PhotonCuts();
-    PhotonCuts->SetChargeCut(0);
-    PhotonCuts->SetPIDCut(22,3.0); // set pdg and the chisquared
+    // Photon Cuts
+    auto* photonCuts = new EventCut();
+    photonCuts->SetChargeCut(0);
+    photonCuts->SetPIDCountCut(22, 1, 1);
 
-    TrackCuts *ElectronCuts =TrackCuts::ElectronCuts();
-    ElectronCuts->SetChargeCut(-1);
-    ElectronCuts->SetPIDCut(11,3.0); // set pdg and the chisquared
+    // Electron Cuts
+    auto* electronCuts = new EventCut();
+    electronCuts->SetChargeCut(-1);
+    electronCuts->SetPIDCountCut(11, 1, 1);
 
-    TrackCuts *ProtonCuts =TrackCuts::ProtonCuts();
-    ProtonCuts->SetChargeCut(1);
-    ProtonCuts->SetPIDCut(2212,3.0); // set pdg and the chisquared
+    // Proton Cuts
+    auto* protonCuts = new EventCut();
+    protonCuts->SetChargeCut(1);
+    protonCuts->SetPIDCountCut(2212, 1, 1);
 
+    // Task
+    auto dvcsTask = std::make_unique<DVCSAnalysis>();
+    dvcsTask->SetTrackCuts(trackCuts);
+    dvcsTask->SetPhotonCuts(photonCuts);
+    dvcsTask->SetElectronCuts(electronCuts);
+    dvcsTask->SetProtonCuts(protonCuts);
 
-    /// here we call our task and set the track event cut settings
-    std::unique_ptr<DVCSAnalysis> DVCStask = std::make_unique<DVCSAnalysis>();
+    mgr.AddTask(std::move(dvcsTask));
 
-    DVCStask->SetPhotonCuts(PhotonCuts);
-    DVCStask->SetElectronCuts(ElectronCuts);
-    DVCStask->SetProtonCuts(ProtonCuts);
-
-    /// pass the task to the task manager to do the laborious stuff
-    taskManager.AddTask(std::move(DVCStask)); // Use smart pointer to memory stuff
-    std::cout << "adding the task in the DVCS analysis" << std::endl;
-   
-    std::cout << "Going to Event Processor" << std::endl;
-    EventProcessor processor(inputFile, taskManager);
-    std::cout << "Event Proceesing is in progress " << std::endl;
-    processor.ProcessEvents(); // Start event loop
+    // Processor
+    EventProcessor processor(inputDir, mgr);
+    processor.ProcessEvents();
 }

@@ -47,24 +47,29 @@ link_directories($ENV{HIPO}/lib)
 # Add the path to Clas12Root and Clas12Banks libraries
 link_directories($ENV{CLAS12ROOT}/lib)
 
-# Add your source files
+# Add your source files bhawani's analysis
 add_executable(AnalysisDVCS
     macros/main.C
     macros/RunDVCSAnalysis.C
 
     # main core methods and classes
-    DreamAN/EventProcessor.cxx
-    DreamAN/AnalysisTaskManager.cxx
-    DreamAN/AnalysisTask.cxx
-    DreamAN/Event.cxx
-    DreamAN/Tracks.cxx
-    DreamAN/EventCuts.cxx
-    DreamAN/TrackCuts.cxx
-    DreamAN/TrackHists.cxx
+    source/core/AnalysisTask.cxx
+    source/core/EventProcessor.cxx
+    source/core/AnalysisTaskManager.cxx
+    source/core/Events.cxx
+    source/ParticleInformation/RECParticle.cxx
+    source/ParticleInformation/RECTraj.cxx
+    source/DrawHist/DrawAndSave.cxx
+    source/core/FilesInPath.cxx
+    source/core/Columns.cxx
+    source/Cuts/EventCut.cxx
+    source/Cuts/TrackCut.cxx
+    source/Math/RECParticleKinematic.cxx
+    source/Math/MathKinematicVariable.cxx
+    source/Math/ParticleMassTable.cxx
 
-  
     #analysis related classes
-    DreamAN/DVCSAnalysis.cxx
+    source/core/DVCSAnalysis.cxx
 )
 
 # Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
@@ -74,43 +79,7 @@ target_link_libraries(AnalysisDVCS
     Clas12Root  # Link against the precompiled Clas12Root library
     Clas12Banks
     hipo4
-)
-
-
-add_executable(AnalysisES
-    macros/mainES.C
-    macros/RunESAnalysis.C
-
-    # main core methods and classes
-    DreamAN/EventProcessor.cxx
-    DreamAN/AnalysisTaskManager.cxx
-    DreamAN/AnalysisTask.cxx
-    DreamAN/Event.cxx
-    DreamAN/Tracks.cxx
-    DreamAN/EventCuts.cxx
-    DreamAN/TrackCuts.cxx
-    DreamAN/TrackHists.cxx
-
-  
-    #analysis related classes
-    DreamAN/ESAnalysis.cxx
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(AnalysisES
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-)
-
-
-add_executable(MathDemo
-    macros/mainMathDEMO.C
-
-    # main core methods and classes
-    DreamAN/MathKinematicVariable.cxx
+    HipoDataFrame
 )
 
 # Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
@@ -122,70 +91,6 @@ target_link_libraries(MathDemo
     hipo4
 )
 
-#[[
-add_executable(testRDF
-    macros/testRDF.C
-
-    # main core methods and classes
-    source/ParticleInformation/RECParticle.cxx
-    source/Cuts/ElectronCut.cxx
-    
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(testRDF
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
-)
-
-
-add_executable(mainDVCS
-    macros/mainDVCS.C
-
-    # main core methods and classes
-    source/ParticleInformation/RECParticle.cxx
-    source/Cuts/ElectronCut.cxx
-    source/DrawHist/DrawAndSave.cxx
-    source/core/FilesInPath.cxx
-    
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(mainDVCS
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
-)
-
-add_executable(mainDVCS2
-    macros/mainDVCS2.C
-
-    # main core methods and classes
-    source/ParticleInformation/RECParticle.cxx
-    source/Cuts/ElectronCut.cxx
-    source/DrawHist/DrawAndSave.cxx
-    source/core/FilesInPath.cxx
-    source/Cuts/EventCut.cxx
-    
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(mainDVCS2
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
-)
-]]
 add_executable(main101
     macros/main101.C
     macros/Run101.C
