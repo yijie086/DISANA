@@ -105,32 +105,32 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
             dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
             std::cout << "df_selected count: " << *dfSelected.Count() << std::endl;
 
-            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout, 
-                                    25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1); // Edge histogram: bins, min, max
+            //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout, 
+            //                        25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1); // Edge histogram: bins, min, max
             DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
                                     25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1);     // Edge histogram: bins, min, max
-            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
-                                    25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2); // Edge histogram: bins, min, max
+            //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
+            //                        25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2); // Edge histogram: bins, min, max
             DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
                                     25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2);     // Edge histogram: bins, min, max
-            DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
-                                    25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3); // Edge histogram: bins, min, max
+            //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
+            //                        25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3); // Edge histogram: bins, min, max
             DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
                                     25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3);     // Edge histogram: bins, min, max
-            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout,
-                                    5000, 0, 500, outputname1); // Chi2 histogram: bins, min, max
-            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
-                                    5000, 0, 500, outputname2); // Chi2 histogram: bins, min, max
-            DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
-                                    5000, 0, 500, outputname3); // Chi2 histogram: bins, min, max
+            //DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout,
+            //                        5000, 0, 500, outputname1); // Chi2 histogram: bins, min, max
+            //DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
+            //                        5000, 0, 500, outputname2); // Chi2 histogram: bins, min, max
+            //DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
+            //                        5000, 0, 500, outputname3); // Chi2 histogram: bins, min, max
 
-            DrawAndSaveParticleHistograms(dfSelected, 11, -1, fout, 
-                                    500, 0, 1,        // Theta histogram: bins, min, max
-                                    500, 0, 2 * M_PI, // Phi histogram: bins, min, max
-                                    500, 0, 9,outputname);       // Momentum histogram: bins, min, max
+            //DrawAndSaveParticleHistograms(dfSelected, 11, -1, fout, 
+            //                        500, 0, 1,        // Theta histogram: bins, min, max
+            //                        500, 0, 2 * M_PI, // Phi histogram: bins, min, max
+            //                        500, 0, 9,outputname);       // Momentum histogram: bins, min, max
         }
     }
 

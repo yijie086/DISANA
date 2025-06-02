@@ -132,6 +132,8 @@ void DrawAndSavechi2perndfvsedge(ROOT::RDF::RNode df, int detector, int layer, i
     Save2DHist(h_chi2vsedge.GetPtr(), char_title.c_str(), fout);
     DrawTProfile(h_chi2vsedge.GetPtr()->ProfileX(profile_title.c_str(), 1, -1, "s"), profile_name.c_str(), 
                   bins_edge, min_edge, max_edge);
+    DrawTProfile(h_chi2vsedge.GetPtr()->ProfileX(profile_title.c_str(), 1, -1, "s"), "h_preview", 
+                  bins_edge, min_edge, max_edge);
     SaveTProfile(h_chi2vsedge.GetPtr()->ProfileX(profile_title.c_str(), 1, -1, "s"), profile_title.c_str(), fout);
 }
 void DrawAndSaveedge(ROOT::RDF::RNode df, int detector, int layer, int pid, int charge, TFile* fout, 
