@@ -5,16 +5,16 @@
 #include <optional>
 #include <vector>
 
-#include "../source/ParticleInformation/RECParticle.h"
-#include "../source/ParticleInformation/RECTraj.h"
-#include "../source/Cuts/ElectronCut.h"
-#include "../source/DrawHist/DrawAndSave.h"
-#include "../source/core/FilesInPath.h"
-#include "../source/core/Columns.h"
-#include "../source/Cuts/EventCut.h"
-#include "../source/Cuts/TrackCut.h"
-#include "../source/Math/RECParticleKinematic.h"
-#include "../source/Math/ParticleMassTable.h"
+#include "../DreamAN/ParticleInformation/RECParticle.h"
+#include "../DreamAN/ParticleInformation/RECTraj.h"
+#include "../DreamAN/Cuts/ElectronCut.h"
+#include "../DreamAN/DrawHist/DrawAndSave.h"
+#include "../DreamAN/core/FilesInPath.h"
+#include "../DreamAN/core/Columns.h"
+#include "../DreamAN/Cuts/EventCut.h"
+#include "../DreamAN/Cuts/TrackCut.h"
+#include "../DreamAN/Math/RECParticleKinematic.h"
+#include "../DreamAN/Math/ParticleMassTable.h"
 
 void Run101(const float beam_energy, const std::string& FilePath) {
     std::vector<std::string> inputFiles = GetHipoFilesInPath(FilePath);

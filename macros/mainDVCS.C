@@ -4,10 +4,10 @@
 #include "RHipoDS.hxx"
 #include "TCanvas.h"
 
-#include "../source/ParticleInformation/RECParticle.h"
-#include "../source/Cuts/ElectronCut.h"
-#include "../source/DrawHist/DrawAndSave.h"
-#include "../source/core/FilesInPath.h"
+#include "../DreamAN/ParticleInformation/RECParticle.h"
+#include "../DreamAN/Cuts/ElectronCut.h"
+#include "../DreamAN/DrawHist/DrawAndSave.h"
+#include "../DreamAN/core/FilesInPath.h"
 
 using namespace ROOT;
 using namespace ROOT::RDF;
