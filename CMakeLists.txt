@@ -53,23 +53,23 @@ add_executable(AnalysisDVCS
     macros/RunDVCSAnalysis.C
 
     # main core methods and classes
-    source/core/AnalysisTask.cxx
-    source/core/EventProcessor.cxx
-    source/core/AnalysisTaskManager.cxx
-    source/core/Events.cxx
-    source/ParticleInformation/RECParticle.cxx
-    source/ParticleInformation/RECTraj.cxx
-    source/DrawHist/DrawAndSave.cxx
-    source/core/FilesInPath.cxx
-    source/core/Columns.cxx
-    source/Cuts/EventCut.cxx
-    source/Cuts/TrackCut.cxx
-    source/Math/RECParticleKinematic.cxx
-    source/Math/MathKinematicVariable.cxx
-    source/Math/ParticleMassTable.cxx
+    DreamAN/core/AnalysisTask.cxx
+    DreamAN/core/EventProcessor.cxx
+    DreamAN/core/AnalysisTaskManager.cxx
+    DreamAN/core/Events.cxx
+    DreamAN/ParticleInformation/RECParticle.cxx
+    DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/DrawHist/DrawAndSave.cxx
+    DreamAN/core/FilesInPath.cxx
+    DreamAN/core/Columns.cxx
+    DreamAN/Cuts/EventCut.cxx
+    DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Math/RECParticleKinematic.cxx
+    DreamAN/Math/MathKinematicVariable.cxx
+    DreamAN/Math/ParticleMassTable.cxx
 
     #analysis related classes
-    source/core/DVCSAnalysis.cxx
+    DreamAN/core/DVCSAnalysis.cxx
 )
 
 # Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
@@ -82,30 +82,21 @@ target_link_libraries(AnalysisDVCS
     HipoDataFrame
 )
 
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(MathDemo
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-)
-
 add_executable(main101
     macros/main101.C
     macros/Run101.C
 
     # main core methods and classes
-    source/ParticleInformation/RECParticle.cxx
-    source/ParticleInformation/RECTraj.cxx
-    source/DrawHist/DrawAndSave.cxx
-    source/core/FilesInPath.cxx
-    source/core/Columns.cxx
-    source/Cuts/EventCut.cxx
-    source/Cuts/TrackCut.cxx
-    source/Math/RECParticleKinematic.cxx
-    source/Math/MathKinematicVariable.cxx
-    source/Math/ParticleMassTable.cxx
+    DreamAN/ParticleInformation/RECParticle.cxx
+    DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/DrawHist/DrawAndSave.cxx
+    DreamAN/core/FilesInPath.cxx
+    DreamAN/core/Columns.cxx
+    DreamAN/Cuts/EventCut.cxx
+    DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Math/RECParticleKinematic.cxx
+    DreamAN/Math/MathKinematicVariable.cxx
+    DreamAN/Math/ParticleMassTable.cxx
     
 )
 
@@ -124,17 +115,17 @@ add_executable(main102fiducialcut
     macros/Run102fiducialcut.C
 
     # main core methods and classes
-    source/ParticleInformation/RECParticle.cxx
-    source/ParticleInformation/RECTraj.cxx
-    source/ParticleInformation/RECTrack.cxx
-    source/DrawHist/DrawAndSave.cxx
-    source/core/FilesInPath.cxx
-    source/core/Columns.cxx
-    source/Cuts/EventCut.cxx
-    source/Cuts/TrackCut.cxx
-    source/Math/RECParticleKinematic.cxx
-    source/Math/MathKinematicVariable.cxx
-    source/Math/ParticleMassTable.cxx
+    DreamAN/ParticleInformation/RECParticle.cxx
+    DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/ParticleInformation/RECTrack.cxx
+    DreamAN/DrawHist/DrawAndSave.cxx
+    DreamAN/core/FilesInPath.cxx
+    DreamAN/core/Columns.cxx
+    DreamAN/Cuts/EventCut.cxx
+    DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Math/RECParticleKinematic.cxx
+    DreamAN/Math/MathKinematicVariable.cxx
+    DreamAN/Math/ParticleMassTable.cxx
     
 )
 

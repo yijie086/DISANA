@@ -1,6 +1,6 @@
-#include "./../source/core/DVCSAnalysis.h"
-#include "./../source/core/EventProcessor.h"
-#include "./../source/core/AnalysisTaskManager.h"
+#include "./../DreamAN/core/DVCSAnalysis.h"
+#include "./../DreamAN/core/EventProcessor.h"
+#include "./../DreamAN/core/AnalysisTaskManager.h"
 #include <iostream>
 
 void RunDVCSAnalysis(const std::string& inputDir) {
