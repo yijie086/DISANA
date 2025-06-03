@@ -10,9 +10,10 @@ TrackCut::~TrackCut() = default;
 
 // 设置位置范围筛选条件
 
-void TrackCut::SetSectorCut(int SSector, bool selectSector) {
+void TrackCut::SetSectorCut(int SSector, int selectpid, bool selectSector) {
     fSector = SSector;
     fselectSector = selectSector;
+    fselectPID = selectpid; // 设置选择的 PID
 }
 
 void TrackCut::SetPositionCut(float minX, float maxX, float minY, float maxY, float minZ, float maxZ) {
@@ -84,6 +85,7 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
                                const std::vector<float>& cz,
                                const std::vector<float>& path,
                                const std::vector<float>& edge,
+                               const std::vector<int>& pid,
                                const int& REC_Particle_num)> TrackCut::RECTrajPass() const {
     return [this](const std::vector<int16_t>& pindex,
                   const std::vector<int16_t>& index,
@@ -97,6 +99,7 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
                   const std::vector<float>& cz,
                   const std::vector<float>& path,
                   const std::vector<float>& edge,
+                  const std::vector<int>& pid,
                   const int& REC_Particle_num) -> std::vector<int> {
         // 初始化 pass_values，大小为 REC_Particle_num，默认所有粒子通过
         //std::cout << "TrackCut::RECTrajPass called with REC_Particle_num: " << REC_Particle_num << std::endl;
@@ -104,15 +107,22 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
 
         // 遍历 RECTraj 的所有行
         for (size_t i = 0; i < pindex.size(); ++i) {
+            //std::cout << pid[pindex[i]] << " " << detector[i] << " " << layer[i] << " " << edge[i] << std::endl;
             if (detector[i] == 7){//ECAL
                 if (!IsInRange(edge[i], fECALMinEdge, fECALMaxEdge)) {
+                    pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                }
+                
+            }
+            if (detector[i] == 6){//DC
+                if (!IsInRange(edge[i], fDCMinEdge, fDCMaxEdge)) {
                     pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
                 }
                 float temp_phi = std::atan2(y[i], x[i]);
                 if (temp_phi < 0) {
                     temp_phi += 2 * M_PI; // 确保 phi 在 [0, 2π] 范围内
                 }
-                if (fselectSector && layer[i] == 1) { // PCAL
+                if (fselectSector && layer[i] == 6 && pid[pindex[i]]==fselectPID) { // R1
                     if ((temp_phi>=0 && temp_phi<30*M_PI/180)||(temp_phi>=330*M_PI/180 && temp_phi<360*M_PI/180)){
                         if (fSector != 1) {
                             pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
@@ -149,12 +159,6 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
                         }
                         //std::cout << "PCAL sector 6 " << temp_phi*180/M_PI<<std::endl;
                     }
-                }
-                
-            }
-            if (detector[i] == 6){//DC
-                if (!IsInRange(edge[i], fDCMinEdge, fDCMaxEdge)) {
-                    pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
                 }
             }
         }

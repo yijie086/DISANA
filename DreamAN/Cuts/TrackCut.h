@@ -11,7 +11,7 @@ public:
     virtual ~TrackCut();
 
     // 设置筛选条件
-    void SetSectorCut(int SSector, bool selectSector);
+    void SetSectorCut(int SSector, int selectpid, bool selectSector);
     void SetPositionCut(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);
     void SetDirectionCut(float minCX, float maxCX, float minCY, float maxCY, float minCZ, float maxCZ);
     void SetPathLengthCut(float minPath, float maxPath);
@@ -45,12 +45,13 @@ public:
                                    const std::vector<float>& cz,
                                    const std::vector<float>& path,
                                    const std::vector<float>& edge,
+                                   const std::vector<int>& pid,
                                    const int& REC_Particle_num)> RECTrajPass() const;
     
 
 private:
     // 筛选条件
-    float fSector = -1; bool fselectSector = false;
+    float fSector = -1; bool fselectSector = false; int fselectPID = -1;
     float fMinX = -999999, fMaxX = 999999;
     float fMinY = -999999, fMaxY = 999999;
     float fMinZ = -999999, fMaxZ = 999999;
