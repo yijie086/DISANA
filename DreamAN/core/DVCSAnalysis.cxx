@@ -14,7 +14,7 @@ void DVCSAnalysis::UserCreateOutputObjects() {
 void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
-  if (!fTrackCuts || !fTrackCutsElectron || !fTrackCutsProton || !fTrackCutsPhoton) throw std::runtime_error("DVCSAnalysis: One or more cut pointers not set.");
+  if (!fTrackCuts || !fTrackCutsElectron || !fTrackCutsProton || !fTrackCutsPhoton) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
   
   dfSelected.emplace(df.Define("REC_Particle_num",[](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, {"REC_Particle_pid"}));
   
@@ -47,7 +47,7 @@ void DVCSAnalysis::SaveOutput() {
     return;
   }
   
-  dfSelected->Snapshot("dfSelected", "snapshot.root", 
+  dfSelected->Snapshot("dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"), 
     CombineColumns(RECParticle::Extend(), RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
 
   fOutFile->cd();
@@ -67,3 +67,4 @@ void DVCSAnalysis::SaveOutput() {
 
 ///
 void DVCSAnalysis::SetOutputFile(TFile* file) { fOutFile = file; }
+void DVCSAnalysis::SetOutputDir(const std::string& dir) {fOutputDir = dir;}

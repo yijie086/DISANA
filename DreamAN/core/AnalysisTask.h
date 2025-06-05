@@ -24,6 +24,7 @@ public:
 
     // New virtual method to receive output file pointer
     virtual void SetOutputFile(TFile* file) {}
+    virtual void SetOutputDir(const std::string& dir) {}
 
 protected:
     AnalysisTaskManager* fTaskManager = nullptr;

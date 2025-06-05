@@ -35,9 +35,12 @@ class DVCSAnalysis : public AnalysisTask {
 
 
   void SetOutputFile(TFile* file) override;
+  void SetOutputDir(const std::string& dir) override;
+
 
  private:
   std::optional<ROOT::RDF::RNode> dfSelected;
+  std::string fOutputDir;
   float fbeam_energy = 10.6;
   TH1F *fHistPhotonP = nullptr;
   TrackCut *fTrackCuts = nullptr;
