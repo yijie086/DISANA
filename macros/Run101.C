@@ -7,6 +7,7 @@
 
 #include "../DreamAN/ParticleInformation/RECParticle.h"
 #include "../DreamAN/ParticleInformation/RECTraj.h"
+#include "../DreamAN/ParticleInformation/RECCalorimeter.h"
 #include "../DreamAN/Cuts/ElectronCut.h"
 #include "../DreamAN/DrawHist/DrawAndSave.h"
 #include "../DreamAN/core/FilesInPath.h"
@@ -54,7 +55,9 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     }, {"REC_Particle_pid"});
 
     dfSelected = dfSelected.Define("REC_Traj_pass", trackCut1.RECTrajPass(), 
-                                CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
+                                CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
+    dfSelected = dfSelected.Define("REC_Calorimeter_pass", trackCut1.RECCalorimeterPass(), 
+                                CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
     
     //if want to take a look at the edge of the DC or ECAL, uncomment the following lines
     /*
@@ -66,7 +69,7 @@ void Run101(const float beam_energy, const std::string& FilePath) {
     dfSelected = dfSelected.Define("REC_Particle_edgeECAL7", trackCut1.RECTrajedge(7, 7), CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_num"}));
     */
 
-    dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
+    dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
     //dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
     //dfSelected = dfSelected.Filter(Photon_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
 

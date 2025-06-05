@@ -10,10 +10,11 @@ TrackCut::~TrackCut() = default;
 
 // 设置位置范围筛选条件
 
-void TrackCut::SetSectorCut(int SSector, int selectpid, bool selectSector) {
+void TrackCut::SetSectorCut(int SSector, int selectpid, int selectdetector, bool selectSector) {
     fSector = SSector;
     fselectSector = selectSector;
     fselectPID = selectpid; // 设置选择的 PID
+    fselectdetector = selectdetector;
 }
 
 void TrackCut::SetPositionCut(float minX, float maxX, float minY, float maxY, float minZ, float maxZ) {
@@ -108,12 +109,6 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
         // 遍历 RECTraj 的所有行
         for (size_t i = 0; i < pindex.size(); ++i) {
             //std::cout << pid[pindex[i]] << " " << detector[i] << " " << layer[i] << " " << edge[i] << std::endl;
-            if (detector[i] == 7){//ECAL
-                if (!IsInRange(edge[i], fECALMinEdge, fECALMaxEdge)) {
-                    pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
-                }
-                
-            }
             if (detector[i] == 6){//DC
                 if (!IsInRange(edge[i], fDCMinEdge, fDCMaxEdge)) {
                     pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
@@ -122,7 +117,7 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
                 if (temp_phi < 0) {
                     temp_phi += 2 * M_PI; // 确保 phi 在 [0, 2π] 范围内
                 }
-                if (fselectSector && layer[i] == 6 && pid[pindex[i]]==fselectPID) { // R1
+                if (fselectSector && layer[i] == 6 && pid[pindex[i]]==fselectPID && detector[i]==fselectdetector) { // R1
                     if ((temp_phi>=0 && temp_phi<30*M_PI/180)||(temp_phi>=330*M_PI/180 && temp_phi<360*M_PI/180)){
                         if (fSector != 1) {
                             pass_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
@@ -167,3 +162,92 @@ std::function<std::vector<int>(const std::vector<int16_t>& pindex,
     };
 }
 
+std::function<std::vector<int>(const std::vector<int16_t>&,      // index
+                                 const std::vector<int16_t>&,      // pindex
+                                 const std::vector<int16_t>&,      // detector
+                                 const std::vector<int16_t>&,      // sector
+                                 const std::vector<int16_t>&,      // layer
+                                 const std::vector<float>&,    // energy
+                                 const std::vector<float>&,    // time
+                                 const std::vector<float>&,    // path
+                                 const std::vector<float>&,    // chi2
+                                 const std::vector<float>&,    // x
+                                 const std::vector<float>&,    // y
+                                 const std::vector<float>&,    // z
+                                 const std::vector<float>&,    // hx
+                                 const std::vector<float>&,    // hy
+                                 const std::vector<float>&,    // hz
+                                 const std::vector<float>&,    // lu
+                                 const std::vector<float>&,    // lv
+                                 const std::vector<float>&,    // lw
+                                 const std::vector<float>&,    // du
+                                 const std::vector<float>&,    // dv
+                                 const std::vector<float>&,    // dw
+                                 const std::vector<float>&,    // m2u
+                                 const std::vector<float>&,    // m2v
+                                 const std::vector<float>&,    // m2w
+                                 const std::vector<float>&,    // m3u
+                                 const std::vector<float>&,    // m3v
+                                 const std::vector<float>&,    // m3w
+                                 const std::vector<int>&,      // status
+                                 const std::vector<int>&, //pid
+                                 const int& REC_Particle_num)> TrackCut::RECCalorimeterPass() const{
+    return [this](const std::vector<int16_t>& index,
+                  const std::vector<int16_t>& pindex,
+                  const std::vector<int16_t>& detector,
+                  const std::vector<int16_t>& sector,
+                  const std::vector<int16_t>& layer,
+                  const std::vector<float>& energy,
+                  const std::vector<float>& time,
+                  const std::vector<float>& path,
+                  const std::vector<float>& chi2,
+                  const std::vector<float>& x,
+                  const std::vector<float>& y,
+                  const std::vector<float>& z,
+                  const std::vector<float>& hx,
+                  const std::vector<float>& hy,
+                  const std::vector<float>& hz,
+                  const std::vector<float>& lu,
+                  const std::vector<float>& lv,
+                  const std::vector<float>& lw,
+                  const std::vector<float>& du,
+                  const std::vector<float>& dv,
+                  const std::vector<float>& dw,
+                  const std::vector<float>& m2u,
+                  const std::vector<float>& m2v,
+                  const std::vector<float>& m2w,
+                  const std::vector<float>& m3u,
+                  const std::vector<float>& m3v,
+                  const std::vector<float>& m3w,
+                  const std::vector<int>& status,
+                  const std::vector<int>& pid,
+                  const int& REC_Particle_num) -> std::vector<int> {
+        // Initialize return_values with size REC_Particle_num and default value 9999.0
+        std::vector<int> return_values(REC_Particle_num, 1);
+        
+        for (size_t i = 0; i < pindex.size(); ++i) {
+            if (detector[i] == 7) {
+                if (fselectSector && layer[i] == 1 && pid[pindex[i]]==fselectPID && detector[i]==fselectdetector){
+                    if (sector[i] == 1 && fSector != 1) {
+                        return_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                    } else if (sector[i] == 2 && fSector != 2) {
+                        return_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                    } else if (sector[i] == 3 && fSector != 3) {
+                        return_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                    } else if (sector[i] == 4 && fSector != 4) {
+                        return_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                    } else if (sector[i] == 5 && fSector != 5) {
+                        return_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                    } else if (sector[i] == 6 && fSector != 6) {
+                        return_values[pindex[i]] = 0; // 如果不满足条件，则标记为 0
+                    }
+                    //std::cout << "sector: " << sector[i] << " layer: " << layer[i] << " pid: " << pid[pindex[i]] << " detector: " << detector[i] << std::endl;
+                    //std::cout << "selected: " << return_values[pindex[i]] << std::endl;
+                }
+                
+            }            
+        }
+
+        return return_values;
+    };
+}

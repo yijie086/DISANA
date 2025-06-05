@@ -62,7 +62,8 @@ bool EventCut::operator()(const std::vector<int>& pid,
                           const std::vector<float>& beta,
                           const std::vector<float>& chi2pid,
                           const std::vector<int>& status,
-                          const std::vector<int>& REC_Traj_pass
+                          const std::vector<int>& REC_Traj_pass,
+                          const std::vector<int>& REC_Calorimeter_pass
                           ) const {
     int pidCount = 0; // Count the number of target PIDs
     bool selected = true; // Whether the target PID is selected
@@ -73,7 +74,9 @@ bool EventCut::operator()(const std::vector<int>& pid,
             std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) > 0.01 &&
             (static_cast<int8_t>(charge[i]) == fCharge) &&
             REC_Traj_pass[i] == 1 &&
+            REC_Calorimeter_pass[i] == 1 &&
             IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)) {
+                
             pidCount++;
             float momentum = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
             float theta = std::atan2(std::sqrt(px[i] * px[i] + py[i] * py[i]), pz[i]);

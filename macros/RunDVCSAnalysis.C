@@ -10,12 +10,12 @@ void RunDVCSAnalysis(const std::string& inputDir) {
     }
 
     AnalysisTaskManager mgr;
-    mgr.CreateOutputFile("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/rdf_dvcs_output.root", "DVCS");
+    mgr.CreateOutputFile("rdf_dvcs_output.root", "DVCS");
 
     // Track Cuts
     auto* trackCuts = new TrackCut();
-    trackCuts->SetECALEdgeCut(9, 100000000);
-    trackCuts->SetDCEdgeCut(1, 100000000); 
+    //trackCuts->SetECALEdgeCut(9, 100000000);
+    //trackCuts->SetDCEdgeCut(1, 100000000); 
 
     // Photon Cuts
     auto* photonCuts = new EventCut();
@@ -38,6 +38,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
     dvcsTask->SetPhotonCuts(photonCuts);
     dvcsTask->SetElectronCuts(electronCuts);
     dvcsTask->SetProtonCuts(protonCuts);
+    dvcsTask->SetBeamEnergy(6.535);
 
     mgr.AddTask(std::move(dvcsTask));
 

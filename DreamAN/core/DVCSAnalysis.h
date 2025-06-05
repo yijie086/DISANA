@@ -8,6 +8,7 @@
 #include "./../Cuts/TrackCut.h"
 #include "../ParticleInformation/RECParticle.h"
 #include "../ParticleInformation/RECTraj.h"
+#include "../ParticleInformation/RECCalorimeter.h"
 #include "../Cuts/ElectronCut.h"
 #include "../DrawHist/DrawAndSave.h"
 #include "../core/FilesInPath.h"

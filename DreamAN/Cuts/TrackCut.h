@@ -11,7 +11,7 @@ public:
     virtual ~TrackCut();
 
     // 设置筛选条件
-    void SetSectorCut(int SSector, int selectpid, bool selectSector);
+    void SetSectorCut(int SSector, int selectpid, int selectdetector, bool selectSector);
     void SetPositionCut(float minX, float maxX, float minY, float maxY, float minZ, float maxZ);
     void SetDirectionCut(float minCX, float maxCX, float minCY, float maxCY, float minCZ, float maxCZ);
     void SetPathLengthCut(float minPath, float maxPath);
@@ -48,10 +48,41 @@ public:
                                    const std::vector<int>& pid,
                                    const int& REC_Particle_num)> RECTrajPass() const;
     
+    std::function<std::vector<int>(const std::vector<int16_t>&,      // index
+                                 const std::vector<int16_t>&,      // pindex
+                                 const std::vector<int16_t>&,      // detector
+                                 const std::vector<int16_t>&,      // sector
+                                 const std::vector<int16_t>&,      // layer
+                                 const std::vector<float>&,    // energy
+                                 const std::vector<float>&,    // time
+                                 const std::vector<float>&,    // path
+                                 const std::vector<float>&,    // chi2
+                                 const std::vector<float>&,    // x
+                                 const std::vector<float>&,    // y
+                                 const std::vector<float>&,    // z
+                                 const std::vector<float>&,    // hx
+                                 const std::vector<float>&,    // hy
+                                 const std::vector<float>&,    // hz
+                                 const std::vector<float>&,    // lu
+                                 const std::vector<float>&,    // lv
+                                 const std::vector<float>&,    // lw
+                                 const std::vector<float>&,    // du
+                                 const std::vector<float>&,    // dv
+                                 const std::vector<float>&,    // dw
+                                 const std::vector<float>&,    // m2u
+                                 const std::vector<float>&,    // m2v
+                                 const std::vector<float>&,    // m2w
+                                 const std::vector<float>&,    // m3u
+                                 const std::vector<float>&,    // m3v
+                                 const std::vector<float>&,    // m3w
+                                 const std::vector<int>&,      // status
+                                 const std::vector<int>&, //pid
+                                 const int& REC_Particle_num)> RECCalorimeterPass() const;
+    
 
 private:
     // 筛选条件
-    float fSector = -1; bool fselectSector = false; int fselectPID = -1;
+    float fSector = -1; bool fselectSector = false; int fselectPID = -1; int fselectdetector=1000;
     float fMinX = -999999, fMaxX = 999999;
     float fMinY = -999999, fMaxY = 999999;
     float fMinZ = -999999, fMaxZ = 999999;

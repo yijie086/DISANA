@@ -59,6 +59,7 @@ add_executable(AnalysisDVCS
     DreamAN/core/Events.cxx
     DreamAN/ParticleInformation/RECParticle.cxx
     DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/ParticleInformation/RECCalorimeter.cxx
     DreamAN/DrawHist/DrawAndSave.cxx
     DreamAN/core/FilesInPath.cxx
     DreamAN/core/Columns.cxx
@@ -89,6 +90,7 @@ add_executable(main101
     # main core methods and classes
     DreamAN/ParticleInformation/RECParticle.cxx
     DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/ParticleInformation/RECCalorimeter.cxx
     DreamAN/DrawHist/DrawAndSave.cxx
     DreamAN/core/FilesInPath.cxx
     DreamAN/core/Columns.cxx
@@ -110,14 +112,15 @@ target_link_libraries(main101
     HipoDataFrame
 )
 
-add_executable(main102fiducialcut
-    macros/main102fiducialcut.C
-    macros/Run102fiducialcut.C
+add_executable(main102DCfiducialcut
+    macros/main102DCfiducialcut.C
+    macros/Run102DCfiducialcut.C
 
     # main core methods and classes
     DreamAN/ParticleInformation/RECParticle.cxx
     DreamAN/ParticleInformation/RECTraj.cxx
     DreamAN/ParticleInformation/RECTrack.cxx
+    DreamAN/ParticleInformation/RECCalorimeter.cxx
     DreamAN/DrawHist/DrawAndSave.cxx
     DreamAN/core/FilesInPath.cxx
     DreamAN/core/Columns.cxx
@@ -130,7 +133,37 @@ add_executable(main102fiducialcut
 )
 
 # Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(main102fiducialcut
+target_link_libraries(main102DCfiducialcut
+    ${ROOT_LIBS}
+    pthread
+    Clas12Root  # Link against the precompiled Clas12Root library
+    Clas12Banks
+    hipo4
+    HipoDataFrame
+)
+
+add_executable(main103ECALfiducialcut
+    macros/main103ECALfiducialcut.C
+    macros/Run103ECALfiducialcut.C
+
+    # main core methods and classes
+    DreamAN/ParticleInformation/RECParticle.cxx
+    DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/ParticleInformation/RECTrack.cxx
+    DreamAN/ParticleInformation/RECCalorimeter.cxx
+    DreamAN/DrawHist/DrawAndSave.cxx
+    DreamAN/core/FilesInPath.cxx
+    DreamAN/core/Columns.cxx
+    DreamAN/Cuts/EventCut.cxx
+    DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Math/RECParticleKinematic.cxx
+    DreamAN/Math/MathKinematicVariable.cxx
+    DreamAN/Math/ParticleMassTable.cxx
+    
+)
+
+# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
+target_link_libraries(main103ECALfiducialcut
     ${ROOT_LIBS}
     pthread
     Clas12Root  # Link against the precompiled Clas12Root library

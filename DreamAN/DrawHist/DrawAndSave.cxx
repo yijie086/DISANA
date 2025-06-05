@@ -211,3 +211,31 @@ void DrawAndSaveParticleHistograms(ROOT::RDF::RNode df, int pid, int charge, TFi
     Draw1DHist(h_charge.GetPtr(), charg_name.c_str(), 500, -2, 2);
     Save1DHist(h_charge.GetPtr(), charg_title.c_str(), fout);
 }
+
+void DrawAndSavelx(ROOT::RDF::RNode df, int pid, int charge, TFile* fout, 
+                   int bins_lx, double min_lx, double max_lx, 
+                   std::string output_name, std::string var_lx) { // 添加 var_lx 参数
+    std::string lx_name = "h_" + output_name + "lx";
+    std::string lx_title = output_name + "lx";
+    auto h_lx = df
+        .Define("lx", get_RECParticle_float_var(pid, charge), {var_lx, "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
+        .Histo1D({lx_title.c_str(), lx_title.c_str(), bins_lx, min_lx, max_lx}, "lx");
+    Draw1DHist(h_lx.GetPtr(), lx_name.c_str(), bins_lx, min_lx, max_lx);
+    Save1DHist(h_lx.GetPtr(), lx_title.c_str(), fout);
+}
+
+void DrawAndSavelxvsly(ROOT::RDF::RNode df, int pid, int charge, TFile* fout, 
+                       int bins_lx, double min_lx, double max_lx, 
+                       int bins_ly, double min_ly, double max_ly, 
+                       std::string output_name, 
+                       std::string var_lx, std::string var_ly) {
+    std::string lxvsly_name = "h_" + output_name + "lx_vs_ly";
+    std::string lxvsly_title = output_name + "lx_vs_ly";
+    auto h_lxvsly = df
+        .Define("lx", get_RECParticle_float_var(pid, charge), {var_lx, "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
+        .Define("ly", get_RECParticle_float_var(pid, charge), {var_ly, "REC_Particle_pid", "REC_Particle_charge", "REC_Particle_p", "REC_Traj_pass"})
+        .Histo2D({lxvsly_title.c_str(), lxvsly_title.c_str(), bins_lx, min_lx, max_lx, bins_ly, min_ly, max_ly}, "lx", "ly");
+    Draw2DHist(h_lxvsly.GetPtr(), lxvsly_name.c_str(), bins_lx, min_lx, max_lx, bins_ly, min_ly, max_ly);
+    Save2DHist(h_lxvsly.GetPtr(), lxvsly_title.c_str(), fout);
+}
+

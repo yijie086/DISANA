@@ -19,10 +19,11 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfSelected.emplace(df.Define("REC_Particle_num",[](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, {"REC_Particle_pid"}));
   
   dfSelected = dfSelected->Define("REC_Traj_pass", fTrackCuts->RECTrajPass(), CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
+  dfSelected = dfSelected->Define("REC_Calorimeter_pass", fTrackCuts->RECCalorimeterPass(), CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
 
-  *dfSelected = dfSelected->Filter(*fTrackCutsElectron, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
-  *dfSelected = dfSelected->Filter(*fTrackCutsProton, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
-  *dfSelected = dfSelected->Filter(*fTrackCutsPhoton, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
+  *dfSelected = dfSelected->Filter(*fTrackCutsElectron, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
+  *dfSelected = dfSelected->Filter(*fTrackCutsProton, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
+  *dfSelected = dfSelected->Filter(*fTrackCutsPhoton, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
 
   *dfSelected = dfSelected->Define("REC_Particle_theta", RECParticletheta(), RECParticle::All());
   *dfSelected = dfSelected->Define("REC_Particle_phi", RECParticlephi(), RECParticle::All());

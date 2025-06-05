@@ -24,20 +24,20 @@ void DrawProfiles() {
         for (int sector = 1; sector <= 6; ++sector) {
             // 定义图的名字
             std::vector<std::string> profile_names = {
-                "theta5to10_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile",
-                "theta10to15_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile",
+                "theta5to15_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile",
                 "theta15to20_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile",
+                //"theta15to20_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile",
                 "theta20to25_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile",
-                "theta25to40_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile"
+                "theta25to30_sector" + std::to_string(sector) + "_" + region_str + "_chi2perndf_vs_edge_profile"
             };
 
             // 定义图例标签
             std::vector<std::string> legend_labels = {
-                "5-10 degrees",
-                "10-15 degrees",
+                "5-15 degrees",
+                //"10-15 degrees",
                 "15-20 degrees",
                 "20-25 degrees",
-                "25-40 degrees"
+                "25-30 degrees"
             };
 
             // 创建画布
@@ -58,7 +58,7 @@ void DrawProfiles() {
             int colors[] = {kRed, kBlue, kGreen, kMagenta, kCyan, kOrange};
 
             // 读取并绘制每个 TProfile
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < 4; ++i) {
                 TProfile* profile = dynamic_cast<TProfile*>(file->Get(profile_names[i].c_str()));
                 if (!profile) {
                     std::cerr << "Error: Cannot find profile " << profile_names[i] << " in the file!" << std::endl;
@@ -66,7 +66,7 @@ void DrawProfiles() {
                 }
                 for (int bin = 1; bin <= profile->GetNbinsX(); ++bin) {
                     double x = profile->GetBinCenter(bin); // 获取 bin 的中心值
-                    if (x > 15 && i == 0 && region == 1) {
+                    if (x > 25 && i == 0 && region == 1) {
                         profile->SetBinContent(bin, 0); // 将 bin 内容设置为 0
                         profile->SetBinError(bin, 0);  // 将 bin 的误差设置为 0
                     }

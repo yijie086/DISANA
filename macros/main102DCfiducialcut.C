@@ -8,7 +8,7 @@
 using namespace ROOT;
 using namespace ROOT::RDF;
 
-void Run102fiducialcut(const float beam_energy, const std::string& FilePath);
+void Run102DCfiducialcut(const float beam_energy, const std::string& FilePath);
 
 int main(int argc, char **argv) {
 
@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     }
 
     float beam_energy = std::stof(argv[1]);
-    Run102fiducialcut(beam_energy, argv[2]);
+    Run102DCfiducialcut(beam_energy, argv[2]);
 
     auto end_time = std::chrono::high_resolution_clock::now();
 

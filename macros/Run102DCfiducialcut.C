@@ -8,6 +8,7 @@
 #include "../DreamAN/ParticleInformation/RECParticle.h"
 #include "../DreamAN/ParticleInformation/RECTraj.h"
 #include "../DreamAN/ParticleInformation/RECTrack.h"
+#include "../DreamAN/ParticleInformation/RECCalorimeter.h"
 #include "../DreamAN/Cuts/ElectronCut.h"
 #include "../DreamAN/DrawHist/DrawAndSave.h"
 #include "../DreamAN/core/FilesInPath.h"
@@ -17,7 +18,7 @@
 #include "../DreamAN/Math/RECParticleKinematic.h"
 #include "../DreamAN/Math/ParticleMassTable.h"
 
-void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
+void Run102DCfiducialcut(const float beam_energy, const std::string& FilePath) {
     std::vector<std::string> inputFiles = GetHipoFilesInPath(FilePath);
     if(inputFiles.empty()) {
         std::cout << "No .hipo files found in directory!\n";
@@ -92,7 +93,7 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
             int theta_min = (5+i*5); // 5, 10, 15, 20, 25, 30 degrees
             int theta_max = (10+i*5); // 10, 15, 20, 25, 30, 35 degrees
             if (i==4) {
-                theta_max = 30;
+                theta_min = 40;
             }
             std::string outputname = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j);
             std::string outputname1 = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j)+"_R1";
@@ -100,29 +101,31 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
             std::string outputname3 = "theta"+std::to_string(theta_min)+"to"+std::to_string(theta_max)+"_sector"+std::to_string(j)+"_R3";
             
 
-            trackCut1.SetSectorCut(j, 2212, true); // 设置扇区范围
+            trackCut1.SetSectorCut(j, 11, 6, true); // 设置扇区范围
             dfSelected = dfSelected.Define("REC_Traj_pass", trackCut1.RECTrajPass(), 
                                 CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
+            dfSelected = dfSelected.Define("REC_Calorimeter_pass", trackCut1.RECCalorimeterPass(), 
+                                CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
     
-            Proton_cut.SetthetaCut(theta_min*M_PI/180,theta_max*M_PI/180);
-            //Electron_cut.SetthetaCut(theta_min*M_PI/180,theta_max*M_PI/180);
-            dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
-            //dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}));
+            //Proton_cut.SetthetaCut(theta_min*M_PI/180,theta_max*M_PI/180);
+            Electron_cut.SetthetaCut(theta_min*M_PI/180,theta_max*M_PI/180);
+            //dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
+            dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
             std::cout << "df_selected count: " << *dfSelected.Count() << std::endl;
 
             //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate1, 2212, +1, fout, 
             //                        25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1); // Edge histogram: bins, min, max
-            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate1, 2212, +1, fout,
+            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate1, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
                                     25, 0, 25, {"REC_Traj_pedgeR1"}, outputname1);     // Edge histogram: bins, min, max
             //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate2, 2212, +1, fout,
             //                        25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2); // Edge histogram: bins, min, max
-            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate2, 2212, +1, fout,
+            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate2, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
                                     25, 0, 25, {"REC_Traj_pedgeR2"}, outputname2);     // Edge histogram: bins, min, max
             //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate3, 2212, +1, fout,
             //                        25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3); // Edge histogram: bins, min, max
-            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate3, 2212, +1, fout,
+            DrawAndSavechi2perndfvsedge(dfSelected, detector_investigate, layer_investigate3, 11, -1, fout,
                                     5000, 0, 500,       // Chi2 histogram: bins, min, max
                                     25, 0, 25, {"REC_Traj_pedgeR3"}, outputname3);     // Edge histogram: bins, min, max
             //DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate1, 2212, +1, fout,
@@ -131,12 +134,12 @@ void Run102fiducialcut(const float beam_energy, const std::string& FilePath) {
             //                        5000, 0, 500, outputname2); // Chi2 histogram: bins, min, max
             //DrawAndSavechi2perndf(dfSelected, detector_investigate, layer_investigate3, 2212, +1, fout,
             //                        5000, 0, 500, outputname3); // Chi2 histogram: bins, min, max
-/*
-            DrawAndSaveParticleHistograms(dfSelected, 2212, +1, fout, 
-                                    500, 0, 1,        // Theta histogram: bins, min, max
-                                    500, 0, 2 * M_PI, // Phi histogram: bins, min, max
-                                    500, 0, 9,outputname);       // Momentum histogram: bins, min, max
-*/
+
+            //DrawAndSaveParticleHistograms(dfSelected, 2212, +1, fout, 
+            //                        500, 0, 1,        // Theta histogram: bins, min, max
+            //                        500, 0, 2 * M_PI, // Phi histogram: bins, min, max
+            //                        500, 0, 9,outputname);       // Momentum histogram: bins, min, max
+
         }
     }
 

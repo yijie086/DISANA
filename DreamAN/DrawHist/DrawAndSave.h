@@ -46,4 +46,17 @@ void DrawAndSaveParticleHistograms(ROOT::RDF::RNode df, int pid, int charge, TFi
                                    int bins_phi, double min_phi, double max_phi,
                                    int bins_p, double min_p, double max_p, std::string output_name);
 
+void DrawAndSavelu(ROOT::RDF::RNode df, int pid, int charge, TFile* fout,
+                         int bins_lu, double min_lu, double max_lu, std::string output_name);
+
+void DrawAndSavelx(ROOT::RDF::RNode df, int pid, int charge, TFile* fout, 
+                   int bins_lx, double min_lx, double max_lx, 
+                   std::string output_name, std::string var_lx);
+
+void DrawAndSavelxvsly(ROOT::RDF::RNode df, int pid, int charge, TFile* fout, 
+                       int bins_lx, double min_lx, double max_lx, 
+                       int bins_ly, double min_ly, double max_ly, 
+                       std::string output_name, 
+                       std::string var_lx, std::string var_ly);
+
 #endif

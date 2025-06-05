@@ -32,7 +32,8 @@ public:
                     const std::vector<float>& beta,
                     const std::vector<float>& chi2pid,
                     const std::vector<int>& status,
-                    const std::vector<int>& REC_Traj_pass
+                    const std::vector<int>& REC_Traj_pass,
+                    const std::vector<int>& REC_Calorimeter_pass
                     ) const;
 
 private:
