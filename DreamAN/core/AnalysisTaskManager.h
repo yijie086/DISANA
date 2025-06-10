@@ -23,11 +23,17 @@ public:
     void SaveOutput();
 
     void SetOututDir(const std::string& Outputdir="./",const std::string& filename ="AnalysisResults.root", const std::string& directory = "AnalysisResults");
+
     void AddHistogram(const std::string& name, TH1* hist);
     void AddTree(const std::string& name, TTree* tree);
 
     // New: Notify tasks of output file
     void SetOutputFileForTasks();
+
+    //Getters
+    std::string GetOutputDir() const { return outputDir; }
+    std::string GetOutputRootDir() const { return outputRootDir; }
+    TFile* GetOutputFile() const { return outputFile.get(); }
 
 private:
     std::vector<std::unique_ptr<AnalysisTask>> tasks;

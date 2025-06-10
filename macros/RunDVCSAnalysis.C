@@ -15,27 +15,47 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   }
 
   AnalysisTaskManager mgr;
-  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork");
+  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterCalorimeterCuts/");
 
-  // Track Cuts
-  auto* trackCuts = new TrackCut();
-  trackCuts->SetECALEdgeCut(9, 100000000);
-  trackCuts->SetDCEdgeCut(1, 100000000);
+  // fiducial cuts///
+  std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
+  auto theta_bins = std::vector<std::pair<float, float>>({{5.0 * M_PI / 180, 10.0 * M_PI / 180},
+                                                          {10.0 * M_PI / 180, 15.0 * M_PI / 180},
+                                                          {15.0 * M_PI / 180, 20.0 * M_PI / 180},
+                                                          {20.0 * M_PI / 180, 25.0 * M_PI / 180},
+                                                          {25.0 * M_PI / 180, 30.0 * M_PI / 180}});
+  auto edge_regions = std::vector<float>{3.0f, 5.0f, 10.0f};
 
-  // Photon Cuts
-  auto* photonCuts = new EventCut();
-  photonCuts->SetChargeCut(0);
-  photonCuts->SetPIDCountCut(22, 1, 1);
+  trackCuts->SetThetaBins(theta_bins);
+  trackCuts->SetEdgeCuts(edge_regions);
+  trackCuts->SetSectorCut_Bhawani({1, 2, 3, 4, 5, 6}, 11, 6, true);
 
-  // Electron Cuts
-  auto* electronCuts = new EventCut();
-  electronCuts->SetChargeCut(-1);
-  electronCuts->SetPIDCountCut(11, 1, 1);
+  // Sector 1, PCal
+  trackCuts->AddPCalFiducialRange(1, "lw", 72.0, 94.5);
+  trackCuts->AddPCalFiducialRange(1, "lw", 220.5, 234.0);
+  // Sector 2, PCal
+  trackCuts->AddPCalFiducialRange(2, "lv", 99.0, 117.5);
+  // Sector 3, PCal
+  trackCuts->AddPCalFiducialRange(3, "lv", 346.5, 378.0);
+  // Sector 4, PCal
+  trackCuts->AddPCalFiducialRange(4, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(4, "lv", 229.5, 243.0);
+  // Sector 6, PCal
+  trackCuts->AddPCalFiducialRange(6, "lw", 166.5, 193.5);
 
-  // Proton Cuts
-  auto* protonCuts = new EventCut();
-  protonCuts->SetChargeCut(1);
-  protonCuts->SetPIDCountCut(2212, 1, 1);
+  // Sector 1, ECin only
+  trackCuts->AddECinFiducialRange(1, "lv", 67.5, 94.5);
+  trackCuts->AddECinFiducialRange(4, "lw", 0.0, 23.5);
+  trackCuts->AddECinFiducialRange(5, "lv", 0.0, 23.5);
+  trackCuts->AddECinFiducialRange(6, "lw", 0.0, 23.5);
+  // Sctor 5, ECout only
+  trackCuts->AddECoutFiducialRange(1, "lv", 0, 40.5);
+  trackCuts->AddECoutFiducialRange(5, "lv", 193.5, 216.0);
+
+  // DVCS particle cuts
+  auto* photonCuts = EventCut::PhotonCuts();
+  auto* electronCuts = EventCut::ElectronCuts();
+  auto* protonCuts = EventCut::ProtonCuts();
 
   // Task
   auto dvcsTask = std::make_unique<DVCSAnalysis>();
@@ -43,6 +63,8 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   dvcsTask->SetPhotonCuts(photonCuts);
   dvcsTask->SetElectronCuts(electronCuts);
   dvcsTask->SetProtonCuts(protonCuts);
+  dvcsTask->SetBeamEnergy(6.535);
+  dvcsTask->SetDoFiducialCut(true);
 
   mgr.AddTask(std::move(dvcsTask));
 

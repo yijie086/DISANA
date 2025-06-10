@@ -59,6 +59,7 @@ add_executable(AnalysisDVCS
     DreamAN/core/Events.cxx
     DreamAN/ParticleInformation/RECParticle.cxx
     DreamAN/ParticleInformation/RECTraj.cxx
+    DreamAN/ParticleInformation/RECTrack.cxx
     DreamAN/ParticleInformation/RECCalorimeter.cxx
     DreamAN/DrawHist/DrawAndSave.cxx
     DreamAN/core/FilesInPath.cxx
@@ -115,6 +116,7 @@ target_link_libraries(main101
 add_executable(main102DCfiducialcut
     macros/main102DCfiducialcut.C
     macros/Run102DCfiducialcut.C
+    #macros/Run102DCfiducialcut_2.C
 
     # main core methods and classes
     DreamAN/ParticleInformation/RECParticle.cxx
