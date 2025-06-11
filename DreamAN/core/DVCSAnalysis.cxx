@@ -22,9 +22,12 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   fTrackCutsWithFid->SetDoFiducialCut(true);
 
   // Debug check
-  std::cout << "Using edge cuts (R1,R2,R3): ";
-  for (auto e : fTrackCutsWithFid->GetEdgeCuts()) std::cout << e << " ";
-  std::cout << std::endl;
+  std::cout << "Using PID-specific edge cuts (R1, R2, R3):" << std::endl;
+  for (const auto& [pid, edgeCuts] : fTrackCutsWithFid->GetEdgeCuts()) {
+    std::cout << "  PID " << pid << ": ";
+    for (auto e : edgeCuts) std::cout << e << " ";
+    std::cout << std::endl;
+  }
 
   // ----------------------------
   // Define basic new columns
@@ -45,22 +48,22 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   // Define both pass columns for the fiducial cuts
   // ----------------------------
   auto dfDefsWithTraj = dfDefs
-                            .Define("REC_Traj_pass_nofid", fTrackCutsNoFid->RECTrajPass(),
+                            .Define("REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(),
                                     CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
                             .Define("REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(),
                                     CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
-                            .Define("REC_Calorimeter_pass_nofid", fTrackCutsNoFid->RECCalorimeterPass(),
-                                    CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
                             .Define("REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(),
-                                    CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
+                                    CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
+                            .Define("REC_Track_pass_fid", Columns::LogicalAND2(), CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}));
 
-  auto cols_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass_nofid"}, std::vector<std::string>{"REC_Calorimeter_pass_nofid"});
-  auto cols_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"});
-
+  auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
+  auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
+  
+  
   // ----------------------------
   // Before fiducial cut
   // ----------------------------
-  auto dfBefore = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_nofid).Filter(*fTrackCutsProton, cols_nofid).Filter(*fTrackCutsPhoton, cols_nofid);
+  auto dfBefore = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_track_nofid).Filter(*fTrackCutsPhoton, cols_track_nofid).Filter(*fTrackCutsProton, cols_track_nofid);
 
   dfSelected = dfBefore;
 
@@ -68,7 +71,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   // After fiducial cut
   // ----------------------------
   if (fFiducialCut) {
-    auto dfAfter = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_fid).Filter(*fTrackCutsProton, cols_fid).Filter(*fTrackCutsPhoton, cols_fid);
+    auto dfAfter = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_track_fid).Filter(*fTrackCutsPhoton, cols_track_fid).Filter(*fTrackCutsProton, cols_track_fid);
 
     dfSelected_after = dfAfter;
   }

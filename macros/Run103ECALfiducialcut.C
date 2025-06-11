@@ -81,7 +81,8 @@ void Run103ECALfiducialcut(const float beam_energy, const std::string& FilePath)
                                 CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
         dfSelected = dfSelected.Define("REC_Traj_pass", trackCut1.RECTrajPass(),
                                 CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
-        dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
+        dfSelected = dfSelected.Define("REC_Track_pass", Columns::LogicalAND2(), {"REC_Traj_pass", "REC_Calorimeter_pass"});
+        dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass"}));
         std::cout << "df_selected count: " << *dfSelected.Count() << std::endl;
 
         std::string outputname1 = "sector"+std::to_string(i)+"_PCALlw_REC_PCALlv";

@@ -106,11 +106,12 @@ void Run102DCfiducialcut(const float beam_energy, const std::string& FilePath) {
                                 CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
             dfSelected = dfSelected.Define("REC_Calorimeter_pass", trackCut1.RECCalorimeterPass(), 
                                 CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}));
+            dfSelected = dfSelected.Define("REC_Track_pass", Columns::LogicalAND2(), {"REC_Traj_pass", "REC_Calorimeter_pass"});
     
             //Proton_cut.SetthetaCut(theta_min*M_PI/180,theta_max*M_PI/180);
             Electron_cut.SetthetaCut(theta_min*M_PI/180,theta_max*M_PI/180);
             //dfSelected = dfSelected.Filter(Proton_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
-            dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Traj_pass"}, std::vector<std::string>{"REC_Calorimeter_pass"}));
+            dfSelected = dfSelected.Filter(Electron_cut, CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass"}));
             std::cout << "df_selected count: " << *dfSelected.Count() << std::endl;
 
             //DrawAndSaveedge(dfSelected, detector_investigate, layer_investigate1, 2212, +1, fout, 

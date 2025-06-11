@@ -674,14 +674,12 @@ void DrawECOUTFromFile(
 
 
 void plotECALFids() {
-  std::string
-      filename_after =
-          "../build/"
-          "dfSelected_after_fiducialCuts.root"; // Update with your file path
-  std::string
-      filename_before =
-          "../build/"
-          "dfSelected_before_fiducialCuts.root"; // Update with your file path
+
+  //std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/";
+  std::string input_path_from_analysisRun = "./../Build/";
+  std::string filename_after = Form("%s/dfSelected_after_fiducialCuts.root", input_path_from_analysisRun.c_str());
+  std::string filename_before = Form("%s/dfSelected_before_fiducialCuts.root", input_path_from_analysisRun.c_str());
+
   DrawPCALFromFile(filename_after, "dfSelected_after");
   DrawPCALFromFile(filename_before, "dfSelected_before");
   DrawECINFromFile(filename_after, "dfSelected_after");

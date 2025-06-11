@@ -15,7 +15,8 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   }
 
   AnalysisTaskManager mgr;
-  mgr.SetOututDir(".");
+  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterCalorimeterCuts/");
+  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/");
 
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
@@ -24,33 +25,62 @@ void RunDVCSAnalysis(const std::string& inputDir) {
                                                           {15.0 * M_PI / 180, 20.0 * M_PI / 180},
                                                           {20.0 * M_PI / 180, 25.0 * M_PI / 180},
                                                           {25.0 * M_PI / 180, 30.0 * M_PI / 180}});
-  auto edge_regions = std::vector<float>{3.0f, 5.0f, 10.0f};
+  auto edge_regions_e = std::vector<float>{3.0f, 3.0f, 10.0f};
+  auto edge_regions_p = std::vector<float>{3.0f, 3.0f, 5.0f};
 
   trackCuts->SetThetaBins(theta_bins);
-  trackCuts->SetEdgeCuts(edge_regions);
+  trackCuts->SetDCEdgeCuts(11, edge_regions_e); // DC edge cuts for electrons
+  trackCuts->SetDCEdgeCuts(2212, edge_regions_p); // DC edge cuts for protons
+
   trackCuts->SetSectorCut_Bhawani({1, 2, 3, 4, 5, 6}, 11, 6, true);
+ 
 
+   // Cal fiducial cuts for eletron,
   // Sector 1, PCal
-  trackCuts->AddPCalFiducialRange(1, "lw", 72.0, 94.5);
-  trackCuts->AddPCalFiducialRange(1, "lw", 220.5, 234.0);
+  trackCuts->AddPCalFiducialRange(11,1, "lw", 72.0, 94.5);
+  trackCuts->AddPCalFiducialRange(11,1, "lw", 220.5, 234.0);
   // Sector 2, PCal
-  trackCuts->AddPCalFiducialRange(2, "lv", 99.0, 117.5);
-  // Sector 3, PCal
-  trackCuts->AddPCalFiducialRange(3, "lv", 346.5, 378.0);
-  // Sector 4, PCal
-  trackCuts->AddPCalFiducialRange(4, "lv", 0.0, 13.5);
-  trackCuts->AddPCalFiducialRange(4, "lv", 229.5, 243.0);
-  // Sector 6, PCal
-  trackCuts->AddPCalFiducialRange(6, "lw", 166.5, 193.5);
+  trackCuts->AddPCalFiducialRange(11,2, "lv", 99.0, 117.5);
+  // Sector 3, PCal,
+  trackCuts->AddPCalFiducialRange(11,3, "lv", 346.5, 378.0);
+  // Sector 4, PCal,
+  trackCuts->AddPCalFiducialRange(11,4, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11,4, "lv", 229.5, 243.0);
+  // Sector 6, PCal,
+  trackCuts->AddPCalFiducialRange(11,6, "lw", 166.5, 193.5);
 
-  // Sector 1, ECin only
-  trackCuts->AddECinFiducialRange(1, "lv", 67.5, 94.5);
-  trackCuts->AddECinFiducialRange(4, "lw", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(5, "lv", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(6, "lw", 0.0, 23.5);
+  // Sector 1, ECin only,
+  trackCuts->AddECinFiducialRange(11,1, "lv", 67.5, 94.5);
+  trackCuts->AddECinFiducialRange(11,4, "lw", 0.0, 23.5);
+  trackCuts->AddECinFiducialRange(11,5, "lv", 0.0, 23.5);
+  trackCuts->AddECinFiducialRange(11,6, "lw", 0.0, 23.5);
+
   // Sctor 5, ECout only
-  trackCuts->AddECoutFiducialRange(1, "lv", 0, 40.5);
-  trackCuts->AddECoutFiducialRange(5, "lv", 193.5, 216.0);
+  trackCuts->AddECoutFiducialRange(11,1, "lv", 0, 40.5);
+  trackCuts->AddECoutFiducialRange(11,5, "lv", 193.5, 216.0);
+
+  // Cal fiducial cuts for photon,
+  trackCuts->AddPCalFiducialRange(22,1, "lw", 72.0, 94.5);
+  trackCuts->AddPCalFiducialRange(22,1, "lw", 220.5, 234.0);
+  // Sector 2, PCal
+  trackCuts->AddPCalFiducialRange(22,2, "lv", 99.0, 117.5);
+  // Sector 3, PCal,
+  trackCuts->AddPCalFiducialRange(22,3, "lv", 346.5, 378.0);
+  // Sector 4, PCal,
+  trackCuts->AddPCalFiducialRange(22,4, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(2,4, "lv", 229.5, 243.0);
+  // Sector 6, PCal,
+  trackCuts->AddPCalFiducialRange(22,6, "lw", 166.5, 193.5);
+
+  // Sector 1, ECin only,
+  trackCuts->AddECinFiducialRange(22,1, "lv", 67.5, 94.5);
+  trackCuts->AddECinFiducialRange(22,4, "lw", 0.0, 23.5);
+  trackCuts->AddECinFiducialRange(22,5, "lv", 0.0, 23.5);
+  trackCuts->AddECinFiducialRange(22,6, "lw", 0.0, 23.5);
+
+  // Sctor 5, ECout only
+  trackCuts->AddECoutFiducialRange(22,1, "lv", 0, 40.5);
+  trackCuts->AddECoutFiducialRange(22,5, "lv", 193.5, 216.0);
 
   // DVCS particle cuts
   auto* photonCuts = EventCut::PhotonCuts();
@@ -63,7 +93,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   dvcsTask->SetPhotonCuts(photonCuts);
   dvcsTask->SetElectronCuts(electronCuts);
   dvcsTask->SetProtonCuts(protonCuts);
-  dvcsTask->SetBeamEnergy(6.535);
+  dvcsTask->SetBeamEnergy(10.6);
   dvcsTask->SetDoFiducialCut(true);
 
   mgr.AddTask(std::move(dvcsTask));
