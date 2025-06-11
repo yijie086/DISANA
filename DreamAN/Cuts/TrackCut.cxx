@@ -39,6 +39,10 @@ TrackCut::TrackCut(const TrackCut& other) {
   this->fDCMaxEdge = other.fDCMaxEdge;
   this->fECALMinEdge = other.fECALMinEdge;
   this->fECALMaxEdge = other.fECALMaxEdge;
+
+  this->fFiducialCutsPCal = other.fFiducialCutsPCal;
+  this->fFiducialCutsECin = other.fFiducialCutsECin;
+  this->fFiducialCutsECout = other.fFiducialCutsECout;
 }
 
 void TrackCut::SetSectorCut(int SSector, int selectpid, int selectdetector, bool selectSector) {
@@ -112,6 +116,7 @@ void TrackCut::AddPCalFiducialStrip(int sector, const std::string& axis, float v
     fFiducialCutsPCal[sector].lvCut.excludedStrips.insert(value);
   else if (axis == "lw")
     fFiducialCutsPCal[sector].lwCut.excludedStrips.insert(value);
+  std::cout << "[Info] Added PCal fiducial strip: sector " << sector << ", axis " << axis << ", value " << value << std::endl;
 }
 
 void TrackCut::AddPCalFiducialRange(int sector, const std::string& axis, float min, float max) {
@@ -121,6 +126,7 @@ void TrackCut::AddPCalFiducialRange(int sector, const std::string& axis, float m
     fFiducialCutsPCal[sector].lvCut.excludedRanges.emplace_back(min, max);
   else if (axis == "lw")
     fFiducialCutsPCal[sector].lwCut.excludedRanges.emplace_back(min, max);
+  std::cout << "[Info] Added PCal fiducial range: sector " << sector << ", axis " << axis << ", range (" << min << ", " << max << ")" << std::endl;
 }
 
 void TrackCut::AddECinFiducialStrip(int sector, const std::string& axis, float value) {
@@ -130,6 +136,7 @@ void TrackCut::AddECinFiducialStrip(int sector, const std::string& axis, float v
     fFiducialCutsECin[sector].lvCut.excludedStrips.insert(value);
   else if (axis == "lw")
     fFiducialCutsECin[sector].lwCut.excludedStrips.insert(value);
+  std::cout << "[Info] Added ECin fiducial strip: sector " << sector << ", axis " << axis << ", value " << value << std::endl;
 }
 
 void TrackCut::AddECinFiducialRange(int sector, const std::string& axis, float min, float max) {
@@ -139,6 +146,7 @@ void TrackCut::AddECinFiducialRange(int sector, const std::string& axis, float m
     fFiducialCutsECin[sector].lvCut.excludedRanges.emplace_back(min, max);
   else if (axis == "lw")
     fFiducialCutsECin[sector].lwCut.excludedRanges.emplace_back(min, max);
+  std::cout << "[Info] Added ECin fiducial range: sector " << sector << ", axis " << axis << ", range (" << min << ", " << max << ")" << std::endl;
 }
 
 void TrackCut::AddECoutFiducialStrip(int sector, const std::string& axis, float value) {
@@ -148,6 +156,7 @@ void TrackCut::AddECoutFiducialStrip(int sector, const std::string& axis, float 
     fFiducialCutsECout[sector].lvCut.excludedStrips.insert(value);
   else if (axis == "lw")
     fFiducialCutsECout[sector].lwCut.excludedStrips.insert(value);
+  std::cout << "[Info] Added ECout fiducial strip: sector " << sector << ", axis " << axis << ", value " << value << std::endl;
 }
 
 void TrackCut::AddECoutFiducialRange(int sector, const std::string& axis, float min, float max) {
@@ -157,6 +166,7 @@ void TrackCut::AddECoutFiducialRange(int sector, const std::string& axis, float 
     fFiducialCutsECout[sector].lvCut.excludedRanges.emplace_back(min, max);
   else if (axis == "lw")
     fFiducialCutsECout[sector].lwCut.excludedRanges.emplace_back(min, max);
+  std::cout << "[Info] Added ECout fiducial range: sector " << sector << ", axis " << axis << ", range (" << min << ", " << max << ")" << std::endl;
 }
 
 const std::vector<float>& TrackCut::GetEdgeCuts() const { return fEdgeCutsPerRegion; }

@@ -15,7 +15,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   }
 
   AnalysisTaskManager mgr;
-  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterCalorimeterCuts/");
+  mgr.SetOututDir(".");
 
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
