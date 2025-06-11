@@ -196,7 +196,7 @@ TrackCut::RECTrajPass() const {
             region = 3;
           }
           float edgeCut = this->GetEdgeCut(region);
-          if (edgeCut > 0 && edge[i] >= 0 && edge[i] <= edgeCut) {
+          if (edgeCut > 0 && edge[i] <= edgeCut) {
             pass_values[pindex[i]] = 0;
             continue;
           }

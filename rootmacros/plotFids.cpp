@@ -43,30 +43,34 @@ void DrawDriftChamberRegionsFromFile(
                    const ROOT::VecOps::RVec<float> &x,
                    const ROOT::VecOps::RVec<float> &p,
                    const ROOT::VecOps::RVec<int16_t> &pindex,
-                   const ROOT::VecOps::RVec<int> &pid) {
+                   const ROOT::VecOps::RVec<int> &pid,
+                   const ROOT::VecOps::RVec<short> &charge) {
                   ROOT::VecOps::RVec<float> out;
                   for (size_t i = 0; i < layer.size(); ++i) {
-                    if (det[i] == 6 && layer[i] == 6 && p[pindex[i]] > 0.02 && pid[pindex[i]] == 11)
+                    //if (det[i] == 6 && layer[i] == 6 && p[pindex[i]] > 0.02 && pid[pindex[i]] == 11 && charge[pindex[i]]==-1)
+                    if (det[i] == 6 && layer[i] == 6 && pid[pindex[i]] == 11)
                       out.push_back(x[i]);
                   }
                   
                   return out;
                 },
-                {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_x", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid"})
+                {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_x", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge"})
           .Define("yR1",
                   [](const ROOT::VecOps::RVec<short> &det,
                      const ROOT::VecOps::RVec<short> &layer,
                      const ROOT::VecOps::RVec<float> &y,
                      const ROOT::VecOps::RVec<float> &p,
                      const ROOT::VecOps::RVec<int16_t> &pindex,
-                     const ROOT::VecOps::RVec<int> &pid) {
+                     const ROOT::VecOps::RVec<int> &pid,
+                     const ROOT::VecOps::RVec<short> &charge) {
                     ROOT::VecOps::RVec<float> out;
                     for (size_t i = 0; i < layer.size(); ++i)
-                      if (det[i] == 6 && layer[i] == 6 && p[pindex[i]] >= 0.02 && pid[pindex[i]] == 11)
+                      //if (det[i] == 6 && layer[i] == 6 && p[pindex[i]] >= 0.02 && pid[pindex[i]] == 11 && charge[pindex[i]]==-1)
+                      if (det[i] == 6 && layer[i] == 6 && pid[pindex[i]] == 11)  
                         out.push_back(y[i]);
                     return out;
                   },
-                  {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_y", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid"});
+                  {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_y", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge"});
 
   auto dfR2 =
       df.Define("xR2",
