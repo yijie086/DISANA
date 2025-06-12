@@ -45,17 +45,18 @@ void DrawDriftChamberRegionsFromFile(
                    const ROOT::VecOps::RVec<float> &p,
                    const ROOT::VecOps::RVec<int16_t> &pindex,
                    const ROOT::VecOps::RVec<int> &pid,
-                   const ROOT::VecOps::RVec<short> &charge) {
+                   const ROOT::VecOps::RVec<short> &charge,
+                   const ROOT::VecOps::RVec<int> &passFid) {
                   ROOT::VecOps::RVec<float> out;
                   for (size_t i = 0; i < layer.size(); ++i) {
                     //if (det[i] == 6 && layer[i] == 6 && p[pindex[i]] > 0.02 && pid[pindex[i]] == selectedPid && charge[pindex[i]]==-1)
-                    if (det[i] == 6 && layer[i] == 6 && pid[pindex[i]] == selectedPid)
+                    if (det[i] == 6 && layer[i] == 6 && pid[pindex[i]] == selectedPid && passFid[pindex[i]])
                       out.push_back(x[i]);
                   }
                   
                   return out;
                 },
-                {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_x", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge"})
+                {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_x", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge", "REC_Track_pass_nofid"})
           .Define("yR1",
                   [selectedPid](const ROOT::VecOps::RVec<short> &det,
                      const ROOT::VecOps::RVec<short> &layer,
@@ -63,15 +64,16 @@ void DrawDriftChamberRegionsFromFile(
                      const ROOT::VecOps::RVec<float> &p,
                      const ROOT::VecOps::RVec<int16_t> &pindex,
                      const ROOT::VecOps::RVec<int> &pid,
-                     const ROOT::VecOps::RVec<short> &charge) {
+                     const ROOT::VecOps::RVec<short> &charge,
+                    const ROOT::VecOps::RVec<int> &passFid) {
                     ROOT::VecOps::RVec<float> out;
                     for (size_t i = 0; i < layer.size(); ++i)
                       //if (det[i] == 6 && layer[i] == 6 && p[pindex[i]] >= 0.02 && pid[pindex[i]] == selectedPid && charge[pindex[i]]==-1)
-                      if (det[i] == 6 && layer[i] == 6 && pid[pindex[i]] == selectedPid)  
+                      if (det[i] == 6 && layer[i] == 6 && pid[pindex[i]] == selectedPid && passFid[pindex[i]])  
                         out.push_back(y[i]);
                     return out;
                   },
-                  {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_y", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge"});
+                  {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_y", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge", "REC_Track_pass_nofid"});
 
   auto dfR2 =
       df.Define("xR2",
@@ -204,8 +206,8 @@ void DrawDriftChamberRegionsFromFile(
 }
 
 void plotFids() {
-  //std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/";
-  std::string input_path_from_analysisRun = "./../build";
+  std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
+  //std::string input_path_from_analysisRun = "./../build";
   std::string filename_after = Form("%s/dfSelected_after_fiducialCuts.root", input_path_from_analysisRun.c_str());
   std::string filename_before = Form("%s/dfSelected_before_fiducialCuts.root", input_path_from_analysisRun.c_str());
   DrawDriftChamberRegionsFromFile(11,filename_after, "dfSelected_after");

@@ -32,7 +32,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   // ----------------------------
   // Define basic new columns
   // ----------------------------
-
+bool IsMC = true;
   auto dfDefs = df.Define(
                       "REC_Particle_num", [](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, std::vector<std::string>{"REC_Particle_pid"})
                     .Define("REC_Particle_theta", RECParticletheta(), RECParticle::All())
@@ -43,6 +43,12 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
                     .Define("REC_Event_Nu", EventNu(fbeam_energy, 11, -1), RECParticle::All())
                     .Define("REC_Event_W", EventW(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All())
                     .Define("REC_Event_mt", Eventmt(fbeam_energy, 2212, 1, getParticleMass(2212)), RECParticle::All());
+
+  if (IsMC) {
+    dfDefs = dfDefs.Define("REC_Particle_phi_1", RECParticlephi(), RECParticle::All());
+  }
+
+  
 
   // ----------------------------
   // Define both pass columns for the fiducial cuts
