@@ -68,7 +68,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   trackCuts->AddPCalFiducialRange(22,3, "lv", 346.5, 378.0);
   // Sector 4, PCal,
   trackCuts->AddPCalFiducialRange(22,4, "lv", 0.0, 13.5);
-  trackCuts->AddPCalFiducialRange(2,4, "lv", 229.5, 243.0);
+  trackCuts->AddPCalFiducialRange(22,4, "lv", 229.5, 243.0);
   // Sector 6, PCal,
   trackCuts->AddPCalFiducialRange(22,6, "lw", 166.5, 193.5);
 
