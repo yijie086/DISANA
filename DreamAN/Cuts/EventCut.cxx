@@ -51,36 +51,35 @@ void EventCut::SetPIDCountCut(int selectedPID, int minCount, int maxCount) {
 EventCut* EventCut::ProtonCuts() {
   EventCut* cuts = new EventCut();
   cuts->SetChargeCut(1);
-  cuts->SetPIDCountCut(2212, 1, 1);
+  cuts->SetPIDCountCut(2212, 1, 1); // at this place you may take just one electron which is first in the list
   return cuts;
 }
 
 EventCut* EventCut::ElectronCuts() {
   EventCut* cuts = new EventCut();
   cuts->SetChargeCut(-1);
-  cuts->SetPIDCountCut(11, 1, 1);
+  cuts->SetPIDCountCut(11, 1, 999); // at this place you may choose all protons
   return cuts;
 }
 
 EventCut* EventCut::PhotonCuts() {
   EventCut* cuts = new EventCut();
-  cuts->SetChargeCut(0);
-  cuts->SetPIDCountCut(22, 1, 1);
+  cuts->SetChargeCut(0); 
+  cuts->SetPIDCountCut(22, 1, 999); // at this place you may choose all protons
   return cuts;
 }
 
 // Filtering logic with Fiducial cuts
 bool EventCut::operator()(const std::vector<int>& pid, const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz, const std::vector<float>& vx,
                           const std::vector<float>& vy, const std::vector<float>& vz, const std::vector<float>& vt, const std::vector<int>& charge, const std::vector<float>& beta,
-                          const std::vector<float>& chi2pid, const std::vector<int>& status, const std::vector<int>& REC_Traj_pass,
-                          const std::vector<int>& REC_Calorimeter_pass) const {
+                          const std::vector<float>& chi2pid, const std::vector<int>& status, const std::vector<int>& REC_Track_pass_fid) const {
   int pidCount = 0;      // Count the number of target PIDs
   bool selected = true;  // Whether the target PID is selected
 
   for (size_t i = 0; i < pid.size(); ++i) {
     // Count the number of target PIDs
-    if (pid[i] == fSelectedPID && std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) > 0.01 && (static_cast<int8_t>(charge[i]) == fCharge) && REC_Traj_pass[i] == 1 &&
-        REC_Calorimeter_pass[i] == 1 && IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)) {
+    if (pid[i] == fSelectedPID && std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) > 0.01 && (static_cast<int8_t>(charge[i]) == fCharge) &&
+      REC_Track_pass_fid[i] == 1 && IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)) {
       pidCount++;
       float momentum = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
       float theta = std::atan2(std::sqrt(px[i] * px[i] + py[i] * py[i]), pz[i]);

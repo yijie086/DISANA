@@ -34,9 +34,10 @@ class TrackCut {
   void SetDoFiducialCut(bool isFiducial) { IsDoFiducial = isFiducial; }
   void SetDCEdgeCut(float minTheta, float maxTheta, int dcRegion, float edgeCut);
   void SetThetaBins(const std::vector<std::pair<float, float>>& thetaBins);
-  void SetEdgeCuts(const std::vector<float>& edgeCutsPerRegion);
-  float GetEdgeCut(int region) const;
-  const std::vector<float>& GetEdgeCuts() const;
+  void SetDCEdgeCuts(int pid, const std::vector<float>& edgeCutsPerRegion);
+  float GetEdgeCut(int pid, int region) const;
+  const std::map<int, std::vector<float>>& GetEdgeCuts() const;
+
 
   bool operator()(const std::vector<int16_t>& pindex, const std::vector<int16_t>& index, const std::vector<int>& detector, const std::vector<int>& layer,
                   const std::vector<float>& x, const std::vector<float>& y, const std::vector<float>& z, const std::vector<float>& cx, const std::vector<float>& cy,
@@ -83,12 +84,10 @@ class TrackCut {
   RECCalorimeterPass() const;
 
   // ===== New sector-specific fiducial setters =====
-  void AddPCalFiducialStrip(int sector, const std::string& axis, float value);
-  void AddPCalFiducialRange(int sector, const std::string& axis, float min, float max);
-  void AddECinFiducialStrip(int sector, const std::string& axis, float value);
-  void AddECinFiducialRange(int sector, const std::string& axis, float min, float max);
-  void AddECoutFiducialStrip(int sector, const std::string& axis, float value);
-  void AddECoutFiducialRange(int sector, const std::string& axis, float min, float max);
+void AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
+void AddECinFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
+void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
+
 
  private:
   bool fselectSector = false;
@@ -119,12 +118,13 @@ class TrackCut {
   float fDCMinEdge = -999999, fDCMaxEdge = 999999;
   float fECALMinEdge = -999999, fECALMaxEdge = 999999;
   std::vector<std::pair<float, float>> fThetaBins;                   // Still used for reference or binning
-  std::vector<float> fEdgeCutsPerRegion{9999.0f, 9999.0f, 9999.0f};  // size = 3 → region 1, 2, 3
+  std::map<int, std::vector<float>> fDCEdgeCutsPerPID;
 
   /// ECin ECout and PCal Fiducial cuts
-  std::map<int, FiducialCut3D> fFiducialCutsPCal;
-  std::map<int, FiducialCut3D> fFiducialCutsECin;
-  std::map<int, FiducialCut3D> fFiducialCutsECout;
+  std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsPCal;
+  std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECin;
+  std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECout;
+
 
   template <typename T>
   bool IsInRange(T value, T min, T max) const {
