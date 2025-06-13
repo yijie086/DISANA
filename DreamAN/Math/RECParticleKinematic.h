@@ -14,10 +14,10 @@ using RECStoreType = std::function<std::vector<float>(
     const std::vector<float>&,
     const std::vector<float>&,
     const std::vector<float>&,
-    const std::vector<int>&,
+    const std::vector<short>&,
     const std::vector<float>&,
     const std::vector<float>&,
-    const std::vector<int>&
+    const std::vector<short>&
 )>;
 
 

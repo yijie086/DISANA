@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-EventProcessor::EventProcessor(const std::string& inputDirectory, AnalysisTaskManager& taskMgr) : evt(inputDirectory), tasks(taskMgr) {}
+EventProcessor::EventProcessor(AnalysisTaskManager& taskMgr, const std::string& inputDirectory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName ) : evt(inputDirectory,fIsReprocessRootFile, fInputROOTtreeName, fInputROOTfileName), tasks(taskMgr) {}
 
 void EventProcessor::ProcessEvents() {
   auto dfOpt = evt.getNode();

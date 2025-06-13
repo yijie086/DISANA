@@ -19,20 +19,20 @@ struct RECParticle {
         const std::vector<float>&,    // vy
         const std::vector<float>&,    // vz
         const std::vector<float>&,    // vt
-        const std::vector<int>&,      // charge
+        const std::vector<short>&,      // charge
         const std::vector<float>&,    // beta
         const std::vector<float>&,    // chi2pid
-        const std::vector<int>&       // status
+        const std::vector<short>&       // status
     >;
 };
 
 
 
-std::function<std::vector<float>(const std::vector<float>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&, const std::vector<int>&)> 
+std::function<std::vector<float>(const std::vector<float>&, const std::vector<int>&, const std::vector<short>&, const std::vector<float>&, const std::vector<int>&)> 
 get_RECParticle_float_var(int target_pid, int target_charge);
 
 
-std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&, const std::vector<int>&)> 
+std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const std::vector<short>&, const std::vector<float>&, const std::vector<int>&)> 
 get_RECParticle_int_var(int target_pid, int target_charge);
 
 #endif

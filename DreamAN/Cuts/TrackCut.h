@@ -78,7 +78,7 @@ class TrackCut {
                                  const std::vector<float>&,    // m3u
                                  const std::vector<float>&,    // m3v
                                  const std::vector<float>&,    // m3w
-                                 const std::vector<int>&,      // status
+                                 const std::vector<short>&,      // status
                                  const std::vector<int>&,      // pid
                                  const int& REC_Particle_num)>
   RECCalorimeterPass() const;

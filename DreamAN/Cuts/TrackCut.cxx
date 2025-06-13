@@ -217,7 +217,7 @@ std::function<std::vector<int>(const std::vector<int16_t>&,  // index
                                const std::vector<float>&,    // m3u
                                const std::vector<float>&,    // m3v
                                const std::vector<float>&,    // m3w
-                               const std::vector<int>&,      // status
+                               const std::vector<short>&,      // status
                                const std::vector<int>&,      // pid
                                const int& REC_Particle_num)>
 TrackCut::RECCalorimeterPass() const {
@@ -226,7 +226,7 @@ TrackCut::RECCalorimeterPass() const {
                 const std::vector<float>& x, const std::vector<float>& y, const std::vector<float>& z, const std::vector<float>& hx, const std::vector<float>& hy,
                 const std::vector<float>& hz, const std::vector<float>& lu, const std::vector<float>& lv, const std::vector<float>& lw, const std::vector<float>& du,
                 const std::vector<float>& dv, const std::vector<float>& dw, const std::vector<float>& m2u, const std::vector<float>& m2v, const std::vector<float>& m2w,
-                const std::vector<float>& m3u, const std::vector<float>& m3v, const std::vector<float>& m3w, const std::vector<int>& status, const std::vector<int>& pid,
+                const std::vector<float>& m3u, const std::vector<float>& m3v, const std::vector<float>& m3w, const std::vector<short>& status, const std::vector<int>& pid,
                 const int& REC_Particle_num) -> std::vector<int> {
     // Initialize return_values with size REC_Particle_num and default value 9999.0
     std::vector<int> return_values(REC_Particle_num, 1);
