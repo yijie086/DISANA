@@ -24,7 +24,7 @@
 
 class DVCSAnalysis : public AnalysisTask {
  public:
-  DVCSAnalysis();
+  DVCSAnalysis(bool IsMC = false, bool IsReproc = false);
   virtual ~DVCSAnalysis();
 
   void UserCreateOutputObjects() override;
@@ -43,6 +43,8 @@ class DVCSAnalysis : public AnalysisTask {
   void SetOutputDir(const std::string &dir) override;
 
  private:
+  bool IsMC = false;
+  bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   std::optional<ROOT::RDF::RNode> dfSelected;
   std::optional<ROOT::RDF::RNode> dfSelected_after;  // DataFrame after fiducial cuts

@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 
+
 class AnalysisTaskManager; // forward declare
 
 class AnalysisTask {
@@ -25,6 +26,15 @@ public:
     // New virtual method to receive output file pointer
     virtual void SetOutputFile(TFile* file) {}
     virtual void SetOutputDir(const std::string& dir) {}
+    template <typename Lambda>
+    ROOT::RDF::RNode DefineOrRedefine(ROOT::RDF::RNode df, const std::string& name, Lambda&& lambda,
+                                  const std::vector<std::string>& columns,
+                                  const std::vector<std::string>& existingCols) {
+    if (std::find(existingCols.begin(), existingCols.end(), name) != existingCols.end()) {
+        return df.Redefine(name, std::forward<Lambda>(lambda), columns);
+    }
+    return df.Define(name, std::forward<Lambda>(lambda), columns);
+}
 
 protected:
     AnalysisTaskManager* fTaskManager = nullptr;

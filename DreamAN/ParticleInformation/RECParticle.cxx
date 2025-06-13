@@ -33,12 +33,12 @@ const std::vector<std::string>& RECParticle::Extend() {
 }
 
 
-std::function<std::vector<float>(const std::vector<float>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&, const std::vector<int>&)> 
+std::function<std::vector<float>(const std::vector<float>&, const std::vector<int>&, const std::vector<short>&, const std::vector<float>&, const std::vector<int>&)> 
 get_RECParticle_float_var(int target_pid, int target_charge) {
-    return [target_pid, target_charge](const std::vector<float>& var, const std::vector<int>& pid, const std::vector<int>& charge, const std::vector<float>& p, const std::vector<int>& trackpass) {
+    return [target_pid, target_charge](const std::vector<float>& var, const std::vector<int>& pid, const std::vector<short>& charge, const std::vector<float>& p, const std::vector<int>& trackpass) {
         std::vector<float> out;
         for (size_t i = 0; i < pid.size(); ++i) {
-            if (pid[i] == target_pid && static_cast<int8_t>(charge[i])==target_charge && p[i] > 0.02 && trackpass[i] == 1) {
+            if (pid[i] == target_pid && charge[i]==target_charge && p[i] > 0.02 && trackpass[i] == 1) {
                 out.push_back(var[i]);
             }
         }
@@ -46,12 +46,12 @@ get_RECParticle_float_var(int target_pid, int target_charge) {
     };
 }
 
-std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const std::vector<int>&, const std::vector<float>&, const std::vector<int>&)> 
+std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&, const std::vector<short>&, const std::vector<float>&, const std::vector<int>&)> 
 get_RECParticle_int_var(int target_pid, int target_charge) {
-    return [target_pid, target_charge](const std::vector<int>& var, const std::vector<int>& pid, const std::vector<int>& charge, const std::vector<float>& p, const std::vector<int>& trackpass) {
+    return [target_pid, target_charge](const std::vector<int>& var, const std::vector<int>& pid, const std::vector<short>& charge, const std::vector<float>& p, const std::vector<int>& trackpass) {
         std::vector<int> out;
         for (size_t i = 0; i < pid.size(); ++i) {
-            if (pid[i] == target_pid && static_cast<int8_t>(charge[i])==target_charge && p[i] > 0.02 && trackpass[i] == 1) {
+            if (pid[i] == target_pid && charge[i]==target_charge && p[i] > 0.02 && trackpass[i] == 1) {
                 out.push_back(var[i]);
             }
         }

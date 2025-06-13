@@ -12,10 +12,10 @@ RECStoreType RECParticletheta() {
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> theta_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -35,10 +35,10 @@ RECStoreType RECParticlephi() {
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> phi_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -61,10 +61,10 @@ RECStoreType RECParticleP(){
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> p_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -84,10 +84,10 @@ RECStoreType EventQ2(float E, int target_pid, int target_charge) {
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> Q2_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -112,10 +112,10 @@ RECStoreType EventxB(float E, int target_pid, int target_charge, float target_ma
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> xB_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -140,10 +140,10 @@ RECStoreType EventNu(float E, int target_pid, int target_charge) {
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> nu_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -168,10 +168,10 @@ RECStoreType EventW(float E, int target_pid, int target_charge, float target_mas
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> W_values;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -196,10 +196,10 @@ RECStoreType Eventmt(float E, int target_pid, int target_charge, float target_ma
               const std::vector<float>& vy,
               const std::vector<float>& vz,
               const std::vector<float>& vt,
-              const std::vector<int>& charge,
+              const std::vector<short>& charge,
               const std::vector<float>& beta,
               const std::vector<float>& chi2pid,
-              const std::vector<int>& status) -> std::vector<float> {
+              const std::vector<short>& status) -> std::vector<float> {
         
         std::vector<float> t_values;
         for (size_t i = 0; i < pid.size(); ++i) {

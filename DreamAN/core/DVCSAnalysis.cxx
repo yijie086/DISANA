@@ -5,7 +5,7 @@
 
 #include "AnalysisTaskManager.h"
 
-DVCSAnalysis::DVCSAnalysis() : fHistPhotonP(nullptr), fOutFile(nullptr) {}
+DVCSAnalysis::DVCSAnalysis(bool IsMC, bool IsReproc) : IsMC(IsMC), IsReproc(IsReproc), fHistPhotonP(nullptr), fOutFile(nullptr) {}
 DVCSAnalysis::~DVCSAnalysis() {}
 
 void DVCSAnalysis::UserCreateOutputObjects() {}
@@ -29,60 +29,48 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
     std::cout << std::endl;
   }
 
-  // ----------------------------
-  // Define basic new columns
-  // ----------------------------
-bool IsMC = true;
-  auto dfDefs = df.Define(
-                      "REC_Particle_num", [](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, std::vector<std::string>{"REC_Particle_pid"})
-                    .Define("REC_Particle_theta", RECParticletheta(), RECParticle::All())
-                    .Define("REC_Particle_phi", RECParticlephi(), RECParticle::All())
-                    .Define("REC_Particle_p", RECParticleP(), RECParticle::All())
-                    .Define("REC_Event_Q2", EventQ2(fbeam_energy, 11, -1), RECParticle::All())
-                    .Define("REC_Event_xB", EventxB(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All())
-                    .Define("REC_Event_Nu", EventNu(fbeam_energy, 11, -1), RECParticle::All())
-                    .Define("REC_Event_W", EventW(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All())
-                    .Define("REC_Event_mt", Eventmt(fbeam_energy, 2212, 1, getParticleMass(2212)), RECParticle::All());
+  // Cache column names
+  auto colnames = df.GetColumnNames();
+  auto dfDefs = df;
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_num", [](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, {"REC_Particle_pid"}, colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi", RECParticlephi(), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_p", RECParticleP(), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Q2", EventQ2(fbeam_energy, 11, -1), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_xB", EventxB(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Nu", EventNu(fbeam_energy, 11, -1), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_W", EventW(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_mt", Eventmt(fbeam_energy, 2212, 1, getParticleMass(2212)), RECParticle::All(), colnames);
 
   if (IsMC) {
-    dfDefs = dfDefs.Define("REC_Particle_phi_1", RECParticlephi(), RECParticle::All());
+    dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi_1", RECParticlephi(), RECParticle::All(), colnames);
   }
 
-  
+  // Fiducial cuts
+  auto dfDefsWithTraj = dfDefs;
+  auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  auto caloCols = CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
 
-  // ----------------------------
-  // Define both pass columns for the fiducial cuts
-  // ----------------------------
-  auto dfDefsWithTraj = dfDefs
-                            .Define("REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(),
-                                    CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
-                            .Define("REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(),
-                                    CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
-                            .Define("REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(),
-                                    CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"}))
-                            .Define("REC_Track_pass_fid", Columns::LogicalAND2(), CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}));
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols, colnames);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(), trajCols, colnames);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(), caloCols, colnames);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", Columns::LogicalAND2(),
+                                    CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}), colnames);
 
   auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
-  
-  
-  // ----------------------------
+
   // Before fiducial cut
-  // ----------------------------
   auto dfBefore = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_track_nofid).Filter(*fTrackCutsPhoton, cols_track_nofid).Filter(*fTrackCutsProton, cols_track_nofid);
 
   dfSelected = dfBefore;
 
-  // ----------------------------
   // After fiducial cut
-  // ----------------------------
   if (fFiducialCut) {
     auto dfAfter = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_track_fid).Filter(*fTrackCutsPhoton, cols_track_fid).Filter(*fTrackCutsProton, cols_track_fid);
-
     dfSelected_after = dfAfter;
   }
 }
-
 void DVCSAnalysis::SaveOutput() {
   if (!fOutFile || fOutFile->IsZombie()) {
     std::cerr << "DVCSAnalysis::SaveOutput: No valid output file!" << std::endl;
@@ -94,13 +82,16 @@ void DVCSAnalysis::SaveOutput() {
     return;
   }
 
-  dfSelected->Snapshot("dfSelected_before", Form("%s/%s", fOutputDir.c_str(), "dfSelected_before_fiducialCuts.root"));
-
+  if (!IsReproc) dfSelected->Snapshot("dfSelected_before", Form("%s/%s", fOutputDir.c_str(), "dfSelected_before_fiducialCuts.root"));
   if (fFiducialCut && dfSelected_after.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
     std::cout << "Events before fiducial: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events after fiducial: " << dfSelected_after->Count().GetValue() << std::endl;
-    dfSelected_after->Snapshot("dfSelected_after", Form("%s/%s", fOutputDir.c_str(), "dfSelected_after_fiducialCuts.root"));
+    if (IsReproc && dfSelected_after.has_value()) {
+      dfSelected_after->Snapshot("dfSelected_after_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_after_fiducialCuts_reprocessed.root"));
+    } else {
+      dfSelected_after->Snapshot("dfSelected_after", Form("%s/%s", fOutputDir.c_str(), "dfSelected_after_fiducialCuts.root"));
+    }
   }
 
   fOutFile->cd();
