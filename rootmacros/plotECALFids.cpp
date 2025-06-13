@@ -838,7 +838,8 @@ void DrawECOUTFromFile(
 void plotECALFids() {
 
   //std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/";
-  std::string input_path_from_analysisRun = "./../build/";
+  std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterCalorimeterCuts/";
+  //std::string input_path_from_analysisRun = "./../build/";
   std::string filename_after = Form("%s/dfSelected_after_fiducialCuts.root", input_path_from_analysisRun.c_str());
   std::string filename_before = Form("%s/dfSelected_before_fiducialCuts.root", input_path_from_analysisRun.c_str());
 

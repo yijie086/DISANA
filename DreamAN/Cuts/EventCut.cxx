@@ -51,14 +51,14 @@ void EventCut::SetPIDCountCut(int selectedPID, int minCount, int maxCount) {
 EventCut* EventCut::ProtonCuts() {
   EventCut* cuts = new EventCut();
   cuts->SetChargeCut(1);
-  cuts->SetPIDCountCut(2212, 1, 1); // at this place you may take just one electron which is first in the list
+  cuts->SetPIDCountCut(2212, 1, 10); // at this place you may take just one electron which is first in the list
   return cuts;
 }
 
 EventCut* EventCut::ElectronCuts() {
   EventCut* cuts = new EventCut();
   cuts->SetChargeCut(-1);
-  cuts->SetPIDCountCut(11, 1, 999); // at this place you may choose all protons
+  cuts->SetPIDCountCut(11, 1, 99); // at this place you may choose all protons
   return cuts;
 }
 
@@ -73,37 +73,32 @@ EventCut* EventCut::PhotonCuts() {
 bool EventCut::operator()(const std::vector<int>& pid, const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz, const std::vector<float>& vx,
                           const std::vector<float>& vy, const std::vector<float>& vz, const std::vector<float>& vt, const std::vector<int>& charge, const std::vector<float>& beta,
                           const std::vector<float>& chi2pid, const std::vector<int>& status, const std::vector<int>& REC_Track_pass_fid) const {
-  int pidCount = 0;      // Count the number of target PIDs
-  bool selected = true;  // Whether the target PID is selected
-
+  int pidCount = 0;
   for (size_t i = 0; i < pid.size(); ++i) {
-    // Count the number of target PIDs
-    if (pid[i] == fSelectedPID && std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) > 0.01 && (static_cast<int8_t>(charge[i]) == fCharge) &&
-      REC_Track_pass_fid[i] == 1 && IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID)) {
-      pidCount++;
-      float momentum = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
-      float theta = std::atan2(std::sqrt(px[i] * px[i] + py[i] * py[i]), pz[i]);
-      float phi = std::atan2(py[i], px[i]);
-      if (phi < 0) {
-        phi += 2 * M_PI;
-      }
+    // Skip trivial momentum
+    const float px_i = px[i], py_i = py[i], pz_i = pz[i];
+    const float px2py2 = px_i * px_i + py_i * py_i;
+    const float p2 = px2py2 + pz_i * pz_i;
 
-      bool passMomentum = IsInRange(momentum, fMinMomentum, fMaxMomentum);
-      bool passTheta = IsInRange(theta, fMinTheta, fMaxTheta);
-      bool passPhi = IsInRange(phi, fMinPhi, fMaxPhi);
-      bool passVz = IsInRange(vz[i], fMinVz, fMaxVz);
+    if (p2 < 1e-4f) continue; // Equivalent to momentum < 0.01
 
-      if (!(passMomentum && passTheta && passPhi && passVz)) {
-        selected = false;
-        // std::cout << "Event rejected " << std::endl;
-        //  std::cout << "edgeOk" << edgeOk << "EdgeCut: " << edgeCut << " EdgeVal: " << edgeVal <<"region number: "<<region<< std::endl;
-      }
+    if (pid[i] != fSelectedPID || static_cast<int8_t>(charge[i]) != fCharge || REC_Track_pass_fid[i] != 1 || !IsInRange(chi2pid[i], fMinChi2PID, fMaxChi2PID))
+      continue;
+
+    const float momentum = std::sqrt(p2);
+    const float theta = std::atan2(std::sqrt(px2py2), pz_i);
+    float phi = std::atan2(py_i, px_i);
+    if (phi < 0) phi += 2 * M_PI;
+
+    if (!(IsInRange(momentum, fMinMomentum, fMaxMomentum) &&
+          IsInRange(theta, fMinTheta, fMaxTheta) &&
+          IsInRange(phi, fMinPhi, fMaxPhi) &&
+          IsInRange(vz[i], fMinVz, fMaxVz))) {
+      return false;  // Reject immediately on any kinematic failure
     }
+
+    ++pidCount;
   }
-  // Check if the number of target PIDs is within the range
-  if (IsInRange(pidCount, fMinPIDCount, fMaxPIDCount) && selected) {
-    // std::cout << "Event selected!" << std::endl;
-    return true;
-  }
-  return false;
+
+  return IsInRange(pidCount, fMinPIDCount, fMaxPIDCount);
 }
