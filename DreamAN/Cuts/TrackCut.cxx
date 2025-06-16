@@ -14,7 +14,9 @@ TrackCut::TrackCut(const TrackCut& other) {
   this->fselectSector = other.fselectSector;
   this->fSector = other.fSector;
   this->fSectors = other.fSectors;
-  this->IsDoFiducial = other.IsDoFiducial;
+  this->fDoFiducialCut = other.fDoFiducialCut;
+  this->fDoDCFiducial = other.fDoDCFiducial;
+  this->fDoECALFiducial = other.fDoECALFiducial;
 
   // Also copy other necessary cuts if needed
   this->fMinX = other.fMinX;
@@ -159,7 +161,7 @@ TrackCut::RECTrajPass() const {
     std::vector<int> pass_values(REC_Particle_num, 1);
     for (size_t i = 0; i < pindex.size(); ++i) {
       if (detector[i] == 6) {  // DC
-        if (IsDoFiducial) {
+        if (fDoFiducialCut) {
           int region = 0;
           int absLayer = std::abs(layer[i]);
           if (absLayer == 6)
@@ -239,7 +241,7 @@ TrackCut::RECCalorimeterPass() const {
 
     for (size_t i = 0; i < pindex.size(); ++i) {
       if (detector[i] == 7) {
-        if (IsDoFiducial) {
+        if (fDoFiducialCut) {
           const std::map<int, std::map<int, FiducialCut3D>>* cutMap = nullptr;
           if (layer[i] == 1)
             cutMap = &fFiducialCutsPCal;
@@ -267,5 +269,120 @@ TrackCut::RECCalorimeterPass() const {
       }
     }
     return return_values;
+  };
+}
+std::function<std::vector<int>(
+    const std::vector<int16_t>& traj_pindex,
+    const std::vector<int16_t>& traj_index,
+    const std::vector<int16_t>& traj_detector,
+    const std::vector<int16_t>& traj_layer,
+    const std::vector<float>& x, const std::vector<float>& y,
+    const std::vector<float>& z, const std::vector<float>& cx,
+    const std::vector<float>& cy, const std::vector<float>& cz,
+    const std::vector<float>& path, const std::vector<float>& traj_edge,
+    const std::vector<int16_t>& calo_pindex, const std::vector<int16_t>& calo_index,
+    const std::vector<int16_t>& calo_detector, const std::vector<int16_t>& calo_sector,
+    const std::vector<int16_t>& calo_layer, const std::vector<float>& calo_energy,
+    const std::vector<float>& calo_time, const std::vector<float>& calo_path,
+    const std::vector<float>& calo_chi2, const std::vector<float>& calo_x,
+    const std::vector<float>& calo_y, const std::vector<float>& calo_z,
+    const std::vector<float>& calo_hx, const std::vector<float>& calo_hy,
+    const std::vector<float>& calo_hz, const std::vector<float>& calo_lu,
+    const std::vector<float>& calo_lv, const std::vector<float>& calo_lw,
+    const std::vector<float>& calo_du, const std::vector<float>& calo_dv,
+    const std::vector<float>& calo_dw, const std::vector<float>& calo_m2u,
+    const std::vector<float>& calo_m2v, const std::vector<float>& calo_m2w,
+    const std::vector<float>& calo_m3u, const std::vector<float>& calo_m3v,
+    const std::vector<float>& calo_m3w, const std::vector<short>& calo_status,
+    const std::vector<int>& pid, const int& REC_Particle_num)>
+TrackCut::RECFiducialPass() const {
+  return [this](
+      const std::vector<int16_t>& traj_pindex,
+      const std::vector<int16_t>& traj_index,
+      const std::vector<int16_t>& traj_detector,
+      const std::vector<int16_t>& traj_layer,
+      const std::vector<float>& x, const std::vector<float>& y,
+      const std::vector<float>& z, const std::vector<float>& cx,
+      const std::vector<float>& cy, const std::vector<float>& cz,
+      const std::vector<float>& path, const std::vector<float>& traj_edge,
+      const std::vector<int16_t>& calo_pindex, const std::vector<int16_t>& calo_index,
+      const std::vector<int16_t>& calo_detector, const std::vector<int16_t>& calo_sector,
+      const std::vector<int16_t>& calo_layer, const std::vector<float>& calo_energy,
+      const std::vector<float>& calo_time, const std::vector<float>& calo_path,
+      const std::vector<float>& calo_chi2, const std::vector<float>& calo_x,
+      const std::vector<float>& calo_y, const std::vector<float>& calo_z,
+      const std::vector<float>& calo_hx, const std::vector<float>& calo_hy,
+      const std::vector<float>& calo_hz, const std::vector<float>& calo_lu,
+      const std::vector<float>& calo_lv, const std::vector<float>& calo_lw,
+      const std::vector<float>& calo_du, const std::vector<float>& calo_dv,
+      const std::vector<float>& calo_dw, const std::vector<float>& calo_m2u,
+      const std::vector<float>& calo_m2v, const std::vector<float>& calo_m2w,
+      const std::vector<float>& calo_m3u, const std::vector<float>& calo_m3v,
+      const std::vector<float>& calo_m3w, const std::vector<short>& calo_status,
+      const std::vector<int>& pid, const int& REC_Particle_num) -> std::vector<int> {
+
+    std::vector<int> result(REC_Particle_num, 1);
+    //std::cout << "traj_pindex.size() " << result.size() << "calo_pindex.size() " << calo_pindex.size() << std::endl;
+
+    auto isExcluded = [](float val, const FiducialAxisCut& cut) -> bool {
+      for (const auto& range : cut.excludedRanges) {
+        if (val >= range.first && val <= range.second) return true;
+      }
+      return cut.excludedStrips.find(val) != cut.excludedStrips.end();
+    };
+
+    // === DC (TRAJ) cuts ===
+    for (size_t i = 0; i < traj_pindex.size(); ++i) {
+      if (!fDoDCFiducial || traj_detector[i] != 6) continue;
+      if (traj_pindex[i] < 0 || traj_pindex[i] >= static_cast<int>(pid.size())) continue;
+
+      int region = 0;
+      int absLayer = std::abs(traj_layer[i]);
+      if (absLayer == 6) region = 1;
+      else if (absLayer == 18) region = 2;
+      else if (absLayer == 36) region = 3;
+      else continue;
+
+      int pid_i = pid[traj_pindex[i]];
+      auto it = fDCEdgeCutsPerPID.find(pid_i);
+      if (it != fDCEdgeCutsPerPID.end()) {
+        float edgeCut = it->second[region - 1];
+        if (traj_edge[i] <= edgeCut) {
+          result[traj_pindex[i]] = 0;
+        }
+      }
+    }
+ 
+    // === ECAL (CALO) cuts ===
+    for (size_t i = 0; i < calo_pindex.size(); ++i) {
+      if (!fDoECALFiducial || calo_detector[i] != 7) continue;
+      if (calo_pindex[i] < 0 || calo_pindex[i] >= static_cast<int>(pid.size())) continue;
+
+      const std::map<int, std::map<int, FiducialCut3D>>* cutMap = nullptr;
+      if (calo_layer[i] == 1)
+        cutMap = &fFiducialCutsPCal;
+      else if (calo_layer[i] == 4)
+        cutMap = &fFiducialCutsECin;
+      else if (calo_layer[i] == 7)
+        cutMap = &fFiducialCutsECout;
+      else
+        continue;
+
+      int pid_i = pid[calo_pindex[i]];
+      auto pidMapIt = cutMap->find(pid_i);
+      if (pidMapIt != cutMap->end()) {
+        auto sectorIt = pidMapIt->second.find(calo_sector[i]);
+        if (sectorIt != pidMapIt->second.end()) {
+          const auto& cut = sectorIt->second;
+          if (isExcluded(calo_lu[i], cut.luCut) ||
+              isExcluded(calo_lv[i], cut.lvCut) ||
+              isExcluded(calo_lw[i], cut.lwCut)) {
+            result[calo_pindex[i]] = 0;
+          }
+        }
+      }
+    }
+
+    return result;
   };
 }

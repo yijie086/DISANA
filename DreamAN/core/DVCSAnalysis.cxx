@@ -20,6 +20,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);
   fTrackCutsWithFid = std::make_shared<TrackCut>(*fTrackCuts);
   fTrackCutsWithFid->SetDoFiducialCut(true);
+  fTrackCutsWithFid->SetFiducialCutOptions(true, true);  // apply both DC and ECAL cuts
 
   // Debug check
   std::cout << "Using PID-specific edge cuts (R1, R2, R3):" << std::endl;
@@ -48,7 +49,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
 
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
-  auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  /*auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
   auto caloCols = CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
 
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols, colnames);
@@ -56,6 +57,12 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(), caloCols, colnames);
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", Columns::LogicalAND2(),
                                     CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}), colnames);
+  auto AllCols = CombineColumns(trajCols, caloCols);
+  */
+  
+  auto AllCols = CombineColumns(RECTraj::All(), RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", fTrackCutsWithFid->RECFiducialPass(), AllCols, colnames);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECFiducialPass(), AllCols, colnames);
 
   auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
