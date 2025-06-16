@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <limits>
 #include <type_traits>
+#include <functional>
 
 class Columns {
  public:
@@ -13,7 +14,12 @@ class Columns {
   static std::function<std::vector<int>(const std::vector<int>&, const std::vector<int>&)> LogicalAND2();
 };
 
-// CombineColumns 函数声明
+// CombineColumns: Merges multiple std::vector<std::string> into one
 template <typename... Args>
-std::vector<std::string> CombineColumns(const Args&... vectors);
+std::vector<std::string> CombineColumns(const Args&... vectors) {
+  std::vector<std::string> combined;
+  (combined.insert(combined.end(), vectors.begin(), vectors.end()), ...);
+  return combined;
+}
+
 #endif // COLUMNS_H_

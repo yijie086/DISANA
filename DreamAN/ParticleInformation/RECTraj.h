@@ -8,6 +8,8 @@
 struct RECTraj {
     static const std::vector<std::string>& All();
     static const std::vector<std::string>& Extend();
+        // Minimal set needed for matching to REC::Particle
+    static const std::vector<std::string>& ForFiducialCut();
 
     using AllTypes = std::tuple<
         const std::vector<int>&,      // pindex

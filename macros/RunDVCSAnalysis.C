@@ -7,7 +7,7 @@
 void RunDVCSAnalysis(const std::string& inputDir) {
 
   bool IsMC = false;  // Set to true if you want to run on MC data
-  bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
+  bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   std::string inputFileDir = inputDir;
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";

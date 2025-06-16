@@ -29,6 +29,16 @@ const std::vector<std::string>& RECTraj::Extend() {
     }();
     return extended;
 }
+const std::vector<std::string>& RECTraj::ForFiducialCut() {
+    static const std::vector<std::string> minimal = {
+        "REC_Traj_pindex",     // maps to pindex
+        "REC_Traj_index",      // maps to index
+        "REC_Traj_detector",   // maps to detector
+        "REC_Traj_layer",      // used twice: layer + dc_layer
+        "REC_Traj_edge"        // maps to edge
+    };
+    return minimal;
+}
 
 // RECTrajX 函数实现
 std::function<std::vector<float>(const std::vector<int16_t>& pindex,
@@ -58,7 +68,6 @@ std::function<std::vector<float>(const std::vector<int16_t>& pindex,
                   const std::vector<float>& path,
                   const std::vector<float>& edge,
                   const int& REC_Particle_num) -> std::vector<float> {
-        // 初始化 pass_values，大小为 REC_Particle_num，默认所有粒子9999为没有hit
         std::vector<float> return_values(REC_Particle_num, 9999);
         if (xyz == 1){
             for (size_t i = 0; i < pindex.size(); ++i) {

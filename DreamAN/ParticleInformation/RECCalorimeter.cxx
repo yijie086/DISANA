@@ -36,6 +36,36 @@ const std::vector<std::string>& RECCalorimeter::All() {
     };
     return names;
 }
+const std::vector<std::string>& RECCalorimeter::ForFiducialCut() {
+    static const std::vector<std::string> minimal = {
+        "REC_Calorimeter_sector",  // sector
+        "REC_Calorimeter_energy",
+        "REC_Calorimeter_time",
+        "REC_Calorimeter_path",
+        "REC_Calorimeter_chi2",
+        "REC_Calorimeter_x",
+        "REC_Calorimeter_y",
+        "REC_Calorimeter_z",
+        "REC_Calorimeter_hx",
+        "REC_Calorimeter_hy",
+        "REC_Calorimeter_hz",
+        "REC_Calorimeter_lu",
+        "REC_Calorimeter_lv",
+        "REC_Calorimeter_lw",
+        "REC_Calorimeter_du",
+        "REC_Calorimeter_dv",
+        "REC_Calorimeter_dw",
+        "REC_Calorimeter_m2u",
+        "REC_Calorimeter_m2v",
+        "REC_Calorimeter_m2w",
+        "REC_Calorimeter_m3u",
+        "REC_Calorimeter_m3v",
+        "REC_Calorimeter_m3w",
+        "REC_Calorimeter_status"
+    };
+    return minimal;
+}
+
 
 std::function<std::vector<float>(const std::vector<int16_t>&,      // index
                                  const std::vector<int16_t>&,      // pindex

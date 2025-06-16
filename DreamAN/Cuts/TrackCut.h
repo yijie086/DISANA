@@ -31,7 +31,11 @@ class TrackCut {
   void SetDCEdgeCut(float minEdge, float maxEdge);
   void SetECALEdgeCut(float minEdge, float maxEdge);
   void SetSectorCut_Bhawani(const std::vector<int>& sectors, int selectpid, int selectdetector, bool selectSector);
-  void SetDoFiducialCut(bool isFiducial) { IsDoFiducial = isFiducial; }
+  void SetDoFiducialCut(bool isFiducial) { fDoFiducialCut = isFiducial; }
+  void SetFiducialCutOptions(bool doDC, bool doECAL) {
+    fDoDCFiducial = doDC;
+    fDoECALFiducial = doECAL;
+  }
   void SetDCEdgeCut(float minTheta, float maxTheta, int dcRegion, float edgeCut);
   void SetThetaBins(const std::vector<std::pair<float, float>>& thetaBins);
   void SetDCEdgeCuts(int pid, const std::vector<float>& edgeCutsPerRegion);
@@ -44,9 +48,19 @@ class TrackCut {
                   const std::vector<float>& cz, const std::vector<float>& path, const std::vector<float>& edge) const;
 
   // DC filter function
-  std::function<std::vector<int>(const std::vector<int16_t>& pindex, const std::vector<int16_t>& index, const std::vector<int16_t>& detector, const std::vector<int16_t>& layer,
-                                 const std::vector<float>& x, const std::vector<float>& y, const std::vector<float>& z, const std::vector<float>& cx, const std::vector<float>& cy,
-                                 const std::vector<float>& cz, const std::vector<float>& path, const std::vector<float>& edge, const std::vector<int>& pid,
+  std::function<std::vector<int>(const std::vector<int16_t>& pindex, 
+                                 const std::vector<int16_t>& index, 
+                                 const std::vector<int16_t>& detector, 
+                                 const std::vector<int16_t>& layer,
+                                 const std::vector<float>& x, 
+                                 const std::vector<float>& y, 
+                                 const std::vector<float>& z, 
+                                 const std::vector<float>& cx, 
+                                 const std::vector<float>& cy,
+                                 const std::vector<float>& cz, 
+                                 const std::vector<float>& path, 
+                                 const std::vector<float>& edge, 
+                                 const std::vector<int>& pid,
                                  const int& REC_Particle_num)>
   RECTrajPass() const;
 
@@ -82,7 +96,57 @@ class TrackCut {
                                  const std::vector<int>&,      // pid
                                  const int& REC_Particle_num)>
   RECCalorimeterPass() const;
-
+// Fiducial filter function combined DC and Calorimeter
+  // This function will apply the fiducial cuts for both DC and Calorimeter
+  // It will return a vector of integers indicating whether each track passes the fiducial cuts
+  // The vector will have the same size as the number of particles in the event
+  // A value of 1 indicates that the track passes the fiducial cuts, while a value of 0 indicates that it does not pass
+std::function<std::vector<int>(
+    // RECTraj
+    const std::vector<int16_t>& traj_pindex,
+    const std::vector<int16_t>& traj_index,
+    const std::vector<int16_t>& traj_detector,
+    const std::vector<int16_t>& traj_layer,
+    const std::vector<float>& x, 
+    const std::vector<float>& y, 
+    const std::vector<float>& z, 
+    const std::vector<float>& cx, 
+    const std::vector<float>& cy,
+    const std::vector<float>& cz, 
+    const std::vector<float>& path,
+    const std::vector<float>& traj_edge,
+    // RECCalorimeter
+    const std::vector<int16_t>& calo_pindex,
+    const std::vector<int16_t>& calo_index,
+    const std::vector<int16_t>& calo_detector,
+    const std::vector<int16_t>& calo_sector,
+    const std::vector<int16_t>& calo_layer,
+    const std::vector<float>& calo_energy,
+    const std::vector<float>& calo_time,
+    const std::vector<float>& calo_path,
+    const std::vector<float>& calo_chi2,
+    const std::vector<float>& calo_x,
+    const std::vector<float>& calo_y,
+    const std::vector<float>& calo_z,
+    const std::vector<float>& calo_hx,
+    const std::vector<float>& calo_hy,
+    const std::vector<float>& calo_hz,
+    const std::vector<float>& calo_lu,
+    const std::vector<float>& calo_lv,
+    const std::vector<float>& calo_lw,
+    const std::vector<float>& calo_du,
+    const std::vector<float>& calo_dv,
+    const std::vector<float>& calo_dw,
+    const std::vector<float>& calo_m2u,
+    const std::vector<float>& calo_m2v,
+    const std::vector<float>& calo_m2w,
+    const std::vector<float>& calo_m3u,
+    const std::vector<float>& calo_m3v,
+    const std::vector<float>& calo_m3w,
+    const std::vector<short>& calo_status,
+    const std::vector<int>& pid,
+    const int& REC_Particle_num)>
+    RECFiducialPass() const;
   // ===== New sector-specific fiducial setters =====
 void AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECinFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
@@ -91,7 +155,9 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
 
  private:
   bool fselectSector = false;
-  bool IsDoFiducial = false;
+  bool fDoFiducialCut = false;
+  bool fDoDCFiducial = false;
+  bool fDoECALFiducial = false;
 
   struct FiducialAxisCut {
     std::vector<std::pair<float, float>> excludedRanges;

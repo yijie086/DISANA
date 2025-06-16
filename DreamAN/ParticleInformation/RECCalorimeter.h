@@ -8,6 +8,8 @@
 struct RECCalorimeter {
     static const std::vector<std::string>& All();
     static const std::vector<std::string>& Extend();
+        // Minimal required for fiducial cuts
+    static const std::vector<std::string>& ForFiducialCut();
 
     using AllTypes = std::tuple<
         const std::vector<int16_t>&,      // index
