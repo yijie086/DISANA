@@ -56,7 +56,7 @@ void DrawDriftChamberRegionsFromFile(
                   
                   return out;
                 },
-                {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_x", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge", "REC_Track_pass_nofid"})
+                {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_x", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge", "REC_Track_pass_fid"})
           .Define("yR1",
                   [selectedPid](const ROOT::VecOps::RVec<short> &det,
                      const ROOT::VecOps::RVec<short> &layer,
@@ -73,7 +73,7 @@ void DrawDriftChamberRegionsFromFile(
                         out.push_back(y[i]);
                     return out;
                   },
-                  {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_y", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge", "REC_Track_pass_nofid"});
+                  {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_y", "REC_Particle_p", "REC_Traj_pindex","REC_Particle_pid","REC_Particle_charge", "REC_Track_pass_fid"});
 
   auto dfR2 =
       df.Define("xR2",

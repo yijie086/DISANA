@@ -20,13 +20,15 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   }
   // If you are reprocossing the existing output you may want to change the path and ttree name if you are using a different ROOT file
   if (IsreprocRootFile) {
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
+    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
+    inputFileDir = "./";
     inputRootFileName = "dfSelected_before_fiducialCuts.root";
     inputRootTreeName = "dfSelected_before";
   }
 
   AnalysisTaskManager mgr;
-  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/");
+  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/");
+  mgr.SetOututDir("./");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/");
 
   // fiducial cuts///
@@ -39,9 +41,32 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   // defined here the DC edge cuts for electron and proton
   auto edge_regions_e = std::vector<float>{3.0f, 3.0f, 10.0f};
   auto edge_regions_p = std::vector<float>{3.0f, 3.0f, 5.0f};
+  //auto CVT_edge_layers_p = std::vector<float>{-100.0f, -100.0f, -100.0f, -100.0f, -100.0f};  // CVT edge cuts for test
+  auto CVT_edge_layers_p = std::vector<float>{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};  // CVT edge cuts for protons
 
   trackCuts->SetDCEdgeCuts(11, edge_regions_e);    // DC edge cuts for electrons
   trackCuts->SetDCEdgeCuts(2212, edge_regions_p);  // DC edge cuts for protons
+  trackCuts->SetCVTEdgeCuts(2212, CVT_edge_layers_p);  // CVT edge cuts for protons
+
+  trackCuts->AddCVTFiducialRange(2212, 1, "phi", -110.0, -100.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 1, "phi", 10.0, 20.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 1, "phi", 140.0, 150.0);  // Electron CVT fiducial cuts
+
+  trackCuts->AddCVTFiducialRange(2212, 3, "phi", -108.0, -98.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 3, "phi", 12.0, 22.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 3, "phi", 140.0, 150.0);  // Electron CVT fiducial cuts
+
+  trackCuts->AddCVTFiducialRange(2212, 5, "phi", -105.0, -95.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 5, "phi", 15.0, 25.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 5, "phi", 142.0, 152.0);  // Electron CVT fiducial cuts
+
+  trackCuts->AddCVTFiducialRange(2212, 7, "phi", -102.0, -92.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 7, "phi", 18.0, 28.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 7, "phi", 145.0, 155.0);  // Electron CVT fiducial cuts
+
+  trackCuts->AddCVTFiducialRange(2212, 12, "phi", -99.0, -89.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 12, "phi", 21.0, 31.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 12, "phi", 148.0, 158.0);  // Electron CVT fiducial cuts
 
   // Cal fiducial cuts for eletron,
   // Sector 1, PCal args PID, sector, side, min, max

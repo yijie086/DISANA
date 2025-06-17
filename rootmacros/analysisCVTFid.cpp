@@ -35,15 +35,6 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
     ROOT::RDataFrame df(treename, filename);
     gStyle->SetOptStat(0);
 
-    auto df1 = df.Filter([=](const RVec<short> &det, const RVec<short> &layer,
-                             const RVec<int16_t> &pindex, const RVec<int> &pid, const RVec<int> &passFid) {
-        for (size_t i = 0; i < det.size(); ++i) {
-            int idx = pindex[i];
-            if (det[i] == selecteddetector && pid[idx] == selectedPid && passFid[idx]) return true;
-        }
-        return false;
-    }, {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
-
     std::map<std::string, TH2F*> histos;
 
     for (size_t li = 0; li < layers.size(); ++li) {
@@ -54,7 +45,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
         }
     }
 
-    df1.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                     const RVec<float> &edge, const RVec<float> &theta,
                     const RVec<float> &chi2, const RVec<int16_t> &ndf,
                     const RVec<int16_t> &pindex, const RVec<int> &pid, const RVec<int> &passFid) {
@@ -133,17 +124,7 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
     ROOT::RDataFrame df(treename, filename);
     gStyle->SetOptStat(0);
 
-    auto df_filtered = df.Filter([=](const RVec<short> &det, const RVec<short> &layer,
-                                     const RVec<int16_t> &pindex, const RVec<int> &pid,
-                                     const RVec<int> &passFid) {
-        for (size_t i = 0; i < det.size(); ++i) {
-            int idx = pindex[i];
-            if (det[i] == selecteddetector && pid[idx] == selectedPid && passFid[idx]) return true;
-        }
-        return false;
-    }, {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
-
-    auto dfWithAngles = df_filtered.Define("theta_deg", [](const RVec<float> &x, const RVec<float> &y, const RVec<float> &z) {
+    auto dfWithAngles = df.Define("theta_deg", [](const RVec<float> &x, const RVec<float> &y, const RVec<float> &z) {
                 RVec<float> theta;
                 for (size_t i = 0; i < x.size(); ++i)
                     theta.push_back(180.0 / TMath::Pi() * TMath::ACos(z[i] / sqrt(x[i]*x[i] + y[i]*y[i] + z[i]*z[i])));
@@ -166,14 +147,18 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
     }
 
     dfWithAngles.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
-                             const RVec<float> &theta_deg, const RVec<float> &phi_deg) {
+                             const RVec<float> &theta_deg, const RVec<float> &phi_deg,
+                             const RVec<int16_t> &pindex, const RVec<int> &pid,
+                             const RVec<int> &passFid) {
         for (size_t i = 0; i < det.size(); ++i) {
             if (det[i] != selecteddetector) continue;
             int lay = layer[i];
+            int idx = pindex[i];
+            if (pid[idx] != selectedPid || !passFid[idx]) continue;
             if (histos.count(lay))
                 histos[lay]->Fill(phi_deg[i], theta_deg[i]);
         }
-    }, {"REC_Traj_detector", "REC_Traj_layer", "theta_deg", "phi_deg"});
+    }, {"REC_Traj_detector", "REC_Traj_layer", "theta_deg", "phi_deg",  "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
 
     for (int layer : layers) {
         TCanvas *c = new TCanvas(Form("c_hit_layer_%d", layer), "", 2400, 2000);
@@ -191,7 +176,8 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisCVTFid() {
-    std::string path = "./../build/inclusiveproton/";
+    //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
+    std::string path = "./../build/";
     std::vector<int> layers = {1, 3, 5, 7, 12};
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -5.0};
     std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 25.0};

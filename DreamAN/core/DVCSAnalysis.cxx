@@ -13,8 +13,6 @@ void DVCSAnalysis::UserCreateOutputObjects() {}
 void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
-  int detector_investigate = 6;  // DC
-
   if (!fTrackCuts || !fTrackCutsElectron || !fTrackCutsProton || !fTrackCutsPhoton) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
 
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);
@@ -23,46 +21,55 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   fTrackCutsWithFid->SetFiducialCutOptions(true, true);  // apply both DC and ECAL cuts
 
   // Debug check
-  std::cout << "Using PID-specific edge cuts (R1, R2, R3):" << std::endl;
+  std::cout << "Using PID-specific DC edge cuts (R1, R2, R3):" << std::endl;
   for (const auto& [pid, edgeCuts] : fTrackCutsWithFid->GetEdgeCuts()) {
     std::cout << "  PID " << pid << ": ";
     for (auto e : edgeCuts) std::cout << e << " ";
     std::cout << std::endl;
   }
 
+  std::cout << "Using PID-specific CVT edge cuts (l1, l3, l5, l7, l12):" << std::endl;
+  for (const auto& [pid, edgeCuts] : fTrackCutsWithFid->GetCVTEdgeCuts()) {
+    std::cout << "  PID " << pid << ": ";
+    for (auto e : edgeCuts) std::cout << e << " ";
+    std::cout << std::endl;
+  }
+
   // Cache column names
-  auto colnames = df.GetColumnNames();
+  //auto colnames = df.GetColumnNames();
   auto dfDefs = df;
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_num", [](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, {"REC_Particle_pid"}, colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi", RECParticlephi(), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_p", RECParticleP(), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Q2", EventQ2(fbeam_energy, 11, -1), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_xB", EventxB(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Nu", EventNu(fbeam_energy, 11, -1), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_W", EventW(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All(), colnames);
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_mt", Eventmt(fbeam_energy, 2212, 1, getParticleMass(2212)), RECParticle::All(), colnames);
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_num", [](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, {"REC_Particle_pid"});
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi", RECParticlephi(), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_p", RECParticleP(), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Q2", EventQ2(fbeam_energy, 11, -1), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_xB", EventxB(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Nu", EventNu(fbeam_energy, 11, -1), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_W", EventW(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All());
+  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_mt", Eventmt(fbeam_energy, 2212, 1, getParticleMass(2212)), RECParticle::All());
 
   if (IsMC) {
-    dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi_1", RECParticlephi(), RECParticle::All(), colnames);
+    dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi_1", RECParticlephi(), RECParticle::All());
   }
 
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
-  /*auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
   auto caloCols = CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
 
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols, colnames);
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(), trajCols, colnames);
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(), caloCols, colnames);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(), trajCols);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(), caloCols);
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", Columns::LogicalAND2(),
-                                    CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}), colnames);
-  auto AllCols = CombineColumns(trajCols, caloCols);
-  */
+                                    CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}));
   
+  auto AllCols = CombineColumns(trajCols, caloCols);
+  
+  /*
   auto AllCols = CombineColumns(RECTraj::All(), RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", fTrackCutsWithFid->RECFiducialPass(), AllCols, colnames);
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECFiducialPass(), AllCols, colnames);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", fTrackCutsWithFid->RECFiducialPass(), AllCols);
+  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECFiducialPass(), AllCols);
+  */
 
   auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});

@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <TMath.h>
 
 struct FiducialAxisCut {
   std::vector<std::pair<float, float>> excludedRanges;  // e.g., {{100, 120}, {240, 260}}
@@ -40,7 +41,10 @@ class TrackCut {
   void SetThetaBins(const std::vector<std::pair<float, float>>& thetaBins);
   void SetDCEdgeCuts(int pid, const std::vector<float>& edgeCutsPerRegion);
   float GetEdgeCut(int pid, int region) const;
+  void SetCVTEdgeCuts(int pid, const std::vector<float>& edgeCutsPerLayer);
+  float GetCVTEdgeCut(int pid, int layer) const;
   const std::map<int, std::vector<float>>& GetEdgeCuts() const;
+  const std::map<int, std::vector<float>>& GetCVTEdgeCuts() const;
 
 
   bool operator()(const std::vector<int16_t>& pindex, const std::vector<int16_t>& index, const std::vector<int>& detector, const std::vector<int>& layer,
@@ -96,6 +100,8 @@ class TrackCut {
                                  const std::vector<int>&,      // pid
                                  const int& REC_Particle_num)>
   RECCalorimeterPass() const;
+
+
 // Fiducial filter function combined DC and Calorimeter
   // This function will apply the fiducial cuts for both DC and Calorimeter
   // It will return a vector of integers indicating whether each track passes the fiducial cuts
@@ -148,6 +154,7 @@ std::function<std::vector<int>(
     const int& REC_Particle_num)>
     RECFiducialPass() const;
   // ===== New sector-specific fiducial setters =====
+void AddCVTFiducialRange(int pid, int layer, const std::string& axis, float min, float max);
 void AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECinFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
@@ -170,6 +177,11 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
     FiducialAxisCut lwCut;
   };
 
+  struct FiducialCut2D_CVT {
+    FiducialAxisCut thetaCut;
+    FiducialAxisCut phiCut;
+  };
+
   float fSector = -1;
   int fselectPID = -1;
   int fselectdetector = 1000;
@@ -185,8 +197,10 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
   float fECALMinEdge = -999999, fECALMaxEdge = 999999;
   std::vector<std::pair<float, float>> fThetaBins;                   // Still used for reference or binning
   std::map<int, std::vector<float>> fDCEdgeCutsPerPID;
+  std::map<int, std::vector<float>> fCVTEdgeCutsPerPID;
 
   /// ECin ECout and PCal Fiducial cuts
+  std::map<int, std::map<int, FiducialCut2D_CVT>> fFiducialCutsCVT;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsPCal;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECin;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECout;

@@ -8,6 +8,7 @@ TrackCut::TrackCut() = default;
 TrackCut::~TrackCut() = default;
 TrackCut::TrackCut(const TrackCut& other) {
   this->fDCEdgeCutsPerPID = other.fDCEdgeCutsPerPID;
+  this->fCVTEdgeCutsPerPID = other.fCVTEdgeCutsPerPID;
   this->fThetaBins = other.fThetaBins;
   this->fselectPID = other.fselectPID;
   this->fselectdetector = other.fselectdetector;
@@ -44,6 +45,8 @@ TrackCut::TrackCut(const TrackCut& other) {
   this->fFiducialCutsPCal = other.fFiducialCutsPCal;
   this->fFiducialCutsECin = other.fFiducialCutsECin;
   this->fFiducialCutsECout = other.fFiducialCutsECout;
+
+  this->fFiducialCutsCVT = other.fFiducialCutsCVT;
 }
 
 void TrackCut::SetSectorCut(int SSector, int selectpid, int selectdetector, bool selectSector) {
@@ -108,9 +111,34 @@ void TrackCut::SetDCEdgeCuts(int pid, const std::vector<float>& edgeCutsPerRegio
 float TrackCut::GetEdgeCut(int pid, int region) const {
   auto it = fDCEdgeCutsPerPID.find(pid);
   if (it == fDCEdgeCutsPerPID.end()) {
-    throw std::runtime_error("Edge cuts not defined for PID: " + std::to_string(pid));
+    throw std::runtime_error("DC Edge cuts not defined for PID: " + std::to_string(pid));
   }
   return it->second[region - 1];
+}
+
+void TrackCut::SetCVTEdgeCuts(int pid, const std::vector<float>& edgeCutsPerLayer) {
+  if (edgeCutsPerLayer.size() != 5) {
+    throw std::runtime_error("CVT Edge cuts must have 5 values (for layers 1, 3, 5, 7, 12)");
+  }
+  fCVTEdgeCutsPerPID[pid] = edgeCutsPerLayer;
+  std::cout << "[Info] DC edge cuts for PID " << pid << ": ";
+  for (auto e : edgeCutsPerLayer) std::cout << e << " ";
+  std::cout << std::endl;
+}
+
+float TrackCut::GetCVTEdgeCut(int pid, int layer) const {
+  auto it = fCVTEdgeCutsPerPID.find(pid);
+  if (it == fCVTEdgeCutsPerPID.end()) {
+    throw std::runtime_error("CVT Edge cuts not defined for PID: " + std::to_string(pid));
+  }
+  return it->second[layer - 1];
+}
+
+void TrackCut::AddCVTFiducialRange(int pid, int layer, const std::string& axis, float min, float max) {
+  if (axis == "theta")
+    fFiducialCutsCVT[pid][layer].thetaCut.excludedRanges.emplace_back(min, max);
+  else if (axis == "phi")
+    fFiducialCutsCVT[pid][layer].phiCut.excludedRanges.emplace_back(min, max);
 }
 
 void TrackCut::AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max) {
@@ -141,6 +169,7 @@ void TrackCut::AddECoutFiducialRange(int pid, int sector, const std::string& axi
 }
 
 const std::map<int, std::vector<float>>& TrackCut::GetEdgeCuts() const { return fDCEdgeCutsPerPID; }
+const std::map<int, std::vector<float>>& TrackCut::GetCVTEdgeCuts() const { return fCVTEdgeCutsPerPID; }
 
 bool TrackCut::operator()(const std::vector<int16_t>& pindex, const std::vector<int16_t>& index, const std::vector<int>& detector, const std::vector<int>& layer,
                           const std::vector<float>& x, const std::vector<float>& y, const std::vector<float>& z, const std::vector<float>& cx, const std::vector<float>& cy,
@@ -159,6 +188,12 @@ TrackCut::RECTrajPass() const {
                 const std::vector<float>& cz, const std::vector<float>& path, const std::vector<float>& edge, const std::vector<int>& pid,
                 const int& REC_Particle_num) -> std::vector<int> {
     std::vector<int> pass_values(REC_Particle_num, 1);
+    auto isExcluded = [](float value, const FiducialAxisCut& cut) -> bool {
+      for (const auto& range : cut.excludedRanges) {
+        if (value >= range.first && value <= range.second) return true;
+      }
+      return cut.excludedStrips.find(value) != cut.excludedStrips.end();
+    };
     for (size_t i = 0; i < pindex.size(); ++i) {
       if (detector[i] == 6) {  // DC
         if (fDoFiducialCut) {
@@ -183,6 +218,58 @@ TrackCut::RECTrajPass() const {
           if (edge[i] <= edgeCut) {
             pass_values[pindex[i]] = 0;
             continue;
+          }
+        }
+      }
+
+      if (detector[i] == 5) {  // CVT
+        if (fDoFiducialCut) {
+          int region = 0;
+          int absLayer = std::abs(layer[i]);
+          if (absLayer == 1)
+            region = 1;
+          else if (absLayer == 3)
+            region = 2;
+          else if (absLayer == 5)
+            region = 3;
+          else if (absLayer == 7)
+            region = 4;
+          else if (absLayer == 12)
+            region = 5;
+
+          int cur_pid = pid[pindex[i]];
+
+          // Only apply edge cut if edge cuts are defined for this PID
+          auto pidCuts = fCVTEdgeCutsPerPID.find(cur_pid);
+          if (pidCuts == fCVTEdgeCutsPerPID.end()) {
+            continue;  // Skip cut for this PID
+          }
+
+          float edgeCut = pidCuts->second[region - 1];
+          if (edge[i] <= edgeCut) {
+            pass_values[pindex[i]] = 0;
+            continue;
+          }
+
+          const std::map<int, std::map<int, FiducialCut2D_CVT>>* cutMap = nullptr;
+          cutMap = &fFiducialCutsCVT;
+
+          if (cutMap) {
+            int cur_pid = pid[pindex[i]];
+            auto pidMapIt = cutMap->find(cur_pid);
+            if (pidMapIt != cutMap->end()) {
+              const auto& layerMap = pidMapIt->second;
+              auto it = layerMap.find(layer[i]);
+              if (it != layerMap.end()) {
+                const FiducialCut2D_CVT& cut = it->second;
+                float CVTtheta = 180.0 / TMath::Pi() * TMath::ACos(z[i] / sqrt(x[i]*x[i] + y[i]*y[i] + z[i]*z[i]));
+                float CVTphi = 180.0 / TMath::Pi() * TMath::ATan2(y[i], x[i]);
+                if (isExcluded(CVTtheta, cut.thetaCut) || isExcluded(CVTphi, cut.phiCut) ) {
+                  pass_values[pindex[i]] = 0;
+                  continue;
+                }
+              }
+            }
           }
         }
       }
@@ -271,6 +358,7 @@ TrackCut::RECCalorimeterPass() const {
     return return_values;
   };
 }
+
 std::function<std::vector<int>(
     const std::vector<int16_t>& traj_pindex,
     const std::vector<int16_t>& traj_index,

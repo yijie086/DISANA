@@ -28,8 +28,8 @@ public:
     virtual void SetOutputDir(const std::string& dir) {}
     template <typename Lambda>
     ROOT::RDF::RNode DefineOrRedefine(ROOT::RDF::RNode df, const std::string& name, Lambda&& lambda,
-                                  const std::vector<std::string>& columns,
-                                  const std::vector<std::string>& existingCols) {
+                                  const std::vector<std::string>& columns) {
+    auto existingCols = df.GetColumnNames();                                
     if (std::find(existingCols.begin(), existingCols.end(), name) != existingCols.end()) {
         return df.Redefine(name, std::forward<Lambda>(lambda), columns);
     }
