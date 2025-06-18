@@ -16,6 +16,7 @@
 #include "../ParticleInformation/RECParticle.h"
 #include "../ParticleInformation/RECTrack.h"
 #include "../ParticleInformation/RECTraj.h"
+#include "../ParticleInformation/RECForwardTagger.h"
 #include "../core/Columns.h"
 #include "../core/FilesInPath.h"
 #include "./../Cuts/EventCut.h"

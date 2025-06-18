@@ -18,6 +18,7 @@ struct FiducialCut3D {
   FiducialAxisCut lvCut;
   FiducialAxisCut lwCut;
 };
+
 class TrackCut {
  public:
   TrackCut();
@@ -101,6 +102,26 @@ class TrackCut {
                                  const int& REC_Particle_num)>
   RECCalorimeterPass() const;
 
+  std::function<std::vector<int>(const std::vector<short>&,  // index
+                               const std::vector<short>&,  // pindex
+                               const std::vector<int16_t>&,  // detector
+                               const std::vector<int16_t>&,  // layer
+                               const std::vector<float>&,    // energy
+                               const std::vector<float>&,    // time
+                               const std::vector<float>&,    // path
+                               const std::vector<float>&,    // chi2
+                               const std::vector<float>&,    // x
+                               const std::vector<float>&,    // y
+                               const std::vector<float>&,    // z
+                               const std::vector<float>&,    // dx
+                               const std::vector<float>&,    // dy
+                               const std::vector<float>&,    // radius
+                               const std::vector<short>&,      // size
+                               const std::vector<short>&,      // status
+                                const std::vector<int>&,      // pid
+                               const int& REC_Particle_num)>
+RECForwardTaggerPass() const;
+
 
 // Fiducial filter function combined DC and Calorimeter
   // This function will apply the fiducial cuts for both DC and Calorimeter
@@ -155,6 +176,7 @@ std::function<std::vector<int>(
     RECFiducialPass() const;
   // ===== New sector-specific fiducial setters =====
 void AddCVTFiducialRange(int pid, int layer, const std::string& axis, float min, float max);
+void AddFTCalFiducialRange(int pid, int layer, float x, float y, float rmin, float rmax);
 void AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECinFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
@@ -168,7 +190,10 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
 
   struct FiducialAxisCut {
     std::vector<std::pair<float, float>> excludedRanges;
-    std::set<float> excludedStrips;
+  };
+
+  struct FiducialRingCut {
+    std::vector<std::tuple<float, float, float, float>> excludedRanges;
   };
 
   struct FiducialCut3D {
@@ -180,6 +205,10 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
   struct FiducialCut2D_CVT {
     FiducialAxisCut thetaCut;
     FiducialAxisCut phiCut;
+  };
+
+  struct FiducialCutRing_FTCal {
+    FiducialRingCut ringCut;
   };
 
   float fSector = -1;
@@ -201,6 +230,8 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
 
   /// ECin ECout and PCal Fiducial cuts
   std::map<int, std::map<int, FiducialCut2D_CVT>> fFiducialCutsCVT;
+  std::map<int, std::map<int, FiducialCut2D_CVT>> fFiducialCutsCVT_Bhawani;
+  std::map<int, std::map<int, FiducialCutRing_FTCal>> fFiducialCutsFTCal;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsPCal;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECin;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECout;

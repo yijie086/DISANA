@@ -48,25 +48,33 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   trackCuts->SetDCEdgeCuts(2212, edge_regions_p);  // DC edge cuts for protons
   trackCuts->SetCVTEdgeCuts(2212, CVT_edge_layers_p);  // CVT edge cuts for protons
 
-  trackCuts->AddCVTFiducialRange(2212, 1, "phi", -110.0, -100.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 1, "phi", 10.0, 20.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 1, "phi", 140.0, 150.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 1, "phi", -110.0, -100.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 1, "phi", 10.0, 20.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 1, "phi", 140.0, 150.0);  // Proton CVT fiducial cuts
 
-  trackCuts->AddCVTFiducialRange(2212, 3, "phi", -108.0, -98.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 3, "phi", 12.0, 22.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 3, "phi", 140.0, 150.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 3, "phi", -108.0, -98.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 3, "phi", 12.0, 22.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 3, "phi", 140.0, 150.0);  // Proton CVT fiducial cuts
 
-  trackCuts->AddCVTFiducialRange(2212, 5, "phi", -105.0, -95.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 5, "phi", 15.0, 25.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 5, "phi", 142.0, 152.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 5, "phi", -105.0, -95.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 5, "phi", 15.0, 25.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 5, "phi", 142.0, 152.0);  // Proton CVT fiducial cuts
 
-  trackCuts->AddCVTFiducialRange(2212, 7, "phi", -102.0, -92.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 7, "phi", 18.0, 28.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 7, "phi", 145.0, 155.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 7, "phi", -102.0, -92.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 7, "phi", 18.0, 28.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 7, "phi", 145.0, 155.0);  // Proton CVT fiducial cuts
 
-  trackCuts->AddCVTFiducialRange(2212, 12, "phi", -99.0, -89.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 12, "phi", 21.0, 31.0);  // Electron CVT fiducial cuts
-  trackCuts->AddCVTFiducialRange(2212, 12, "phi", 148.0, 158.0);  // Electron CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 12, "phi", -99.0, -89.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 12, "phi", 21.0, 31.0);  // Proton CVT fiducial cuts
+  trackCuts->AddCVTFiducialRange(2212, 12, "phi", 148.0, 158.0);  // Proton CVT fiducial cuts
+
+  trackCuts->AddFTCalFiducialRange(22, 1, 0, 0, 0.0, 8.5);  // Photon FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(22, 1, 0, 0, 15.5, 100.0);  // Photon FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(22, 1, -8.42, 9.89, 0.0, 1.6);  // Photon FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(22, 1, -9.89, -5.33, 0.0, 1.6);  // Photon FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(22, 1, -6.15, -13.00, 0.0, 2.3);  // Photon FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(22, 1, 3.7, -6.5, 0.0, 2.0);  // Photon FTCal fiducial cuts
+
 
   // Cal fiducial cuts for eletron,
   // Sector 1, PCal args PID, sector, side, min, max
@@ -126,7 +134,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   dvcsTask->SetPhotonCuts(photonCuts);
   dvcsTask->SetElectronCuts(electronCuts);
   dvcsTask->SetProtonCuts(protonCuts);
-  dvcsTask->SetBeamEnergy(10.6);
+  dvcsTask->SetBeamEnergy(7.546);
   dvcsTask->SetDoFiducialCut(true);
 
   mgr.AddTask(std::move(dvcsTask));

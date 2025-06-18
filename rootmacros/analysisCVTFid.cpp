@@ -32,6 +32,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
                                const std::string &filename, const std::string &treename) {
     TStopwatch timer;
     timer.Start();
+    ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
     ROOT::RDataFrame df(treename, filename);
     gStyle->SetOptStat(0);
 
@@ -120,7 +121,7 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
                         const std::string &filename, const std::string &treename) {
     TStopwatch timer;
     timer.Start();
-
+    ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
     ROOT::RDataFrame df(treename, filename);
     gStyle->SetOptStat(0);
 

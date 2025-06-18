@@ -61,6 +61,7 @@ add_executable(AnalysisDVCS
     DreamAN/ParticleInformation/RECTraj.cxx
     DreamAN/ParticleInformation/RECTrack.cxx
     DreamAN/ParticleInformation/RECCalorimeter.cxx
+    DreamAN/ParticleInformation/RECForwardTagger.cxx
     DreamAN/DrawHist/DrawAndSave.cxx
     DreamAN/core/Columns.cxx
     DreamAN/Cuts/EventCut.cxx

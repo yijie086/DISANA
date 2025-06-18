@@ -47,6 +47,7 @@ TrackCut::TrackCut(const TrackCut& other) {
   this->fFiducialCutsECout = other.fFiducialCutsECout;
 
   this->fFiducialCutsCVT = other.fFiducialCutsCVT;
+  this->fFiducialCutsFTCal = other.fFiducialCutsFTCal;
 }
 
 void TrackCut::SetSectorCut(int SSector, int selectpid, int selectdetector, bool selectSector) {
@@ -141,6 +142,10 @@ void TrackCut::AddCVTFiducialRange(int pid, int layer, const std::string& axis, 
     fFiducialCutsCVT[pid][layer].phiCut.excludedRanges.emplace_back(min, max);
 }
 
+void TrackCut::AddFTCalFiducialRange(int pid, int layer, float x, float y, float rmin, float rmax) {
+  fFiducialCutsFTCal[pid][layer].ringCut.excludedRanges.emplace_back(x, y, rmin, rmax);
+}
+
 void TrackCut::AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max) {
   if (axis == "lu")
     fFiducialCutsPCal[pid][sector].luCut.excludedRanges.emplace_back(min, max);
@@ -192,7 +197,7 @@ TrackCut::RECTrajPass() const {
       for (const auto& range : cut.excludedRanges) {
         if (value >= range.first && value <= range.second) return true;
       }
-      return cut.excludedStrips.find(value) != cut.excludedStrips.end();
+      return false;
     };
     for (size_t i = 0; i < pindex.size(); ++i) {
       if (detector[i] == 6) {  // DC
@@ -323,7 +328,7 @@ TrackCut::RECCalorimeterPass() const {
       for (const auto& range : cut.excludedRanges) {
         if (value >= range.first && value <= range.second) return true;
       }
-      return cut.excludedStrips.find(value) != cut.excludedStrips.end();
+      return false;
     };
 
     for (size_t i = 0; i < pindex.size(); ++i) {
@@ -358,6 +363,80 @@ TrackCut::RECCalorimeterPass() const {
     return return_values;
   };
 }
+
+std::function<std::vector<int>(const std::vector<short>&,  // index
+                               const std::vector<short>&,  // pindex
+                               const std::vector<int16_t>&,  // detector
+                               const std::vector<int16_t>&,  // layer
+                               const std::vector<float>&,    // energy
+                               const std::vector<float>&,    // time
+                               const std::vector<float>&,    // path
+                               const std::vector<float>&,    // chi2
+                               const std::vector<float>&,    // x
+                               const std::vector<float>&,    // y
+                               const std::vector<float>&,    // z
+                               const std::vector<float>&,    // dx
+                               const std::vector<float>&,    // dy
+                               const std::vector<float>&,    // radius
+                               const std::vector<short>&,      // size
+                               const std::vector<short>&,      // status
+                               const std::vector<int>&,      // pid
+                               const int& REC_Particle_num)>
+TrackCut::RECForwardTaggerPass() const {
+  return [this](const std::vector<short>& index, const std::vector<short>& pindex, const std::vector<int16_t>& detector,
+                const std::vector<int16_t>& layer, const std::vector<float>& energy, const std::vector<float>& time,
+                const std::vector<float>& path, const std::vector<float>& chi2,
+                const std::vector<float>& x, const std::vector<float>& y, const std::vector<float>& z, 
+                const std::vector<float>& dx, const std::vector<float>& dy, const std::vector<float>& radius,
+                const std::vector<short>& size, const std::vector<short>& status, const std::vector<int>& pid,
+                const int& REC_Particle_num) -> std::vector<int> {
+    // Initialize return_values with size REC_Particle_num and default value 9999.0
+
+    auto isExcluded = [](float x, float y, const FiducialRingCut& cut) -> bool {
+      for (const auto& range : cut.excludedRanges) {
+        float x0 = std::get<0>(range);
+        float y0 = std::get<1>(range);
+        float rmin = std::get<2>(range);
+        float rmax = std::get<3>(range);
+        if ((x0-x)*(x0-x)+(y0-y)*(y0-y) >= rmin*rmin && (x0-x)*(x0-x)+(y0-y)*(y0-y) <= rmax*rmax) return true;
+      }
+      return false;
+    };
+
+    std::vector<int> return_values(REC_Particle_num, 1);
+
+    for (size_t i = 0; i < pindex.size(); ++i) {
+      if (detector[i] == 10) {
+        if (fDoFiducialCut) {
+          const std::map<int, std::map<int, FiducialCutRing_FTCal>>* cutMap = nullptr;
+          cutMap = &fFiducialCutsFTCal;
+
+          if (cutMap) {
+            int cur_pid = pid[pindex[i]];
+            auto pidMapIt = cutMap->find(cur_pid);
+            if (pidMapIt != cutMap->end()) {
+              const auto& layerMap = pidMapIt->second;
+              auto it = layerMap.find(layer[i]);
+              if (it != layerMap.end()) {
+                const FiducialCutRing_FTCal& cut = it->second;
+                if (isExcluded(x[i], y[i], cut.ringCut) ) {
+                  return_values[pindex[i]] = 0;
+                  continue;
+                }
+              }
+            }
+          }
+        }
+        
+      }
+    }
+    return return_values;
+  };
+}
+
+
+
+
 
 std::function<std::vector<int>(
     const std::vector<int16_t>& traj_pindex,
@@ -416,7 +495,7 @@ TrackCut::RECFiducialPass() const {
       for (const auto& range : cut.excludedRanges) {
         if (val >= range.first && val <= range.second) return true;
       }
-      return cut.excludedStrips.find(val) != cut.excludedStrips.end();
+      return false;
     };
 
     // === DC (TRAJ) cuts ===
