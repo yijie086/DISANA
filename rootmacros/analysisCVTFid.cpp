@@ -29,7 +29,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
                                const std::vector<float> &xmins,
                                const std::vector<float> &xmaxs,
                                const std::vector<float> &thetaCuts,
-                               const std::string &filename, const std::string &treename) {
+                               const std::string &filename, const std::string &treename, const bool doFid) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
@@ -49,12 +49,22 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
     df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                     const RVec<float> &edge, const RVec<float> &theta,
                     const RVec<float> &chi2, const RVec<int16_t> &ndf,
+                    const RVec<int16_t> &trackpindex,
                     const RVec<int16_t> &pindex, const RVec<int> &pid, const RVec<int> &passFid) {
         for (size_t i = 0; i < layer.size(); ++i) {
             int idx = pindex[i];
-            if (det[i] != selecteddetector || pid[idx] != selectedPid || !passFid[idx]) continue;
-
-            float chi2ndf = ndf[idx] > 0 ? chi2[idx] / ndf[idx] : 0;
+            int fidpass = doFid ? passFid[idx] : 1;  // 如果不需要fiducial cuts，则始终通过
+            if (det[i] != selecteddetector || pid[idx] != selectedPid || !fidpass) continue;
+            float trackchi2 = 0;
+            float trackndf = 0;
+            for (size_t j = 0; j < trackpindex.size(); ++j) {
+                if (trackpindex[j] == idx) {
+                    trackchi2 = chi2[j];
+                    trackndf = ndf[j];
+                    break;  // 找到对应的trackpindex后退出循环
+                }
+            }
+            float chi2ndf = trackndf > 0 ? trackchi2 / trackndf : 0;
             int lay = layer[i];
             float edg = edge[i];
             float th = theta[i];
@@ -68,7 +78,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
             histos[key]->Fill(edg, chi2ndf);
         }
     }, {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_edge", "REC_Particle_theta", "REC_Track_chi2",
-        "REC_Track_NDF", "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
+        "REC_Track_NDF", "REC_Track_pindex", "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
 
     for (size_t li = 0; li < layers.size(); ++li) {
         TCanvas *c = new TCanvas(("c_layer" + std::to_string(layers[li])).c_str(), "", 2000, 1500);
@@ -89,7 +99,21 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
             pfx->SetMarkerStyle(20);
             pfx->SetMarkerSize(1.0);
             pfx->SetLineWidth(2);
-            pfx->SetTitle(Form("proton CVT layer %d;edge [cm];#LT#chi^{2}/ndf#GT", layers[li]));
+            if (selectedPid == 2212){
+                if (doFid){
+                    pfx->SetTitle(Form("proton CVT layer %d;edge [cm];#LT#chi^{2}/ndf#GT", layers[li]));
+                }
+                else {
+                    pfx->SetTitle(Form("proton CVT layer %d (no fiducial cuts);edge [cm];#LT#chi^{2}/ndf#GT", layers[li]));
+                }
+            }
+            else {
+                if (doFid)
+                    pfx->SetTitle(Form("pid%d CVT layer %d;edge [cm];#LT#chi^{2}/ndf#GT", selectedPid, layers[li]));
+                else
+                    pfx->SetTitle(Form("pid%d CVT layer %d (no fiducial cuts);edge [cm];#LT#chi^{2}/ndf#GT", selectedPid, layers[li]));
+            }
+
             //pfx->SetTitle(Form("proton CVT layer %d", layers[li]));
             pfx->Draw(ti == 0 ? "PE" : "PE SAME");
             color++;
@@ -106,10 +130,26 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
         }
         leg->Draw();
 
-        std::string outname = "proton_CVT_layer" + std::to_string(layers[li]) + ".png";
+        std::string outdir = "CVTChi2ndfPlots";
+        gSystem->Exec(("mkdir -p " + outdir).c_str());
+
+        std::string outname;
+        if (selectedPid == 2212) {
+            if (doFid)
+                outname = outdir + "/proton_CVT_layer" + std::to_string(layers[li]) + ".png";
+            else
+                outname = outdir + "/proton_CVT_layer" + std::to_string(layers[li]) + "_noFid.png";
+        } else {
+            if (doFid)
+                outname = outdir + "/pid" + std::to_string(selectedPid) + "_CVT_layer" + std::to_string(layers[li]) + ".png";
+            else
+                outname = outdir + "/pid" + std::to_string(selectedPid) + "_CVT_layer" + std::to_string(layers[li]) + "_noFid.png";
+        }
+
         c->SaveAs(outname.c_str());
         std::cout << "Saved: " << outname << std::endl;
         delete c;
+
     }
     timer.Stop();
     std::cout << "Time for DrawCVTChi2ndf_Optimized: ";
@@ -118,7 +158,8 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
 
 void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
                         const std::vector<int> &layers,
-                        const std::string &filename, const std::string &treename) {
+                        const std::string &filename, const std::string &treename,
+                        const bool doFid) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
@@ -141,8 +182,25 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
     // 初始化所有层的TH2F
     std::map<int, TH2F*> histos;
     for (int layer : layers) {
-        std::string name = Form("theta_vs_phi_L%d", layer);
-        std::string title = Form("proton CVT layer %d;#phi [deg];#theta [deg]", layer);
+        std::string name;
+        std::string title;
+        if (selectedPid == 2212) {
+            if (doFid) {
+                name = Form("proton_theta_vs_phi_L%d", layer);
+                title = Form("proton CVT layer %d;#phi [deg];#theta [deg]", layer);
+            } else {
+                name = Form("proton_theta_vs_phi_L%d_noFid", layer);
+                title = Form("proton CVT layer %d (no fiducial cuts);#phi [deg];#theta [deg]", layer);
+            }
+        } else {
+            if (doFid) {
+                name = Form("pid%d_theta_vs_phi_L%d", selectedPid, layer);
+                title = Form("pid%d CVT layer %d;#phi [deg];#theta [deg]", selectedPid, layer);
+            } else {
+                name = Form("pid%d_theta_vs_phi_L%d_noFid", selectedPid, layer);
+                title = Form("pid%d CVT layer %d (no fiducial cuts);#phi [deg];#theta [deg]", selectedPid, layer);
+            }
+        }
         histos[layer] = new TH2F(name.c_str(), title.c_str(), 360, -180, 180, 360, 0, 180);
         histos[layer]->SetDirectory(nullptr);
     }
@@ -155,20 +213,32 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
             if (det[i] != selecteddetector) continue;
             int lay = layer[i];
             int idx = pindex[i];
-            if (pid[idx] != selectedPid || !passFid[idx]) continue;
+            int fidpass = doFid ? passFid[idx] : 1;  // 如果不需要fiducial cuts，则始终通过
+            if (pid[idx] != selectedPid || !fidpass) continue;
             if (histos.count(lay))
                 histos[lay]->Fill(phi_deg[i], theta_deg[i]);
         }
     }, {"REC_Traj_detector", "REC_Traj_layer", "theta_deg", "phi_deg",  "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
 
+    std::string outdir = "CVTHitPlots";
+    gSystem->Exec(("mkdir -p " + outdir).c_str());
+
     for (int layer : layers) {
         TCanvas *c = new TCanvas(Form("c_hit_layer_%d", layer), "", 2400, 2000);
         histos[layer]->Draw("COLZ");
-        //gPad->SetLogz();
 
-        c->SaveAs(Form("proton_CVT_hit_layer%d.png", layer));
+        std::string outname;
+        if (selectedPid == 2212) {
+            outname = outdir + "/" + Form(doFid ? "proton_CVT_hit_layer%d.png" : "proton_CVT_hit_layer%d_noFid.png", layer);
+        } else {
+            outname = outdir + "/" + Form(doFid ? "pid%d_CVT_hit_layer%d.png" : "pid%d_CVT_hit_layer%d_noFid.png", selectedPid, layer);
+        }
+
+        c->SaveAs(outname.c_str());
+        std::cout << "Saved: " << outname << std::endl;
         delete c;
     }
+
 
     timer.Stop();
     std::cout << "Time for DrawCVTHitResponse: ";
@@ -183,7 +253,9 @@ void analysisCVTFid() {
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -5.0};
     std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 25.0};
     std::vector<float> thetaCuts = {55, 85, 115};
-    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before");
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before");
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
+    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
+    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
     gApplication->Terminate(0);
 }
