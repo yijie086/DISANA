@@ -267,8 +267,8 @@ void analysisECALFid() {
     std::string path = "./../build/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    //DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
-    //DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
+    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
+    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
     DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
     DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
     gApplication->Terminate(0);
