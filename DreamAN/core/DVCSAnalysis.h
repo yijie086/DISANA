@@ -6,10 +6,8 @@
 #include <ROOT/RDF/RInterface.hxx>
 #include <optional>
 
-#include "../Cuts/ElectronCut.h"
 #include "../Cuts/EventCut.h"
 #include "../Cuts/TrackCut.h"
-#include "../DrawHist/DrawAndSave.h"
 #include "../Math/ParticleMassTable.h"
 #include "../Math/RECParticleKinematic.h"
 #include "../ParticleInformation/RECCalorimeter.h"
@@ -18,7 +16,6 @@
 #include "../ParticleInformation/RECTraj.h"
 #include "../ParticleInformation/RECForwardTagger.h"
 #include "../core/Columns.h"
-#include "../core/FilesInPath.h"
 #include "./../Cuts/EventCut.h"
 #include "./../Cuts/TrackCut.h"
 #include "AnalysisTask.h"

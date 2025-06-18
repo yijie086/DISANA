@@ -2,6 +2,7 @@
 #define ANALYSISTASK_H
 
 #include <ROOT/RDF/RInterface.hxx>
+#include "RHipoDS.hxx"
 #include <TFile.h>
 #include <TTree.h>
 #include <TH1F.h>

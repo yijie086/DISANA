@@ -1,5 +1,5 @@
-#include"DrawStyle.h"
-#include "DISANAcomparer.h"
+#include"../DreamAN/DrawHist/DrawStyle.h"
+#include "../DreamAN/DrawHist/DISANAcomparer.h"
 
 ROOT::RDF::RNode InitKinematics(const std::string& filename_ = "", const std::string& treename_ = "");
  void PlotDVCSKinematicsComparison(ROOT::RDF::RNode& rdf);
@@ -23,7 +23,7 @@ ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, c
 void DISANA_Xplotter() {
   ROOT::EnableImplicitMT();
   std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
-  // std::string input_path_from_analysisRun = "./../build";
+  //std::string input_path_from_analysisRun = "./../build";
   std::string filename_after = Form("%s/dfSelected_after_fiducialCuts.root", input_path_from_analysisRun.c_str());
   float beam_energy = 10.6;
   
@@ -61,16 +61,16 @@ void DISANA_Xplotter() {
    //xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
    //xBins.SetTBins({0.0, 1.2});
    //xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  xBins.SetQ2Bins({.1, 8.0});
-  xBins.SetTBins({0.0, 1.2});
-  xBins.SetXBBins({0.0, 1});
+  xBins.SetQ2Bins({.1,3.0, 8.0});
+  xBins.SetTBins({0.0,0.5, 1.2});
+  xBins.SetXBBins({0.0,0.5, 1});
   comparer.SetXBinsRanges(xBins);
 
   comparer.AddModel(df, "RGA-A inb", 10.6);
-  //comparer.PlotKinematicComparison();
+  comparer.PlotKinematicComparison();
   comparer.PlotDVCSKinematicsComparison();
-  //comparer.PlotDISCrossSectionComparison(1);  // argument is Luminosity
-  //comparer.PlotDIS_BSA_Comparison(1);         // argument is Luminosity
+  comparer.PlotDISCrossSectionComparison(1);  // argument is Luminosity
+  comparer.PlotDIS_BSA_Comparison(1);         // argument is Luminosity
 }
 
 ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string& treename_) {

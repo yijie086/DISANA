@@ -62,7 +62,6 @@ add_executable(AnalysisDVCS
     DreamAN/ParticleInformation/RECTrack.cxx
     DreamAN/ParticleInformation/RECCalorimeter.cxx
     DreamAN/ParticleInformation/RECForwardTagger.cxx
-    DreamAN/DrawHist/DrawAndSave.cxx
     DreamAN/core/Columns.cxx
     DreamAN/Cuts/EventCut.cxx
     DreamAN/Cuts/TrackCut.cxx
@@ -84,95 +83,7 @@ target_link_libraries(AnalysisDVCS
     HipoDataFrame
 )
 
-add_executable(main101
-    macros/main101.C
-    macros/Run101.C
 
-    # main core methods and classes
-    DreamAN/ParticleInformation/RECParticle.cxx
-    DreamAN/ParticleInformation/RECTraj.cxx
-    DreamAN/ParticleInformation/RECCalorimeter.cxx
-    DreamAN/DrawHist/DrawAndSave.cxx
-    DreamAN/core/FilesInPath.cxx
-    DreamAN/core/Columns.cxx
-    DreamAN/Cuts/EventCut.cxx
-    DreamAN/Cuts/TrackCut.cxx
-    DreamAN/Math/RECParticleKinematic.cxx
-    DreamAN/Math/MathKinematicVariable.cxx
-    DreamAN/Math/ParticleMassTable.cxx
-    
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(main101
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
-)
-
-add_executable(main102DCfiducialcut
-    macros/main102DCfiducialcut.C
-    macros/Run102DCfiducialcut.C
-    #macros/Run102DCfiducialcut_2.C
-
-    # main core methods and classes
-    DreamAN/ParticleInformation/RECParticle.cxx
-    DreamAN/ParticleInformation/RECTraj.cxx
-    DreamAN/ParticleInformation/RECTrack.cxx
-    DreamAN/ParticleInformation/RECCalorimeter.cxx
-    DreamAN/DrawHist/DrawAndSave.cxx
-    DreamAN/core/FilesInPath.cxx
-    DreamAN/core/Columns.cxx
-    DreamAN/Cuts/EventCut.cxx
-    DreamAN/Cuts/TrackCut.cxx
-    DreamAN/Math/RECParticleKinematic.cxx
-    DreamAN/Math/MathKinematicVariable.cxx
-    DreamAN/Math/ParticleMassTable.cxx
-    
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(main102DCfiducialcut
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
-)
-
-add_executable(main103ECALfiducialcut
-    macros/main103ECALfiducialcut.C
-    macros/Run103ECALfiducialcut.C
-
-    # main core methods and classes
-    DreamAN/ParticleInformation/RECParticle.cxx
-    DreamAN/ParticleInformation/RECTraj.cxx
-    DreamAN/ParticleInformation/RECTrack.cxx
-    DreamAN/ParticleInformation/RECCalorimeter.cxx
-    DreamAN/DrawHist/DrawAndSave.cxx
-    DreamAN/core/FilesInPath.cxx
-    DreamAN/core/Columns.cxx
-    DreamAN/Cuts/EventCut.cxx
-    DreamAN/Cuts/TrackCut.cxx
-    DreamAN/Math/RECParticleKinematic.cxx
-    DreamAN/Math/MathKinematicVariable.cxx
-    DreamAN/Math/ParticleMassTable.cxx
-    
-)
-
-# Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
-target_link_libraries(main103ECALfiducialcut
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
-)
 
 # Debugging info (optional)
 message(STATUS "ROOT Libraries: ${ROOT_LIBS}")
