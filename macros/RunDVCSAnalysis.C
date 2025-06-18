@@ -83,6 +83,35 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   trackCuts->AddFTCalFiducialRange(11, 1, 3.7, -6.5, 0.0, 2.0);  // Electron FTCal fiducial cuts
 
 
+  // Cal fiducial edge cuts for electron and photon,
+  trackCuts->AddPCalFiducialRange(11, 1, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 1, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 2, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 2, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 3, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 3, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 4, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 4, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 5, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 5, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 6, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(11, 6, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 1, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 1, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 2, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 2, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 3, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 3, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 4, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 4, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 5, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 5, "lv", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 6, "lw", 0.0, 13.5);
+  trackCuts->AddPCalFiducialRange(22, 6, "lv", 0.0, 13.5);
+  // End of edge fiducial cuts
+
+
+
   // Cal fiducial cuts for eletron,
   // Sector 1, PCal args PID, sector, side, min, max
   trackCuts->AddPCalFiducialRange(11, 1, "lw", 72.0, 94.5);
