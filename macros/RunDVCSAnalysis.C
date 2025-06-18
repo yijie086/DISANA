@@ -75,11 +75,18 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   trackCuts->AddFTCalFiducialRange(22, 1, -6.15, -13.00, 0.0, 2.3);  // Photon FTCal fiducial cuts
   trackCuts->AddFTCalFiducialRange(22, 1, 3.7, -6.5, 0.0, 2.0);  // Photon FTCal fiducial cuts
 
+  trackCuts->AddFTCalFiducialRange(11, 1, 0, 0, 0.0, 8.5);  // Electron FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(11, 1, 0, 0, 15.5, 100.0);  // Electron FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(11, 1, -8.42, 9.89, 0.0, 1.6);  // Electron FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(11, 1, -9.89, -5.33, 0.0, 1.6);  // Electron FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(11, 1, -6.15, -13.00, 0.0, 2.3);  // Electron FTCal fiducial cuts
+  trackCuts->AddFTCalFiducialRange(11, 1, 3.7, -6.5, 0.0, 2.0);  // Electron FTCal fiducial cuts
+
 
   // Cal fiducial cuts for eletron,
   // Sector 1, PCal args PID, sector, side, min, max
   trackCuts->AddPCalFiducialRange(11, 1, "lw", 72.0, 94.5);
-  trackCuts->AddPCalFiducialRange(11, 1, "lw", 220.5, 234.0);
+  trackCuts->AddPCalFiducialRange(11, 1, "lw", 211.5, 234.0);
   // Sector 2, PCal
   trackCuts->AddPCalFiducialRange(11, 2, "lv", 99.0, 117.5);
   // Sector 3, PCal,
