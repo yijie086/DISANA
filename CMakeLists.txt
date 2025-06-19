@@ -65,6 +65,7 @@ add_executable(AnalysisDVCS
     DreamAN/core/Columns.cxx
     DreamAN/Cuts/EventCut.cxx
     DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Correction/MomentumCorrection.cxx
     DreamAN/Math/RECParticleKinematic.cxx
     DreamAN/Math/MathKinematicVariable.cxx
     DreamAN/Math/ParticleMassTable.cxx

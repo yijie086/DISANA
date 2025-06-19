@@ -13,7 +13,7 @@ void DVCSAnalysis::UserCreateOutputObjects() {}
 void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
-  if (!fTrackCuts || !fTrackCutsElectron || !fTrackCutsProton || !fTrackCutsPhoton) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
+  if (!fTrackCuts || !fEventCutsElectron || !fEventCutsProton || !fEventCutsPhoton) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
 
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);
   fTrackCutsWithFid = std::make_shared<TrackCut>(*fTrackCuts);
@@ -82,15 +82,28 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
 
   // Before fiducial cut
-  auto dfBefore = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_track_nofid).Filter(*fTrackCutsPhoton, cols_track_nofid).Filter(*fTrackCutsProton, cols_track_nofid);
+  auto dfBefore = dfDefsWithTraj.Filter(*fEventCutsElectron, cols_track_nofid).Filter(*fEventCutsPhoton, cols_track_nofid).Filter(*fEventCutsProton, cols_track_nofid);
 
   dfSelected = dfBefore;
 
   // After fiducial cut
   if (fFiducialCut) {
-    auto dfAfter = dfDefsWithTraj.Filter(*fTrackCutsElectron, cols_track_fid).Filter(*fTrackCutsPhoton, cols_track_fid).Filter(*fTrackCutsProton, cols_track_fid);
-    dfSelected_after = dfAfter;
+    auto dfAfter = dfDefsWithTraj.Filter(*fEventCutsElectron, cols_track_fid).Filter(*fEventCutsPhoton, cols_track_fid).Filter(*fEventCutsProton, cols_track_fid);
+    dfSelected_afterFid = dfAfter;
   }
+
+  dfSelected_afterFid_afterCorr = dfSelected_afterFid;
+  
+  if (fMomCorr && fDoMomentumCorrection) {
+    std::cout << "Applying momentum correction..." << std::endl;
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_px", fMomCorr->RECParticlePxCorrected(), RECParticle::Extend());
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_py", fMomCorr->RECParticlePyCorrected(), RECParticle::Extend());
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_pz", fMomCorr->RECParticlePzCorrected(), RECParticle::Extend());
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_theta", RECParticletheta(), RECParticle::All());
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_phi", RECParticlephi(), RECParticle::All());
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_p", RECParticleP(), RECParticle::All());
+  }
+
 }
 void DVCSAnalysis::SaveOutput() {
   if (!fOutFile || fOutFile->IsZombie()) {
@@ -103,30 +116,23 @@ void DVCSAnalysis::SaveOutput() {
     return;
   }
 
-  if (!IsReproc) dfSelected->Snapshot("dfSelected_before", Form("%s/%s", fOutputDir.c_str(), "dfSelected_before_fiducialCuts.root"));
-  if (fFiducialCut && dfSelected_after.has_value()) {
+  if (!IsReproc) dfSelected->Snapshot("dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
+  if (fFiducialCut && dfSelected_afterFid.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
-    std::cout << "Events before fiducial: " << dfSelected->Count().GetValue() << std::endl;
-    std::cout << "Events after fiducial: " << dfSelected_after->Count().GetValue() << std::endl;
-    if (IsReproc && dfSelected_after.has_value()) {
-      dfSelected_after->Snapshot("dfSelected_after_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_after_fiducialCuts_reprocessed.root"));
+    std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
+    std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
+    if (IsReproc && dfSelected_afterFid.has_value()) {
+      dfSelected_afterFid->Snapshot("dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      dfSelected_after->Snapshot("dfSelected_after", Form("%s/%s", fOutputDir.c_str(), "dfSelected_after_fiducialCuts.root"));
+      dfSelected_afterFid->Snapshot("dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
     }
+  }
+  if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
+    std::cout << "Events selected after fiducial and momentum correction: " << dfSelected_afterFid_afterCorr->Count().GetValue() << std::endl;
+    dfSelected_afterFid_afterCorr->Snapshot("dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
   }
 
   fOutFile->cd();
-
-  /*DrawAndSaveEventQ2(*dfSelected, 11, -1, fOutFile, 500, 0, 5, "");
-  DrawAndSaveEventxB(*dfSelected, 11, -1, fOutFile, 500, 0, 1.5, "");
-  DrawAndSaveEventNu(*dfSelected, 11, -1, fOutFile, 500, 0, 6, "");
-  DrawAndSaveEventW(*dfSelected, 11, -1, fOutFile, 500, 0, 4, "");
-  DrawAndSaveEventmt(*dfSelected, 2212, 1, fOutFile, 500, 0, 6, "");
-  DrawAndSaveQ2vsxB(*dfSelected, 11, -1, fOutFile, 500, 0, 5, 500, 0, 1.5, "");
-
-  DrawAndSaveParticleHistograms(*dfSelected, 11, -1, fOutFile, 500, 0, 1, 500, 0, 2 * M_PI, 500, 0, 9, "");
-  DrawAndSaveParticleHistograms(*dfSelected, 2212, 1, fOutFile, 500, 0, 2, 500, 0, 2 * M_PI, 500, 0, 5, "");
-  DrawAndSaveParticleHistograms(*dfSelected, 22, 0, fOutFile, 500, 0, 1, 500, 0, 2 * M_PI, 500, 0, 9, "");*/
 }
 
 void DVCSAnalysis::SetOutputFile(TFile* file) { fOutFile = file; }

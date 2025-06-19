@@ -5,7 +5,6 @@
 #include "./../DreamAN/core/EventProcessor.h"
 
 void RunDVCSAnalysis(const std::string& inputDir) {
-
   bool IsMC = false;  // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   std::string inputFileDir = inputDir;
@@ -164,6 +163,25 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   auto* electronCuts = EventCut::ElectronCuts();
   auto* protonCuts = EventCut::ProtonCuts();
 
+
+  auto corr = std::make_shared<MomentumCorrection>();
+  // AddPiecewiseCorrection pid=11(electron),p∈[0.5,2]GeV, θ∈[10,60]°, φ∈[0,360]°
+  corr->AddPiecewiseCorrection(
+    11,
+    {0.0, 10.0, 0.0*M_PI/180, 180.0*M_PI/180, 0.0*M_PI/180, 360.0*M_PI/180},
+    [](double p, double theta, double phi) {
+        return 10.0;  // example correction
+    }
+  );
+
+  corr->AddPiecewiseCorrection(
+    2212,
+    {0.0, 10.0, 0.0*M_PI/180, 180.0*M_PI/180, 0.0*M_PI/180, 360.0*M_PI/180},
+    [](double p, double theta, double phi) {
+        return 11.0;  // example correction
+    }
+  );
+
   // Task
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);
   dvcsTask->SetTrackCuts(trackCuts);
@@ -173,6 +191,8 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   dvcsTask->SetBeamEnergy(7.546);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);
+  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
 
   mgr.AddTask(std::move(dvcsTask));
 

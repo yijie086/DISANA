@@ -5,9 +5,12 @@
 
 #include <ROOT/RDF/RInterface.hxx>
 #include <optional>
+#include <ROOT/RDataFrame.hxx>
+#include <ROOT/RVec.hxx>
 
 #include "../Cuts/EventCut.h"
 #include "../Cuts/TrackCut.h"
+#include "../Correction/MomentumCorrection.h"
 #include "../Math/ParticleMassTable.h"
 #include "../Math/RECParticleKinematic.h"
 #include "../ParticleInformation/RECCalorimeter.h"
@@ -16,8 +19,6 @@
 #include "../ParticleInformation/RECTraj.h"
 #include "../ParticleInformation/RECForwardTagger.h"
 #include "../core/Columns.h"
-#include "./../Cuts/EventCut.h"
-#include "./../Cuts/TrackCut.h"
 #include "AnalysisTask.h"
 
 class DVCSAnalysis : public AnalysisTask {
@@ -31,32 +32,49 @@ class DVCSAnalysis : public AnalysisTask {
   // Bad for raw pointer setup
   void SetTrackCuts(std::shared_ptr<TrackCut> cuts) { fTrackCuts = std::move(cuts); };
 
-  void SetPhotonCuts(EventCut *trkCuts) { fTrackCutsPhoton = trkCuts; };
-  void SetElectronCuts(EventCut *trkCuts) { fTrackCutsElectron = trkCuts; };
-  void SetProtonCuts(EventCut *trkCuts) { fTrackCutsProton = trkCuts; };
+  void SetPhotonCuts(EventCut *evtCuts) { fEventCutsPhoton = evtCuts; };
+  void SetElectronCuts(EventCut *evtCuts) { fEventCutsElectron = evtCuts; };
+  void SetProtonCuts(EventCut *evtCuts) { fEventCutsProton = evtCuts; };
+
   void SetDoFiducialCut(bool cut) { fFiducialCut = cut; };
+
   void SetBeamEnergy(float beam_energy) { fbeam_energy = beam_energy; };
+
   void SetOutputFile(TFile *file) override;
   void SetOutputDir(const std::string &dir) override;
 
   void SetFTonConfig(bool config) { fFTonConfig = config; }
+
+  void SetDoMomentumCorrection(bool do_correction) { fDoMomentumCorrection = do_correction; }
+  void SetMomentumCorrection(std::shared_ptr<MomentumCorrection> corr) { fMomCorr = std::move(corr); }
+
 
  private:
   bool IsMC = false;
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;
+  bool fDoMomentumCorrection = false;  // Flag to indicate if momentum correction is applied
+  
   std::optional<ROOT::RDF::RNode> dfSelected;
-  std::optional<ROOT::RDF::RNode> dfSelected_after;  // DataFrame after fiducial cuts
+  std::optional<ROOT::RDF::RNode> dfSelected_afterFid;  // DataFrame after fiducial cuts
+  std::optional<ROOT::RDF::RNode> dfSelected_afterFid_afterCorr;  // DataFrame after fiducial cuts and momentum correction
   std::string fOutputDir;
+  
   float fbeam_energy = 10.6;
+  
   TH1F *fHistPhotonP = nullptr;
+
   std::shared_ptr<TrackCut> fTrackCuts;
   std::shared_ptr<TrackCut> fTrackCutsNoFid;
   std::shared_ptr<TrackCut> fTrackCutsWithFid;
-  EventCut *fTrackCutsPhoton = nullptr;
-  EventCut *fTrackCutsElectron = nullptr;
-  EventCut *fTrackCutsProton = nullptr;
+
+  EventCut *fEventCutsPhoton = nullptr;
+  EventCut *fEventCutsElectron = nullptr;
+  EventCut *fEventCutsProton = nullptr;
+
+  std::shared_ptr<MomentumCorrection> fMomCorr = nullptr;  // Pointer to momentum correction object
+  
 
   TFile *fOutFile = nullptr;  // Output file pointer set by manager
 };
