@@ -171,6 +171,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   dvcsTask->SetElectronCuts(electronCuts);
   dvcsTask->SetProtonCuts(protonCuts);
   dvcsTask->SetBeamEnergy(7.546);
+  dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 is FT-off)
   dvcsTask->SetDoFiducialCut(true);
 
   mgr.AddTask(std::move(dvcsTask));

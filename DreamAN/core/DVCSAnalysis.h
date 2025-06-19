@@ -36,14 +36,16 @@ class DVCSAnalysis : public AnalysisTask {
   void SetProtonCuts(EventCut *trkCuts) { fTrackCutsProton = trkCuts; };
   void SetDoFiducialCut(bool cut) { fFiducialCut = cut; };
   void SetBeamEnergy(float beam_energy) { fbeam_energy = beam_energy; };
-
   void SetOutputFile(TFile *file) override;
   void SetOutputDir(const std::string &dir) override;
+
+  void SetFTonConfig(bool config) { fFTonConfig = config; }
 
  private:
   bool IsMC = false;
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
+  bool fFTonConfig = true;
   std::optional<ROOT::RDF::RNode> dfSelected;
   std::optional<ROOT::RDF::RNode> dfSelected_after;  // DataFrame after fiducial cuts
   std::string fOutputDir;
