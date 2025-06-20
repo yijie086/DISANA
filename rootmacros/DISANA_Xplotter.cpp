@@ -25,12 +25,12 @@ void DISANA_Xplotter() {
   //std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
   std::string input_path_from_analysisRun = "./../build";
   std::string filename_afterFid = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun.c_str());
-  std::string filename_afterFid_afterCorr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun.c_str());
+  //std::string filename_afterFid_afterCorr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun.c_str());
   float beam_energy = 7.546;
   
   //// this is where you can plot the comparisions
   ROOT::RDF::RNode df_afterFid = InitKinematics(filename_afterFid, "dfSelected_afterFid");
-  ROOT::RDF::RNode df_afterFid_afterCorr = InitKinematics(filename_afterFid_afterCorr, "dfSelected_afterFid_afterCorr");
+ // ROOT::RDF::RNode df_afterFid_afterCorr = InitKinematics(filename_afterFid_afterCorr, "dfSelected_afterFid_afterCorr");
   // input files for the data
 
 
@@ -42,7 +42,7 @@ void DISANA_Xplotter() {
   df_afterFid = define_DISCAT(df_afterFid, "W", &DISANAMath::GetW, beam_energy);
   df_afterFid = define_DISCAT(df_afterFid, "nu", &DISANAMath::GetNu, beam_energy);
   df_afterFid = define_DISCAT(df_afterFid, "y", &DISANAMath::Gety, beam_energy);
-
+/*
   df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "Q2", &DISANAMath::GetQ2, beam_energy);
   df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "xB", &DISANAMath::GetxB, beam_energy);
   df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "t", &DISANAMath::GetT, beam_energy);
@@ -50,7 +50,7 @@ void DISANA_Xplotter() {
   df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "W", &DISANAMath::GetW, beam_energy);
   df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "nu", &DISANAMath::GetNu, beam_energy);
   df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "y", &DISANAMath::Gety, beam_energy);
-  
+  */
 
   //// styling plots 
   //double double titleSize = 0.05, double labelSize = 0.04,double xTitleOffset = 1.1, double yTitleOffset = 1.6, int font = 42, int maxDigits = 5, int nDivisions = 510, double leftMargin = 0.16, double rightMargin = 0.07, double bottomMargin = 0.13, double topMargin = 0.06
@@ -90,68 +90,68 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   ROOT::RDataFrame rdf(treename_, filename_);
 
   auto df_ = std::make_unique<ROOT::RDF::RNode>(rdf.Define("ele_px",
-                                                           [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                           [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                              for (size_t i = 0; i < pid.size(); ++i)
-                                                               if (pid[i] == 11 && trackpass[i] == 1) return px[i];
+                                                               if (pid[i] == 11 && trackpass[i] ) return px[i];
                                                              return -999.0f;
                                                            },
-                                                           {"REC_Particle_pid", "REC_Particle_px" ,"REC_Track_pass_fid"})
+                                                           {"REC_Particle_pid", "REC_Particle_px" ,"REC_Particle_pass"})
                                                     .Define("ele_py",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 11 && trackpass[i] == 1) return py[i];
+                                                                if (pid[i] == 11 && trackpass[i] ) return py[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_py" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_py" ,"REC_Particle_pass"})
                                                     .Define("ele_pz",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 11 && trackpass[i] == 1) return pz[i];
+                                                                if (pid[i] == 11 && trackpass[i] ) return pz[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_pz" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_pz" ,"REC_Particle_pass"})
                                                     .Define("pho_px",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 22 && trackpass[i] == 1) return px[i];
+                                                                if (pid[i] == 22 && trackpass[i] ) return px[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_px" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_px" ,"REC_Particle_pass"})
                                                     .Define("pho_py",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 22 && trackpass[i] == 1) return py[i];
+                                                                if (pid[i] == 22 && trackpass[i] ) return py[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_py" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_py" ,"REC_Particle_pass"})
                                                     .Define("pho_pz",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 22 && trackpass[i] == 1) return pz[i];
+                                                                if (pid[i] == 22 && trackpass[i] ) return pz[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_pz" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_pz" ,"REC_Particle_pass"})
                                                     .Define("pro_px",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 2212 && trackpass[i] == 1) return px[i];
+                                                                if (pid[i] == 2212 && trackpass[i] ) return px[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_px" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_px" ,"REC_Particle_pass"})
                                                     .Define("pro_py",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 2212 && trackpass[i] == 1) return py[i];
+                                                                if (pid[i] == 2212 && trackpass[i] ) return py[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_py" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_py" ,"REC_Particle_pass"})
                                                     .Define("pro_pz",
-                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) {
+                                                            [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) {
                                                               for (size_t i = 0; i < pid.size(); ++i)
-                                                                if (pid[i] == 2212 && trackpass[i] == 1) return pz[i];
+                                                                if (pid[i] == 2212 && trackpass[i] ) return pz[i];
                                                               return -999.0f;
                                                             },
-                                                            {"REC_Particle_pid", "REC_Particle_pz" ,"REC_Track_pass_fid"})
+                                                            {"REC_Particle_pid", "REC_Particle_pz" ,"REC_Particle_pass"})
                                                     .Filter([](float ex, float gx, float px) { return ex != -999 && gx != -999 && px != -999; }, {"ele_px", "pho_px", "pro_px"})
                                                     .Define("recel_p", MomentumFunc, {"ele_px", "ele_py", "ele_pz"})
                                                     .Define("recel_theta", ThetaFunc, {"ele_px", "ele_py", "ele_pz"})

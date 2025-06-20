@@ -47,6 +47,7 @@ class DVCSAnalysis : public AnalysisTask {
   void SetMomentumCorrection(std::shared_ptr<MomentumCorrection> corr) { fMomCorr = std::move(corr); }
 
 
+
  private:
   bool IsMC = false;
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied

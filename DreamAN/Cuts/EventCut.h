@@ -23,6 +23,11 @@ struct ParticleCut {
   float minChi2PID = -9999;
   float maxChi2PID = 999999;
 };
+struct EventCutResult {
+  bool eventPass = false;                // one flag per event
+  std::vector<bool> particlePass;        // one flag per particle
+};
+
 
 class EventCut {
  public:
@@ -39,15 +44,15 @@ class EventCut {
   static EventCut* PhotonCuts();
 
   // Apply cuts to an event
-  bool operator()(const std::vector<int>& pid,
-                  const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz,
-                  const std::vector<float>& vx, const std::vector<float>& vy, const std::vector<float>& vz,
-                  const std::vector<float>& vt,
-                  const std::vector<short>& charge,
-                  const std::vector<float>& beta,
-                  const std::vector<float>& chi2pid,
-                  const std::vector<short>& status,
-                  const std::vector<int>& REC_Track_pass_fid) const;
+ EventCutResult operator()(const std::vector<int>& pid,
+                          const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz,
+                          const std::vector<float>& vx, const std::vector<float>& vy, const std::vector<float>& vz,
+                          const std::vector<float>& vt,
+                          const std::vector<short>& charge,
+                          const std::vector<float>& beta,
+                          const std::vector<float>& chi2pid,
+                          const std::vector<short>& status,
+                          const std::vector<int>& REC_Track_pass_fid) const;
 
  private:
   std::map<std::string, ParticleCut> fParticleCuts;

@@ -21,7 +21,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   fTrackCutsWithFid->SetFiducialCutOptions(true, true);  // apply both DC and ECAL cuts
 
   // Cache column names
-  //auto colnames = df.GetColumnNames();
+  // auto colnames = df.GetColumnNames();
   auto dfDefs = df;
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_num", [](const std::vector<int>& pid) { return static_cast<int>(pid.size()); }, {"REC_Particle_pid"});
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All());
@@ -53,10 +53,10 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
                                     CombineColumns(std::vector<std::string>{"REC_Traj_pass_fid"}, std::vector<std::string>{"REC_Calorimeter_pass_fid"}));
   if (fFTonConfig) {
     dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", Columns::LogicalAND2(),
-                                    CombineColumns(std::vector<std::string>{"REC_Track_pass_fid"}, std::vector<std::string>{"REC_ForwardTagger_pass_fid"}));
+                                      CombineColumns(std::vector<std::string>{"REC_Track_pass_fid"}, std::vector<std::string>{"REC_ForwardTagger_pass_fid"}));
   }
   auto AllCols = CombineColumns(trajCols, caloCols);
-  
+
   /*
   auto AllCols = CombineColumns(RECTraj::All(), RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", fTrackCutsWithFid->RECFiducialPass(), AllCols);
@@ -65,20 +65,25 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
 
   auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
+  // dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Event_pass","REC_Particle_pass", *fEventCuts, cols_track_fid);
 
-  // Before fiducial cut
-  auto dfBefore = dfDefsWithTraj.Filter(*fEventCuts, cols_track_nofid);
-
-  dfSelected = dfBefore;
+  dfSelected = dfDefsWithTraj;
+  dfSelected = DefineOrRedefine(*dfSelected,"EventCutResult", *fEventCuts, cols_track_nofid);
+  dfSelected = DefineOrRedefine(*dfSelected,"REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
+  dfSelected = DefineOrRedefine(*dfSelected,"REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
+  dfSelected = dfSelected->Filter("REC_Event_pass");
 
   // After fiducial cut
   if (fFiducialCut) {
-    auto dfAfter = dfDefsWithTraj.Filter(*fEventCuts, cols_track_fid);
-    dfSelected_afterFid = dfAfter;
+    dfSelected_afterFid = dfDefsWithTraj;
+    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"EventCutResult", *fEventCuts, cols_track_fid);
+    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
+    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
+    dfSelected_afterFid = dfSelected_afterFid->Filter("REC_Event_pass");
   }
 
   dfSelected_afterFid_afterCorr = dfSelected_afterFid;
-  
+
   if (fMomCorr && fDoMomentumCorrection) {
     std::cout << "Applying momentum correction..." << std::endl;
     dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_px", fMomCorr->RECParticlePxCorrected(), RECParticle::Extend());
@@ -88,7 +93,6 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
     dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_phi", RECParticlephi(), RECParticle::All());
     dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_p", RECParticleP(), RECParticle::All());
   }
-
 }
 void DVCSAnalysis::SaveOutput() {
   if (!fOutFile || fOutFile->IsZombie()) {
@@ -101,20 +105,20 @@ void DVCSAnalysis::SaveOutput() {
     return;
   }
 
-  if (!IsReproc) dfSelected->Snapshot("dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
+  if (!IsReproc) SafeSnapshot(*dfSelected, "dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
     std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
     if (IsReproc && dfSelected_afterFid.has_value()) {
-      dfSelected_afterFid->Snapshot("dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
+      SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      dfSelected_afterFid->Snapshot("dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
+      SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
     }
   }
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
     std::cout << "Events selected after fiducial and momentum correction: " << dfSelected_afterFid_afterCorr->Count().GetValue() << std::endl;
-    dfSelected_afterFid_afterCorr->Snapshot("dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
+    SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
   }
 
   fOutFile->cd();
