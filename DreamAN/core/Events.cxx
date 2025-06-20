@@ -11,8 +11,8 @@
 #include "ROOT/RDataFrame.hxx"
 
 // Constructor
-Events::Events(const std::string& directory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName)
-    : fIsReprocessRootFile(fIsReprocessRootFile), fInputROOTtreeName(fInputROOTtreeName), fInputROOTfileName(fInputROOTfileName) {
+Events::Events(const std::string& directory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName, const int nfiles)
+    : fIsReprocessRootFile(fIsReprocessRootFile), fInputROOTtreeName(fInputROOTtreeName), fInputROOTfileName(fInputROOTfileName), fnfiles(nfiles) {
   if (fIsReprocessRootFile) {
     std::string inputfile_Root = directory + fInputROOTfileName;
     std::cout << "Reprocessing ROOT files is enabled." << std::endl;
@@ -22,7 +22,7 @@ Events::Events(const std::string& directory, bool fIsReprocessRootFile, const st
   } else {
     std::cout << "Reprocessing ROOT files is disabled." << std::endl;
 
-    inputFiles = GetHipoFilesInPath(directory);
+    inputFiles = GetHipoFilesInPath(directory, nfiles);
     if (inputFiles.empty()) {
       std::cerr << "No .hipo files found in directory: " << directory << std::endl;
       return;
@@ -41,11 +41,16 @@ Events::Events(const std::string& directory, bool fIsReprocessRootFile, const st
 }
 
 // Helper to get HIPO files in a path
-std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory) {
+std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory, int nfiles) {
   std::vector<std::string> files;
+  int count = 0;
   for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
     if (entry.path().extension() == ".hipo") {
       files.push_back(entry.path().string());
+      count++;
+    }
+    if (count == nfiles) {
+      break;
     }
   }
   std::cout << "================ " << files.size() << " Files Found ================" << std::endl;
