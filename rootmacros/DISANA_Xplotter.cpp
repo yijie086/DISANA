@@ -22,24 +22,34 @@ ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, c
 
 void DISANA_Xplotter() {
   ROOT::EnableImplicitMT();
-  std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
-  //std::string input_path_from_analysisRun = "./../build";
-  std::string filename_after = Form("%s/dfSelected_after_fiducialCuts.root", input_path_from_analysisRun.c_str());
-  float beam_energy = 10.6;
+  //std::string input_path_from_analysisRun = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
+  std::string input_path_from_analysisRun = "./../build";
+  std::string filename_afterFid = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun.c_str());
+  std::string filename_afterFid_afterCorr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun.c_str());
+  float beam_energy = 7.546;
   
   //// this is where you can plot the comparisions
-  ROOT::RDF::RNode df = InitKinematics(filename_after, "dfSelected_after");
+  ROOT::RDF::RNode df_afterFid = InitKinematics(filename_afterFid, "dfSelected_afterFid");
+  ROOT::RDF::RNode df_afterFid_afterCorr = InitKinematics(filename_afterFid_afterCorr, "dfSelected_afterFid_afterCorr");
   // input files for the data
 
 
   // compute the dvcs variables
-  df = define_DISCAT(df, "Q2", &DISANAMath::GetQ2, beam_energy);
-  df = define_DISCAT(df, "xB", &DISANAMath::GetxB, beam_energy);
-  df = define_DISCAT(df, "t", &DISANAMath::GetT, beam_energy);
-  df = define_DISCAT(df, "phi", &DISANAMath::GetPhi, beam_energy);
-  df = define_DISCAT(df, "W", &DISANAMath::GetW, beam_energy);
-  df = define_DISCAT(df, "nu", &DISANAMath::GetNu, beam_energy);
-  df = define_DISCAT(df, "y", &DISANAMath::Gety, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "Q2", &DISANAMath::GetQ2, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "xB", &DISANAMath::GetxB, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "t", &DISANAMath::GetT, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "phi", &DISANAMath::GetPhi, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "W", &DISANAMath::GetW, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "nu", &DISANAMath::GetNu, beam_energy);
+  df_afterFid = define_DISCAT(df_afterFid, "y", &DISANAMath::Gety, beam_energy);
+
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "Q2", &DISANAMath::GetQ2, beam_energy);
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "xB", &DISANAMath::GetxB, beam_energy);
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "t", &DISANAMath::GetT, beam_energy);
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "phi", &DISANAMath::GetPhi, beam_energy);
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "W", &DISANAMath::GetW, beam_energy);
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "nu", &DISANAMath::GetNu, beam_energy);
+  df_afterFid_afterCorr = define_DISCAT(df_afterFid_afterCorr, "y", &DISANAMath::Gety, beam_energy);
   
 
   //// styling plots 
@@ -66,11 +76,14 @@ void DISANA_Xplotter() {
   xBins.SetXBBins({0.0,0.5, 1});
   comparer.SetXBinsRanges(xBins);
 
-  comparer.AddModel(df, "RGA-A inb", 10.6);
+  
+  //comparer.AddModel(df_afterFid_afterCorr, "after Correction", beam_energy);
+  comparer.AddModel(df_afterFid, "before Correction", beam_energy);
   comparer.PlotKinematicComparison();
   comparer.PlotDVCSKinematicsComparison();
   comparer.PlotDISCrossSectionComparison(1);  // argument is Luminosity
   comparer.PlotDIS_BSA_Comparison(1);         // argument is Luminosity
+  gApplication->Terminate(0);
 }
 
 ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string& treename_) {

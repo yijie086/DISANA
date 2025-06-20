@@ -116,7 +116,9 @@ void ComputeKinematics(const TLorentzVector &electron_in, const TLorentzVector &
   double sin_phi = (n_L.Cross(n_H)).Dot(q.Vect().Unit());
 
   double phi = std::atan2(sin_phi, cos_phi);
-  phi = phi + TMath::Pi();
+  if (phi < 0.0) {
+    phi += 2.0*TMath::Pi(); // Ensure phi is in [0, 360] degrees
+  }
   phi = phi * 180.0 / TMath::Pi();
 
   phi_deg_ = phi;

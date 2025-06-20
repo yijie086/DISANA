@@ -163,24 +163,34 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   auto* electronCuts = EventCut::ElectronCuts();
   auto* protonCuts = EventCut::ProtonCuts();
 
-
   auto corr = std::make_shared<MomentumCorrection>();
-  // AddPiecewiseCorrection pid=11(electron),p∈[0.5,2]GeV, θ∈[10,60]°, φ∈[0,360]°
   corr->AddPiecewiseCorrection(
     11,
-    {0.0, 10.0, 0.0*M_PI/180, 180.0*M_PI/180, 0.0*M_PI/180, 360.0*M_PI/180},
+    {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FT},
     [](double p, double theta, double phi) {
-        return 10.0;  // example correction
+      return 9;
+    }
+  );
+
+
+  corr->AddPiecewiseCorrection(
+    11,
+    {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD},
+    [](double p, double theta, double phi) {
+      return 10;
     }
   );
 
   corr->AddPiecewiseCorrection(
     2212,
-    {0.0, 10.0, 0.0*M_PI/180, 180.0*M_PI/180, 0.0*M_PI/180, 360.0*M_PI/180},
+    {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD},
     [](double p, double theta, double phi) {
-        return 11.0;  // example correction
+      return 11;
     }
   );
+
+
+
 
   // Task
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);

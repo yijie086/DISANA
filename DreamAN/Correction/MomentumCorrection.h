@@ -3,13 +3,26 @@
 
 #include <functional>
 #include <map>
-#include <tuple>
 #include <vector>
 #include <memory>
 
 class MomentumCorrection {
 public:
-  using Region = std::tuple<double, double, double, double, double, double>;
+  enum class DetectorRegion { ANY, FT, FD, CD };
+
+  static constexpr DetectorRegion FT = DetectorRegion::FT;
+  static constexpr DetectorRegion FD = DetectorRegion::FD;
+  static constexpr DetectorRegion CD = DetectorRegion::CD;
+  static constexpr DetectorRegion ANY = DetectorRegion::ANY;
+
+
+  struct RegionWithDetector {
+    double pmin, pmax;
+    double thetamin, thetamax;
+    double phimin, phimax;
+    DetectorRegion detector;
+  };
+
   using CorrectionFunction = std::function<double(double p, double theta, double phi)>;
   using RECExtendStoreType = std::function<std::vector<float>(
     const std::vector<int>&,
@@ -30,11 +43,11 @@ public:
   )>;
 
   struct RegionCorrection {
-    Region region;
+    RegionWithDetector region;
     CorrectionFunction func;
   };
 
-  void AddPiecewiseCorrection(int pid, const Region& region, CorrectionFunction func);
+  void AddPiecewiseCorrection(int pid, const RegionWithDetector& region, CorrectionFunction func);
 
   RECExtendStoreType RECParticlePxCorrected() const;
   RECExtendStoreType RECParticlePyCorrected() const;
@@ -43,8 +56,8 @@ public:
 private:
   std::map<int, std::vector<RegionCorrection>> p_corrections_;
 
-  double GetCorrectedP(int pid, double p, double theta, double phi) const;
-  static bool InRegion(const Region& region, double p, double theta, double phi);
+  double GetCorrectedP(int pid, double p, double theta, double phi, short status) const;
+  static bool InRegion(const RegionWithDetector& region, double p, double theta, double phi, short status);
 };
 
 #endif  // MOMENTUM_CORRECTION_H

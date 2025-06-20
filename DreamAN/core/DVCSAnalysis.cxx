@@ -20,21 +20,6 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   fTrackCutsWithFid->SetDoFiducialCut(true);
   fTrackCutsWithFid->SetFiducialCutOptions(true, true);  // apply both DC and ECAL cuts
 
-  // Debug check
-  std::cout << "Using PID-specific DC edge cuts (R1, R2, R3):" << std::endl;
-  for (const auto& [pid, edgeCuts] : fTrackCutsWithFid->GetEdgeCuts()) {
-    std::cout << "  PID " << pid << ": ";
-    for (auto e : edgeCuts) std::cout << e << " ";
-    std::cout << std::endl;
-  }
-
-  std::cout << "Using PID-specific CVT edge cuts (l1, l3, l5, l7, l12):" << std::endl;
-  for (const auto& [pid, edgeCuts] : fTrackCutsWithFid->GetCVTEdgeCuts()) {
-    std::cout << "  PID " << pid << ": ";
-    for (auto e : edgeCuts) std::cout << e << " ";
-    std::cout << std::endl;
-  }
-
   // Cache column names
   //auto colnames = df.GetColumnNames();
   auto dfDefs = df;

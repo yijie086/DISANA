@@ -122,7 +122,7 @@ void TrackCut::SetCVTEdgeCuts(int pid, const std::vector<float>& edgeCutsPerLaye
     throw std::runtime_error("CVT Edge cuts must have 5 values (for layers 1, 3, 5, 7, 12)");
   }
   fCVTEdgeCutsPerPID[pid] = edgeCutsPerLayer;
-  std::cout << "[Info] DC edge cuts for PID " << pid << ": ";
+  std::cout << "[Info] CVT edge cuts for PID " << pid << ": ";
   for (auto e : edgeCutsPerLayer) std::cout << e << " ";
   std::cout << std::endl;
 }
