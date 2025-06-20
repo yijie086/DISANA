@@ -32,10 +32,8 @@ class DVCSAnalysis : public AnalysisTask {
   // Bad for raw pointer setup
   void SetTrackCuts(std::shared_ptr<TrackCut> cuts) { fTrackCuts = std::move(cuts); };
 
-  void SetPhotonCuts(EventCut *evtCuts) { fEventCutsPhoton = evtCuts; };
-  void SetElectronCuts(EventCut *evtCuts) { fEventCutsElectron = evtCuts; };
-  void SetProtonCuts(EventCut *evtCuts) { fEventCutsProton = evtCuts; };
-
+  void SetEventCuts(EventCut *evtCuts) { fEventCuts = evtCuts; };
+ 
   void SetDoFiducialCut(bool cut) { fFiducialCut = cut; };
 
   void SetBeamEnergy(float beam_energy) { fbeam_energy = beam_energy; };
@@ -66,12 +64,9 @@ class DVCSAnalysis : public AnalysisTask {
   TH1F *fHistPhotonP = nullptr;
 
   std::shared_ptr<TrackCut> fTrackCuts;
+  EventCut *fEventCuts = nullptr;
   std::shared_ptr<TrackCut> fTrackCutsNoFid;
   std::shared_ptr<TrackCut> fTrackCutsWithFid;
-
-  EventCut *fEventCutsPhoton = nullptr;
-  EventCut *fEventCutsElectron = nullptr;
-  EventCut *fEventCutsProton = nullptr;
 
   std::shared_ptr<MomentumCorrection> fMomCorr = nullptr;  // Pointer to momentum correction object
   

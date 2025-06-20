@@ -19,15 +19,15 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   }
   // If you are reprocossing the existing output you may want to change the path and ttree name if you are using a different ROOT file
   if (IsreprocRootFile) {
-    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
-    inputFileDir = "./";
+    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
+    //inputFileDir = "./";
     inputRootFileName = "dfSelected_before_fiducialCuts.root";
     inputRootTreeName = "dfSelected_before";
   }
 
   AnalysisTaskManager mgr;
-  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/");
-  mgr.SetOututDir("./");
+  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/");
+  //mgr.SetOututDir("./");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/");
 
   // fiducial cuts///
@@ -159,9 +159,14 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   trackCuts->AddECoutFiducialRange(22, 5, "lv", 193.5, 216.0);
 
   // particles for the reaction DVCS: e, p, and gamma
-  auto* photonCuts = EventCut::PhotonCuts();
-  auto* electronCuts = EventCut::ElectronCuts();
-  auto* protonCuts = EventCut::ProtonCuts();
+EventCut* eventCuts = new EventCut();
+
+ParticleCut proton;
+ParticleCut electron;
+ParticleCut photon;
+eventCuts->AddParticleCut("proton", proton);  // Applies defaults automatically
+eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
+eventCuts->AddParticleCut("photon", photon);  // Applies defaults automatically
 
   auto corr = std::make_shared<MomentumCorrection>();
   corr->AddPiecewiseCorrection(
@@ -195,9 +200,7 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   // Task
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);
   dvcsTask->SetTrackCuts(trackCuts);
-  dvcsTask->SetPhotonCuts(photonCuts);
-  dvcsTask->SetElectronCuts(electronCuts);
-  dvcsTask->SetProtonCuts(protonCuts);
+  dvcsTask->SetEventCuts(eventCuts);
   dvcsTask->SetBeamEnergy(10.6);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);

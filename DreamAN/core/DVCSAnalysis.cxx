@@ -13,7 +13,7 @@ void DVCSAnalysis::UserCreateOutputObjects() {}
 void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
-  if (!fTrackCuts || !fEventCutsElectron || !fEventCutsProton || !fEventCutsPhoton) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
+  if (!fTrackCuts || !fEventCuts) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
 
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);
   fTrackCutsWithFid = std::make_shared<TrackCut>(*fTrackCuts);
@@ -67,13 +67,13 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
 
   // Before fiducial cut
-  auto dfBefore = dfDefsWithTraj.Filter(*fEventCutsElectron, cols_track_nofid).Filter(*fEventCutsPhoton, cols_track_nofid).Filter(*fEventCutsProton, cols_track_nofid);
+  auto dfBefore = dfDefsWithTraj.Filter(*fEventCuts, cols_track_nofid);
 
   dfSelected = dfBefore;
 
   // After fiducial cut
   if (fFiducialCut) {
-    auto dfAfter = dfDefsWithTraj.Filter(*fEventCutsElectron, cols_track_fid).Filter(*fEventCutsPhoton, cols_track_fid).Filter(*fEventCutsProton, cols_track_fid);
+    auto dfAfter = dfDefsWithTraj.Filter(*fEventCuts, cols_track_fid);
     dfSelected_afterFid = dfAfter;
   }
 

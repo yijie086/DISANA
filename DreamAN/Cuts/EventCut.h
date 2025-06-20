@@ -2,43 +2,56 @@
 #define EVENTCUT_H_
 
 #include <string>
-#include <tuple>
+#include <map>
 #include <vector>
+#include <cfloat>
+#include <cmath>
+
+struct ParticleCut {
+  int charge = 0;
+  int pid = 0;
+  int minCount = 1;
+  int maxCount = 999;
+  float minMomentum = 0;
+  float maxMomentum = 20;
+  float minTheta = -999;
+  float maxTheta = M_PI;
+  float minPhi = 0;
+  float maxPhi = 2*M_PI;
+  float minVz = -999;
+  float maxVz = 999;
+  float minChi2PID = -9999;
+  float maxChi2PID = 999999;
+};
 
 class EventCut {
  public:
   EventCut();
   virtual ~EventCut();
 
-  // Set filtering conditions
-  void SetChargeCut(int Charge);
-  void SetMomentumCut(float minMomentum, float maxMomentum);
-  void SetthetaCut(float minTheta, float maxTheta);
-  void SetPhiCut(float minPhi, float maxPhi);
-  void SetVzCut(float minVz, float maxVz);
-  void SetChi2PIDCut(float minChi2PID, float maxChi2PID);
-  void SetPIDCountCut(int selectedPID, int minCount, int maxCount);
+  // Add particle-specific cuts; default values auto-filled for known names
+  void AddParticleCut(const std::string& name, const ParticleCut& cut);
+  const ParticleCut* GetParticleCut(const std::string& name) const;
+
+  // Predefined sets
   static EventCut* ProtonCuts();
   static EventCut* ElectronCuts();
   static EventCut* PhotonCuts();
-  // Filter function for RDataFrame
-  bool operator()(const std::vector<int>& pid, const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz, const std::vector<float>& vx,
-                  const std::vector<float>& vy, const std::vector<float>& vz, const std::vector<float>& vt, const std::vector<short>& charge, const std::vector<float>& beta,
-                  const std::vector<float>& chi2pid, const std::vector<short>& status, const std::vector<int>& REC_Track_pass_fid) const;
+
+  // Apply cuts to an event
+  bool operator()(const std::vector<int>& pid,
+                  const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz,
+                  const std::vector<float>& vx, const std::vector<float>& vy, const std::vector<float>& vz,
+                  const std::vector<float>& vt,
+                  const std::vector<short>& charge,
+                  const std::vector<float>& beta,
+                  const std::vector<float>& chi2pid,
+                  const std::vector<short>& status,
+                  const std::vector<int>& REC_Track_pass_fid) const;
 
  private:
-  // Filtering condition ranges
-  int fCharge = -1;
-  float fMinMomentum = -99999, fMaxMomentum = 99999;
-  float fMinTheta = -999999, fMaxTheta = 999999;
-  float fMinPhi = -999999, fMaxPhi = 999999;
-  float fMinVz = -999999, fMaxVz = 999999;
-  float fMinChi2PID = -999999, fMaxChi2PID = 999999;
+  std::map<std::string, ParticleCut> fParticleCuts;
 
-  int fSelectedPID = 0;  // Target PID
-  int fMinPIDCount = 0, fMaxPIDCount = 9999;
-
-  // Utility function: check if a value is within a range
   template <typename T>
   bool IsInRange(T value, T min, T max) const {
     return value >= min && value <= max;
