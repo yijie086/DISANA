@@ -4,7 +4,7 @@
 #include "./../DreamAN/core/DVCSAnalysis.h"
 #include "./../DreamAN/core/EventProcessor.h"
 
-void RunDVCSAnalysis(const std::string& inputDir) {
+void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   bool IsMC = false;  // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   std::string inputFileDir = inputDir;
@@ -210,6 +210,6 @@ eventCuts->AddParticleCut("photon", photon);  // Applies defaults automatically
   mgr.AddTask(std::move(dvcsTask));
 
   // Processor
-  EventProcessor processor(mgr, inputFileDir, IsreprocRootFile, inputRootTreeName, inputRootFileName);
+  EventProcessor processor(mgr, inputFileDir, IsreprocRootFile, inputRootTreeName, inputRootFileName , nfile);
   processor.ProcessEvents();
 }

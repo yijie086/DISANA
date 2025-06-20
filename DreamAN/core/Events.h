@@ -13,15 +13,16 @@
 class Events {
 public:
   Events(const std::string& directory, bool fIsReprocessRootFile,
-         const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName);
+         const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName, int nfiles);
 
   std::optional<ROOT::RDF::RNode> getNode() const;
   size_t getFileCount() const;
 
 private:
-  std::vector<std::string> GetHipoFilesInPath(const std::string& directory);
+  std::vector<std::string> GetHipoFilesInPath(const std::string& directory, int nfiles);
 
   bool fIsReprocessRootFile;
+  int fnfiles;
   std::string fInputROOTtreeName;
   std::string fInputROOTfileName;
   std::vector<std::string> inputFiles;
