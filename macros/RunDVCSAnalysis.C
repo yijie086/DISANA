@@ -198,10 +198,10 @@ void RunDVCSAnalysis(const std::string& inputDir) {
   dvcsTask->SetPhotonCuts(photonCuts);
   dvcsTask->SetElectronCuts(electronCuts);
   dvcsTask->SetProtonCuts(protonCuts);
-  dvcsTask->SetBeamEnergy(7.546);
+  dvcsTask->SetBeamEnergy(10.6);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);
-  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
 
   mgr.AddTask(std::move(dvcsTask));
