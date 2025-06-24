@@ -1,3 +1,4 @@
+
 #ifndef EVENTCUT_H_
 #define EVENTCUT_H_
 
@@ -23,39 +24,51 @@ struct ParticleCut {
   float minChi2PID = -9999;
   float maxChi2PID = 999999;
 };
-struct EventCutResult {
-  bool eventPass = false;                // one flag per event
-  std::vector<bool> particlePass;        // one flag per particle
+
+struct TwoBodyMotherCut {
+  int charge = 0;
+  int pidDaug1 = 0;
+  int pidDaug2 = 0;
+  float expectedMotherMass = -999.0f;
+  float massSigma = 0.005f;
+  float nSigmaMass = 3.0;
 };
 
+struct EventCutResult {
+  bool eventPass = false;
+  std::vector<bool> particlePass;
+  std::vector<bool> particleDaughterPass;
+  std::vector<float> MotherMass; // corresponding
+};
 
 class EventCut {
  public:
   EventCut();
   virtual ~EventCut();
-
-  // Add particle-specific cuts; default values auto-filled for known names
+  void SetDoCutMotherInvMass(bool doCut) { fCutTwoBodyMotherDecay = doCut; }
   void AddParticleCut(const std::string& name, const ParticleCut& cut);
+  void AddParticleMotherCut(const std::string& name, const TwoBodyMotherCut& cut);
+
   const ParticleCut* GetParticleCut(const std::string& name) const;
 
-  // Predefined sets
   static EventCut* ProtonCuts();
   static EventCut* ElectronCuts();
   static EventCut* PhotonCuts();
 
-  // Apply cuts to an event
- EventCutResult operator()(const std::vector<int>& pid,
-                          const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz,
-                          const std::vector<float>& vx, const std::vector<float>& vy, const std::vector<float>& vz,
-                          const std::vector<float>& vt,
-                          const std::vector<short>& charge,
-                          const std::vector<float>& beta,
-                          const std::vector<float>& chi2pid,
-                          const std::vector<short>& status,
-                          const std::vector<int>& REC_Track_pass_fid) const;
+  EventCutResult operator()(const std::vector<int>& pid,
+                            const std::vector<float>& px, const std::vector<float>& py, const std::vector<float>& pz,
+                            const std::vector<float>& vx, const std::vector<float>& vy, const std::vector<float>& vz,
+                            const std::vector<float>& vt,
+                            const std::vector<short>& charge,
+                            const std::vector<float>& beta,
+                            const std::vector<float>& chi2pid,
+                            const std::vector<short>& status,
+                            const std::vector<int>& REC_Track_pass_fid) const;
 
  private:
+  bool fCutTwoBodyMotherDecay = false;
   std::map<std::string, ParticleCut> fParticleCuts;
+  std::map<std::string, TwoBodyMotherCut> fTwoBodyMotherCuts;
 
   template <typename T>
   bool IsInRange(T value, T min, T max) const {

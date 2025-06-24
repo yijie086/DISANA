@@ -26,9 +26,11 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   }
 
   AnalysisTaskManager mgr;
-  mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/");
+  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Inb/");
+  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Outb/");
+  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/");
   //mgr.SetOututDir("./");
-  // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/CheckWithInclusiveData_electron_photon/");
+   mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
 
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
@@ -164,9 +166,16 @@ EventCut* eventCuts = new EventCut();
 ParticleCut proton;
 ParticleCut electron;
 ParticleCut photon;
+// pi0 background studies, similar is valid for exclusive meson production
+TwoBodyMotherCut pi0;
+pi0.expectedMotherMass = 0.132f; // determined from the fit inv mass of two photon
+pi0.massSigma = 0.0129f; // determined from the fit inv mass of two photon
+pi0.nSigmaMass = 3.0;// choice for nsigma is user dependent
+
 eventCuts->AddParticleCut("proton", proton);  // Applies defaults automatically
 eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
 eventCuts->AddParticleCut("photon", photon);  // Applies defaults automatically
+eventCuts->AddParticleMotherCut("pi0", pi0);  // Applies defaults automatically
 
   auto corr = std::make_shared<MomentumCorrection>();
   corr->AddPiecewiseCorrection(
@@ -204,8 +213,10 @@ eventCuts->AddParticleCut("photon", photon);  // Applies defaults automatically
   dvcsTask->SetBeamEnergy(10.6);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);
+  dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
   dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
+
 
   mgr.AddTask(std::move(dvcsTask));
 

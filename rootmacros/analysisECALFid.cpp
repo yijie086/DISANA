@@ -264,12 +264,13 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
 
 void analysisECALFid() {
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "./../build/";
+    //std::string path = "./../build/";
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
-    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
-    DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
-    DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
+    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
+    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }

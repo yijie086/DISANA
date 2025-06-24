@@ -33,6 +33,7 @@ class DVCSAnalysis : public AnalysisTask {
   void SetTrackCuts(std::shared_ptr<TrackCut> cuts) { fTrackCuts = std::move(cuts); };
 
   void SetEventCuts(EventCut *evtCuts) { fEventCuts = evtCuts; };
+  void SetDoInvMassCut(bool cut) { fDoInvMassCut = cut; };
  
   void SetDoFiducialCut(bool cut) { fFiducialCut = cut; };
 
@@ -50,6 +51,7 @@ class DVCSAnalysis : public AnalysisTask {
 
  private:
   bool IsMC = false;
+  bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;

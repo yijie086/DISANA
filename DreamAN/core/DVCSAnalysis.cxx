@@ -46,6 +46,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols);
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(), trajCols);
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Calorimeter_pass_fid", fTrackCutsWithFid->RECCalorimeterPass(), caloCols);
+
   if (fFTonConfig) {
     dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_ForwardTagger_pass_fid", fTrackCutsWithFid->RECForwardTaggerPass(), fwdtagCols);
   }
@@ -68,17 +69,29 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   // dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Event_pass","REC_Particle_pass", *fEventCuts, cols_track_fid);
 
   dfSelected = dfDefsWithTraj;
-  dfSelected = DefineOrRedefine(*dfSelected,"EventCutResult", *fEventCuts, cols_track_nofid);
-  dfSelected = DefineOrRedefine(*dfSelected,"REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
-  dfSelected = DefineOrRedefine(*dfSelected,"REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
+  dfSelected = DefineOrRedefine(*dfSelected, "EventCutResult", *fEventCuts, cols_track_nofid);
+  dfSelected = DefineOrRedefine(*dfSelected, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
+  dfSelected = DefineOrRedefine(*dfSelected, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
+
+  if (fDoInvMassCut) {
+    fEventCuts->SetDoCutMotherInvMass(true);
+    dfSelected = DefineOrRedefine(*dfSelected, "REC_DaughterParticle_pass", [](const EventCutResult& result) { return result.particleDaughterPass; }, {"EventCutResult"});
+    dfSelected = DefineOrRedefine(*dfSelected, "REC_MotherMass", [](const EventCutResult& result) { return result.MotherMass; }, {"EventCutResult"});
+  }
   dfSelected = dfSelected->Filter("REC_Event_pass");
 
   // After fiducial cut
   if (fFiducialCut) {
     dfSelected_afterFid = dfDefsWithTraj;
-    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"EventCutResult", *fEventCuts, cols_track_fid);
-    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
-    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
+    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "EventCutResult", *fEventCuts, cols_track_fid);
+    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
+    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
+    if (fDoInvMassCut) {
+      fEventCuts->SetDoCutMotherInvMass(true);
+      dfSelected_afterFid =
+          DefineOrRedefine(*dfSelected_afterFid, "REC_DaughterParticle_pass", [](const EventCutResult& result) { return result.particleDaughterPass; }, {"EventCutResult"});
+      dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_MotherMass", [](const EventCutResult& result) { return result.MotherMass; }, {"EventCutResult"});
+    }
     dfSelected_afterFid = dfSelected_afterFid->Filter("REC_Event_pass");
   }
 

@@ -106,11 +106,13 @@ void DrawFTHitResponse(const int &selectedPid, const int &selecteddetector,
 
 void analysisFTFid() {
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "./../build/";
+    //std::string path = "./../build/";
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
+    
     std::vector<int> layers = {1};
-    DrawFTHitResponse(22, 10, layers, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
-    DrawFTHitResponse(22, 10, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
-    DrawFTHitResponse(11, 10, layers, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
-    DrawFTHitResponse(11, 10, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
+    DrawFTHitResponse(22, 10, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawFTHitResponse(22, 10, layers, path + "dfSelected.root", "dfSelected",false);
+    DrawFTHitResponse(11, 10, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawFTHitResponse(11, 10, layers, path + "dfSelected.root", "dfSelected",false);
     gApplication->Terminate(0);
 }
