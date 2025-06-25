@@ -19,8 +19,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   }
   // If you are reprocossing the existing output you may want to change the path and ttree name if you are using a different ROOT file
   if (IsreprocRootFile) {
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
-    //inputFileDir = "./";
+    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DC_fiducialcuts/";
+    inputFileDir = "./";
     inputRootFileName = "dfSelected_before_fiducialCuts.root";
     inputRootTreeName = "dfSelected_before";
   }
@@ -29,8 +29,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Inb/");
   //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Outb/");
   //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/");
-  //mgr.SetOututDir("./");
-   mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
+  mgr.SetOututDir("./");
+  //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
 
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
@@ -210,7 +210,7 @@ eventCuts->AddParticleMotherCut("pi0", pi0);  // Applies defaults automatically
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);
   dvcsTask->SetTrackCuts(trackCuts);
   dvcsTask->SetEventCuts(eventCuts);
-  dvcsTask->SetBeamEnergy(10.6);
+  dvcsTask->SetBeamEnergy(7.546);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);
   dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
