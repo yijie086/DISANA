@@ -302,19 +302,20 @@ void DrawDCHitResponse(const int &selectedPid, const int &selecteddetector,
 
 void analysisDCFid() {
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "./../build/";
+    //std::string path = "./../build/";
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
     std::vector<int> layers = {6, 18, 36};
     std::vector<float> xmins = {0, 0, 0, 0, 0, 0};
     std::vector<float> xmaxs = {25, 25, 25, 25, 25, 25};
     std::vector<float> thetaCuts = {10, 15, 20, 25};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawDCChi2ndf_Optimized(11, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
-    DrawDCChi2ndf_Optimized(11, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
-    DrawDCChi2ndf_Optimized(2212, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
-    DrawDCChi2ndf_Optimized(2212, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
-    DrawDCHitResponse(11, 6, layers, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
-    DrawDCHitResponse(2212, 6, layers, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after",true);
-    DrawDCHitResponse(11, 6, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
-    DrawDCHitResponse(2212, 6, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before",false);
+    DrawDCChi2ndf_Optimized(11, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    DrawDCChi2ndf_Optimized(11, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
+    DrawDCChi2ndf_Optimized(2212, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    DrawDCChi2ndf_Optimized(2212, 6, 0, 400, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
+    DrawDCHitResponse(11, 6, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawDCHitResponse(2212, 6, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawDCHitResponse(11, 6, layers, path + "dfSelected.root", "dfSelected",false);
+    DrawDCHitResponse(2212, 6, layers, path + "dfSelected.root", "dfSelected",false);
     gApplication->Terminate(0);
 }
