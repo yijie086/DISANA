@@ -177,31 +177,31 @@ eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatica
 eventCuts->AddParticleCut("photon", photon);  // Applies defaults automatically
 eventCuts->AddParticleMotherCut("pi0", pi0);  // Applies defaults automatically
 
-  auto corr = std::make_shared<MomentumCorrection>();
-  corr->AddPiecewiseCorrection(
-    11,
-    {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FT},
-    [](double p, double theta, double phi) {
-      return 9;
-    }
-  );
+auto corr = std::make_shared<MomentumCorrection>();
 
+corr->AddPiecewiseCorrection(// Momentum correction for proton RGA Fa18 Out
+  2212,
+  {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD},
+  [](double p, double theta, double phi) {
+    theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+    float A_p = -0.1927861 + 0.0099546 * theta - 0.0001299 * theta * theta;
+    float B_p = 0.44307822 - 0.02309469 * theta + 0.00030784 * theta * theta;
+    float C_p = -0.32938000 + 0.01648659 * theta - 0.00021181 * theta * theta;
+    return p + (A_p + B_p*p + C_p*p*p);
+  }
+);
 
-  corr->AddPiecewiseCorrection(
-    11,
-    {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD},
-    [](double p, double theta, double phi) {
-      return 10;
-    }
-  );
-
-  corr->AddPiecewiseCorrection(
-    2212,
-    {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD},
-    [](double p, double theta, double phi) {
-      return 11;
-    }
-  );
+corr->AddPiecewiseCorrection(// Momentum correction for proton RGA Fa18 Out
+  2212,
+  {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD},
+  [](double p, double theta, double phi) {
+    theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+    float A_p = 0.0135790 - 0.0005303 * theta;
+    float B_p = -0.02165929 + 0.00121123 * theta;
+    float C_p = 0.0;
+    return p + (A_p + B_p/p + C_p/(p*p));
+  }
+);
 
 
 
@@ -210,12 +210,13 @@ eventCuts->AddParticleMotherCut("pi0", pi0);  // Applies defaults automatically
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);
   dvcsTask->SetTrackCuts(trackCuts);
   dvcsTask->SetEventCuts(eventCuts);
-  dvcsTask->SetBeamEnergy(7.546);
+  dvcsTask->SetBeamEnergy(10.6);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);
   dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
+  dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
 
 
   mgr.AddTask(std::move(dvcsTask));

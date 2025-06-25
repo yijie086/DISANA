@@ -13,6 +13,10 @@ void DVCSAnalysis::UserCreateOutputObjects() {}
 void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
+  if (fMaxEvents > 0) {
+        df = df.Range(0, fMaxEvents);   // only process the first fMaxEvents
+  }
+
   if (!fTrackCuts || !fEventCuts) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
 
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);

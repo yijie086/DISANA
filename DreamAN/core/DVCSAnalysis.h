@@ -29,6 +29,7 @@ class DVCSAnalysis : public AnalysisTask {
   void UserCreateOutputObjects() override;
   void UserExec(ROOT::RDF::RNode &df) override;
   void SaveOutput() override;
+  void SetMaxEvents(size_t n) { fMaxEvents = n; }
   // Bad for raw pointer setup
   void SetTrackCuts(std::shared_ptr<TrackCut> cuts) { fTrackCuts = std::move(cuts); };
 
@@ -56,6 +57,7 @@ class DVCSAnalysis : public AnalysisTask {
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;
   bool fDoMomentumCorrection = false;  // Flag to indicate if momentum correction is applied
+  size_t fMaxEvents{0}; // Maximum number of events to process, 0 means no limit
   
   std::optional<ROOT::RDF::RNode> dfSelected;
   std::optional<ROOT::RDF::RNode> dfSelected_afterFid;  // DataFrame after fiducial cuts
