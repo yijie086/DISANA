@@ -52,7 +52,7 @@ std::string GetDetectorPart(short status) {
 TGraph* MakePeakGraph(TH2D* hist, const std::string& outTxtPath)
 {
     const int minEntries = 100;
-    const double maxChi2Ndf = 5.0;
+    const double maxChi2Ndf = 100.0;
     const double maxerrPeak = 0.2;
 
     std::vector<double> xVec, yVec, yerrVec, sigmaVec, chi2ndfVec;
@@ -608,7 +608,7 @@ void DrawDeltaPByThetaBins(
         {
             TCanvas *c = new TCanvas(("c_" + v.saveName + "_overall").c_str(), "", 3000, 1500);
             v.overall->SetTitle((selecteddetector + " " + v.title).c_str());
-            //gPad->SetLogz();
+            gPad->SetLogz();
             v.overall->Draw("COLZ");
             TGraph* gPeak = MakePeakGraph(v.overall,outDir + "/" + v.saveName + "_" + selecteddetector + "_overall.txt");
             gPeak->Draw("PEZ SAME");
@@ -629,7 +629,7 @@ void DrawDeltaPByThetaBins(
         for (size_t ti = 0; ti <= thetaCuts.size(); ++ti) {
             TCanvas *c = new TCanvas(("c_" + v.saveName + Form("_T%zu", ti)).c_str(), "", 3000, 1500);
             v.binHists[ti]->SetTitle((selecteddetector + " " + v.title + " in " + GetThetaBinLabel(ti, thetaCuts)).c_str());
-            //gPad->SetLogz();
+            gPad->SetLogz();
             v.binHists[ti]->Draw("COLZ");
             TGraph* gPeak2 = MakePeakGraph(v.binHists[ti],outDir + "/" + v.saveName + "_" + selecteddetector + Form("_T%zu.txt", ti));
             gPeak2->Draw("PEZ SAME");
@@ -762,11 +762,11 @@ void analysisMomentumCorrection() {
     DrawDeltaPByThetaBins(11,thetaCutsFTelectron,"FT",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-1.0,1.0}},filename,treename);
     DrawDeltaPByThetaBins(11,{0},"ALL",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.1,0.1}},filename,treename);
   */  
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",500,0,3,500,-0.1,0.1}},filename,treename);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",500,0,2,500,-0.05,0.05}},filename,treename);
-    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",500,0,2,500,-0.1,0.1}},filename,treename);
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",500,0,3,500,-0.1,0.1}},filenameCorrected,treenameCorrected);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",500,0,2,500,-0.05,0.05}},filenameCorrected,treenameCorrected);
+    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",200,0,2,200,-0.1,0.1}},filename,treename);
+    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",200,0,2,200,-0.2,0.2}},filename,treename);
+    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",200,0,2,200,-0.1,0.1}},filename,treename);
+    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",200,0,2,200,-0.1,0.1}},filenameCorrected,treenameCorrected);
+    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",200,0,2,200,-0.2,0.2}},filenameCorrected,treenameCorrected);
 
     /*
     DrawDeltaPByThetaBins(22,thetaCutsFDphoton,"FD",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
