@@ -13,15 +13,23 @@ struct ParticleCut {
   int pid = 0;
   int minCount = 1;
   int maxCount = 999;
-  float minMomentum = 0;
-  float maxMomentum = 20;
+  /// detector dependent momentum cuts
+  float minCDMomentum = 0;
+  float minFDMomentum = 0;
+  float minFTMomentum = 0;
+  float maxCDMomentum = 999;
+  float maxFDMomentum = 999;
+  float maxFTMomentum = 999;
+  //
+  float minBeta = -999;
+  float maxBeta = 999;
   float minTheta = -999;
   float maxTheta = M_PI;
   float minPhi = 0;
   float maxPhi = 2*M_PI;
   float minVz = -999;
   float maxVz = 999;
-  float minChi2PID = -9999;
+  float minChi2PID = -999999;
   float maxChi2PID = 999999;
 };
 

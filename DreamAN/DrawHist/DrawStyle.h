@@ -46,6 +46,13 @@ class DrawStyle {
     TGaxis::SetMaxDigits(maxDigits_);
   }
 
+  void NormalizeHistogram(TH1* hist) const {
+  if (!hist) return;
+  double integral = hist->Integral();
+  if (integral > 0)
+    hist->Scale(1.0 / integral);
+  }
+
   void StylePad(TPad* pad) const {
     if (!pad) return;
     pad->SetLeftMargin(leftMargin_);

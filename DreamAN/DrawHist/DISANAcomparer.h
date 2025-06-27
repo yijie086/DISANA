@@ -24,6 +24,12 @@ class DISANAcomparer {
   // Set the bin ranges used for cross-section calculations and plotting
   void SetXBinsRanges(BinManager bins) { fXbins = bins; }
 
+  void NormalizeHistogram(TH1* hist) {
+  if (!hist) return;
+  double integral = hist->Integral();
+  if (integral > 0)
+    hist->Scale(1.0 / integral);
+}
   // Add a new model with its DataFrame, label, and beam energy
   void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy) {
     auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy);
@@ -109,7 +115,7 @@ class DISANAcomparer {
         std::cerr << "[PlotVariableComparison]: Histogram " << hname_target << " not found for model [" << labels[i] << "]\n";
         continue;
       }
-              
+      NormalizeHistogram(target);    
       styleKin_.StyleTH1(target);
       target->SetLineColor(i + 2);
       target->SetTitle(Form("%s;%s;Count", typeToParticle[type].c_str(), VarName[var].c_str()));
@@ -191,6 +197,7 @@ class DISANAcomparer {
     int pad = 1;
     for (const auto& var : variables) {
       canvas->cd(pad++);
+      styleKin_.StylePad((TPad*)gPad);
 
       bool first = true;
 
@@ -214,6 +221,7 @@ class DISANAcomparer {
 
         styleDVCS_.StylePad((TPad*)gPad);
         styleDVCS_.StyleTH1(h.GetPtr());
+         NormalizeHistogram(h.GetPtr()); 
         h->SetLineColor(i + 2);
         h->GetXaxis()->SetTitle(titles[var].c_str());
         h->GetYaxis()->SetTitle("Counts");

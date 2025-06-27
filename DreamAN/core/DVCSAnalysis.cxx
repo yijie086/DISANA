@@ -14,9 +14,8 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
   if (fMaxEvents > 0) {
-        df = df.Range(0, fMaxEvents);   // only process the first fMaxEvents
+    df = df.Range(0, fMaxEvents);   // only process the first fMaxEvents
   }
-
   if (!fTrackCuts || !fEventCuts) throw std::runtime_error("DVCSAnalysis: One or more cut not set.");
 
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);
@@ -31,16 +30,7 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All());
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi", RECParticlephi(), RECParticle::All());
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_p", RECParticleP(), RECParticle::All());
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Q2", EventQ2(fbeam_energy, 11, -1), RECParticle::All());
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_xB", EventxB(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All());
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_Nu", EventNu(fbeam_energy, 11, -1), RECParticle::All());
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_W", EventW(fbeam_energy, 11, -1, getParticleMass(2212)), RECParticle::All());
-  dfDefs = DefineOrRedefine(dfDefs, "REC_Event_mt", Eventmt(fbeam_energy, 2212, 1, getParticleMass(2212)), RECParticle::All());
-
-  if (IsMC) {
-    dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi_1", RECParticlephi(), RECParticle::All());
-  }
-
+  dforginal = dfDefs;
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
   auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
@@ -62,15 +52,8 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   }
   auto AllCols = CombineColumns(trajCols, caloCols);
 
-  /*
-  auto AllCols = CombineColumns(RECTraj::All(), RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_fid", fTrackCutsWithFid->RECFiducialPass(), AllCols);
-  dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECFiducialPass(), AllCols);
-  */
-
   auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
-  // dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Event_pass","REC_Particle_pass", *fEventCuts, cols_track_fid);
 
   dfSelected = dfDefsWithTraj;
   dfSelected = DefineOrRedefine(*dfSelected, "EventCutResult", *fEventCuts, cols_track_nofid);
@@ -116,6 +99,14 @@ void DVCSAnalysis::SaveOutput() {
     std::cerr << "DVCSAnalysis::SaveOutput: No valid output file!" << std::endl;
     return;
   }
+   if (IsMC) {
+    // snapshot of the MC bank for efficiency and other studies
+    dforginal->Snapshot("dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
+                 {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
+                  "MC_Event_pbeam",  // include if this exists
+                  "MC_Event_ptarget", "MC_Event_ebeam"});
+  }
+
 
   if (!dfSelected.has_value()) {
     std::cerr << "DVCSAnalysis::SaveOutput: dfSelected not set!" << std::endl;

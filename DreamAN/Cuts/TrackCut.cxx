@@ -173,6 +173,10 @@ void TrackCut::AddECoutFiducialRange(int pid, int sector, const std::string& axi
     fFiducialCutsECout[pid][sector].lwCut.excludedRanges.emplace_back(min, max);
 }
 
+void TrackCut::SetMinECALEnergyCut(int pid, int layer, float minEnergy) {
+  fMinECALEnergyCutPerPIDLayer[pid][layer] = minEnergy;
+}
+
 const std::map<int, std::vector<float>>& TrackCut::GetEdgeCuts() const { return fDCEdgeCutsPerPID; }
 const std::map<int, std::vector<float>>& TrackCut::GetCVTEdgeCuts() const { return fCVTEdgeCutsPerPID; }
 

@@ -1,5 +1,6 @@
 
 #include "EventCut.h"
+
 #include <cmath>
 #include <iostream>
 
@@ -12,11 +13,20 @@ void EventCut::AddParticleCut(const std::string& name, const ParticleCut& userCu
   if (name == "proton") {
     cut.pid = 2212;
     cut.charge = 1;
+    cut.minVz = -8;
+    cut.maxVz = 2;
+
   } else if (name == "electron") {
     cut.pid = 11;
     cut.charge = -1;
+    cut.minVz = -8;
+    cut.maxVz = 2;
   } else if (name == "photon") {
     cut.pid = 22;
+    cut.minVz = -8;
+    cut.maxVz = 2;
+    cut.minBeta = 0.9;  // Photon beta cut
+    cut.maxBeta = 1.1;  // Photon beta cut
   }
 
   fParticleCuts[name] = cut;
@@ -27,18 +37,18 @@ void EventCut::AddParticleMotherCut(const std::string& name, const TwoBodyMother
   if (name == "pi0") {
     cut.pidDaug1 = 22;
     cut.pidDaug2 = 22;
-    cut.expectedMotherMass = 0.135f;
-    cut.massSigma = 0.005f;
+    cut.expectedMotherMass = 0.135;
+    cut.massSigma = 0.005;
   } else if (name == "phi") {
     cut.pidDaug1 = 321;
     cut.pidDaug2 = -321;
     cut.expectedMotherMass = 1.019f;
-    cut.massSigma = 0.005f;
+    cut.massSigma = 0.5f;
   } else if (name == "rho") {
     cut.pidDaug1 = 211;
     cut.pidDaug2 = -211;
     cut.expectedMotherMass = 0.770f;
-    cut.massSigma = 0.010f;
+    cut.massSigma = 0.5f;
   }
 
   fTwoBodyMotherCuts[name] = cut;
@@ -81,19 +91,28 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
   for (const auto& [name, cut] : fParticleCuts) {
     int count = 0;
     for (size_t i = 0; i < pid.size(); ++i) {
-      const float p2 = px[i]*px[i] + py[i]*py[i] + pz[i]*pz[i];
+      const float p2 = px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i];
       if (p2 < 1e-4f) continue;
 
       if (pid[i] != cut.pid || charge[i] != cut.charge || REC_Track_pass_fid[i] != 1) continue;
       if (!IsInRange(chi2pid[i], cut.minChi2PID, cut.maxChi2PID)) continue;
 
       const float momentum = std::sqrt(p2);
-      const float theta = std::atan2(std::sqrt(px[i]*px[i] + py[i]*py[i]), pz[i]);
+      const float theta = std::atan2(std::sqrt(px[i] * px[i] + py[i] * py[i]), pz[i]);
       float phi = std::atan2(py[i], px[i]);
       if (phi < 0) phi += 2 * M_PI;
+      int statusAbs = std::abs(status[i]);
+      // cut based on momentum and status of th detector of the particle
+      bool momentumFTCut = IsInRange(momentum, cut.minFTMomentum, cut.maxFTMomentum) && (statusAbs >= 1000 && statusAbs < 2000);
+      bool momentumFDCut = IsInRange(momentum, cut.minFDMomentum, cut.maxFDMomentum) && (statusAbs >= 2000 && statusAbs < 3000);
+      bool momentumCDCut = IsInRange(momentum, cut.minCDMomentum, cut.maxCDMomentum) && (statusAbs >= 4000 && statusAbs < 5000);
+      bool momentumCut = momentumFTCut || momentumFDCut || momentumCDCut;
 
-      if (IsInRange(momentum, cut.minMomentum, cut.maxMomentum) && IsInRange(theta, cut.minTheta, cut.maxTheta) &&
-          IsInRange(phi, cut.minPhi, cut.maxPhi) && IsInRange(vz[i], cut.minVz, cut.maxVz)) {
+      bool betaCut = IsInRange(beta[i], cut.minBeta, cut.maxBeta);
+      bool thetaCut = IsInRange(theta, cut.minTheta, cut.maxTheta);
+      bool phiCut = IsInRange(phi, cut.minPhi, cut.maxPhi);
+      bool vzCut = IsInRange(vz[i], cut.minVz, cut.maxVz);
+      if (momentumCut && betaCut && thetaCut && phiCut && vzCut) {
         result.particlePass[i] = true;
         ++count;
       }
@@ -114,14 +133,14 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
           float minMass = cut.expectedMotherMass - cut.massSigma * cut.nSigmaMass;
           float maxMass = cut.expectedMotherMass + cut.massSigma * cut.nSigmaMass;
 
-          float E1 = std::sqrt(px[i]*px[i] + py[i]*py[i] + pz[i]*pz[i]);
-          float E2 = std::sqrt(px[j]*px[j] + py[j]*py[j] + pz[j]*pz[j]);
+          float E1 = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
+          float E2 = std::sqrt(px[j] * px[j] + py[j] * py[j] + pz[j] * pz[j]);
           float px_sum = px[i] + px[j];
           float py_sum = py[i] + py[j];
           float pz_sum = pz[i] + pz[j];
-          float E_sum  = E1 + E2;
+          float E_sum = E1 + E2;
 
-          float invMass2 = E_sum*E_sum - (px_sum*px_sum + py_sum*py_sum + pz_sum*pz_sum);
+          float invMass2 = E_sum * E_sum - (px_sum * px_sum + py_sum * py_sum + pz_sum * pz_sum);
           float invMass = (invMass2 > 0) ? std::sqrt(invMass2) : 0;
           // Store invariant mass regardless
           result.MotherMass[i] = invMass;
@@ -131,12 +150,12 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
             result.particleDaughterPass[i] = true;
             result.particleDaughterPass[j] = true;
           }
-
         }
       }
     }
   }
 
   result.eventPass = allCutsPassed;
+  
   return result;
 }
