@@ -180,6 +180,8 @@ void AddFTCalFiducialRange(int pid, int layer, float x, float y, float rmin, flo
 void AddPCalFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECinFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
+void SetMinECALEnergyCut(int pid, int layer, float minEnergy);
+
 
 
  private:
@@ -236,6 +238,8 @@ void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float m
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECin;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECout;
 
+  ///ECAL min energy cuts
+  std::map<int, std::map<int, float>> fMinECALEnergyCutPerPIDLayer;
 
   template <typename T>
   bool IsInRange(T value, T min, T max) const {
