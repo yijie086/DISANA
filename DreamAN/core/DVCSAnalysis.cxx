@@ -12,6 +12,7 @@ void DVCSAnalysis::UserCreateOutputObjects() {}
 
 void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
+
   if (fMaxEvents > 0) {
     df = df.Range(0, fMaxEvents);   // only process the first fMaxEvents
   }

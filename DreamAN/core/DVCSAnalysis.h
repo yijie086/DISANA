@@ -60,6 +60,7 @@ class DVCSAnalysis : public AnalysisTask {
   size_t fMaxEvents{0}; // Maximum number of events to process, 0 means no limit
 
   std::optional<ROOT::RDF::RNode> dforginal;
+
   std::optional<ROOT::RDF::RNode> dfSelected;
   std::optional<ROOT::RDF::RNode> dfSelected_afterFid;  // DataFrame after fiducial cuts
   std::optional<ROOT::RDF::RNode> dfSelected_afterFid_afterCorr;  // DataFrame after fiducial cuts and momentum correction

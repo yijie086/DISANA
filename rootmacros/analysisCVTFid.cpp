@@ -253,9 +253,9 @@ void analysisCVTFid() {
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -5.0};
     std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 25.0};
     std::vector<float> thetaCuts = {55, 85, 115};
-    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_after_fiducialCuts.root", "dfSelected_after", true);
-    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_before_fiducialCuts.root", "dfSelected_before", false);
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
+    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }
