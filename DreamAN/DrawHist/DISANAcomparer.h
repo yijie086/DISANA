@@ -311,7 +311,7 @@ class DISANAcomparer {
           double xbmin = xb_bins[ix], xbmax = xb_bins[ix + 1];
           double tmin = t_bins[it], tmax = t_bins[it + 1];
 
-          TString labelText = Form("Q^{2} #in [%.1f-%.1f], x_{B} #in [%.1f-%.1f]", qmin, qmax, xbmin, xbmax);
+          TString labelText = Form("Q^{2} #in [%.1f-%.1f], x_{B} #in [%.2f-%.2f]", qmin, qmax, xbmin, xbmax);
           TLatex* label = new TLatex(0.45, 0.85, labelText.Data());
           label->SetNDC();
           label->SetTextSize(0.04);
@@ -340,7 +340,8 @@ class DISANAcomparer {
     std::vector<std::vector<TH1D*>> allCSHists;
     for (int i = 0; i < plotters.size(); ++i) {
       auto& plotter = plotters[i];
-      auto histos = plotter->ComputeBSA(fXbins, luminosity);
+      //auto histos = plotter->ComputeBSA(fXbins, luminosity);
+      auto histos = plotter->ComputeBSA_optimized(fXbins, luminosity);
       if (histos.empty()) {
         std::cerr << "Warning: Empty BSA histograms for one of the models.\n";
       }
@@ -410,6 +411,86 @@ class DISANAcomparer {
     allCSHists.clear();
     delete canvas;
   }
+
+  void PlotDIS_BSA_Comparison_optimized(double luminosity)
+{
+  if (plotters.empty()) {
+    std::cerr << "No models loaded to compare.\n";
+    return;
+  }
+
+  std::vector<std::vector<TH1D*>> allBSA;
+  for (auto& p : plotters) {
+    auto h = p->ComputeBSA_optimized(fXbins, luminosity);   // 已经拍平成 1D
+    if (h.empty()) std::cerr << "Warning: empty BSA histos.\n";
+    allBSA.push_back(std::move(h));
+  }
+
+  const auto& q2_edges = fXbins.GetQ2Bins();
+  const auto&  t_edges = fXbins.GetTBins();
+  const auto& xb_edges = fXbins.GetXBBins();
+
+  const size_t n_q2 = q2_edges.size() - 1;
+  const size_t n_t  =  t_edges.size() - 1;
+  const size_t n_xb = xb_edges.size() - 1;
+
+  const int rows = n_q2;       
+  const int cols = n_xb;       
+
+  for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+
+    TString cname = Form("DIS_BSA_t[%zu]", t_bin);
+    TCanvas* c = new TCanvas(cname, cname, 2000, 1500);
+    c->Divide(cols, rows);
+
+    for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+      for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+
+        const int pad = q2_bin * cols + xb_bin + 1;
+        c->cd(pad);  styleBSA_.StylePad((TPad*)gPad);
+
+        const int idx = q2_bin * (n_t * n_xb) + t_bin * n_xb + xb_bin;
+
+        TLegend* leg = new TLegend(0.45, 0.7, 0.8, 0.88);
+        leg->SetBorderSize(0); leg->SetFillStyle(0); leg->SetTextSize(0.04);
+
+        bool first = true;
+        for (size_t m = 0; m < allBSA.size(); ++m) {
+          TH1D* h = allBSA[m][idx];
+          styleBSA_.StyleTH1(h);
+          h->SetLineColor(static_cast<int>(m + 2));
+          h->SetLineWidth(1);
+          h->GetXaxis()->SetTitle("#phi [deg]");
+          h->GetYaxis()->SetTitle("A_{LU}");
+
+          h->Draw(first ? "E1X0" : "E1X0 SAME");
+          first = false;
+          leg->AddEntry(h, labels[m].c_str(), "l");
+        }
+
+        double xB_low  = xb_edges[xb_bin], xB_high  = xb_edges[xb_bin + 1];
+        double Q2_low  = q2_edges[q2_bin], Q2_high  = q2_edges[q2_bin + 1];
+        double  t_low  =  t_edges[t_bin] ,  t_high  =  t_edges[t_bin + 1];
+
+        TLatex lab;
+        lab.SetNDC(); lab.SetTextSize(0.04);
+        lab.DrawLatex(0.45, 0.85,
+            Form("Q^{2} #in [%.1f,%.1f] GeV^{2}, x_{B} #in [%.2f,%.2f]",
+                 Q2_low, Q2_high, xB_low, xB_high));
+        leg->Draw();
+      }
+    }
+
+    c->SetLogy(false);
+    TString outfile = Form("%s/DIS_BSA_t_%.2f-%.2f.png",
+                           outputDir.c_str(), t_edges[t_bin], t_edges[t_bin + 1]);
+    c->SaveAs(outfile);
+    std::cout << "Saved: " << outfile << '\n';
+
+    delete c;
+  }
+}
+
 
 
  private:

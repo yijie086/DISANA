@@ -300,7 +300,8 @@ void DISANA_Xplotter() {
   comparer.PlotKinematicComparison();
   comparer.PlotDVCSKinematicsComparison();
   comparer.PlotDISCrossSectionComparison(1);  // argument is Luminosity
-  comparer.PlotDIS_BSA_Comparison(1);         // argument is Luminosity
+  //comparer.PlotDIS_BSA_Comparison(1);         // argument is Luminosity
+  comparer.PlotDIS_BSA_Comparison_optimized(1);  // argument is Luminosity
   gApplication->Terminate(0);
 }
 

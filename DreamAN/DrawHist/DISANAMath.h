@@ -99,6 +99,7 @@ public:
   double GetW()  const { return W_; }
   double GetNu() const { return nu_; }
   double Gety()  const { return y_; }
+  static std::vector<TH1D*> FlattenHists(const std::vector<std::vector<std::vector<TH1D*>>>& h3d);
 
   double GetMx2_ep()        const { return mx2_ep_; }
   double GetEmiss()         const { return emiss_; }
@@ -298,6 +299,88 @@ std::vector<std::vector<std::vector<TH1D*>>> ComputeDVCS_CrossSection2(ROOT::RDF
   std::cout << "DVCS cross-sections computed in 3D bin structure.\n";
   return histograms;
 }
+
+std::vector<std::vector<std::vector<TH1D*>>>
+ComputeDVCS_CrossSection2_optimize(ROOT::RDF::RNode df,
+                          const BinManager &bins,
+                          double luminosity)
+{
+  TStopwatch timer;
+  timer.Start();
+  constexpr double phi_min    = 0.0;
+  constexpr double phi_max    = 360.0;
+  constexpr int    n_phi_bins = 12;
+
+  const auto &q2_bins = bins.GetQ2Bins();
+  const auto &t_bins  = bins.GetTBins();
+  const auto &xb_bins = bins.GetXBBins();
+
+  const size_t n_q2 = q2_bins.size() - 1;
+  const size_t n_t  = t_bins.size()  - 1;
+  const size_t n_xb = xb_bins.size() - 1;
+
+  std::vector<std::vector<std::vector<TH1D*>>> histograms(
+      n_xb,
+      std::vector<std::vector<TH1D*>>(n_q2, std::vector<TH1D*>(n_t, nullptr)));
+
+  for (size_t ix = 0; ix < n_xb; ++ix)
+    for (size_t iq = 0; iq < n_q2; ++iq)
+      for (size_t it = 0; it < n_t; ++it) {
+        const double qmin  = q2_bins[iq],    qmax  = q2_bins[iq + 1];
+        const double tmin  = t_bins[it],     tmax  = t_bins[it + 1];
+        const double xbmin = xb_bins[ix],    xbmax = xb_bins[ix + 1];
+
+        std::string name  = Form("hphi_q%.1f_t%.1f_xb%.2f", qmin, tmin, xbmin);
+        std::string title = Form("d#sigma/d#phi (Q^{2}=[%.1f,%.1f], "
+                                 "t=[%.1f,%.1f], x_{B}=[%.2f,%.2f])",
+                                 qmin, qmax, tmin, tmax, xbmin, xbmax);
+
+        histograms[ix][iq][it] = new TH1D(name.c_str(), title.c_str(),
+                                          n_phi_bins, phi_min, phi_max);
+        histograms[ix][iq][it]->SetDirectory(nullptr); // 独立于当前文件
+      }
+
+  auto findBin = [](double val, const std::vector<double>& edges) -> int {
+    auto it = std::upper_bound(edges.begin(), edges.end(), val);
+    if (it == edges.begin() || it == edges.end()) return -1; // 越界
+    return static_cast<int>(it - edges.begin()) - 1;
+  };
+
+  auto filler = [&](double Q2, double t, double xB, double phi) {
+    const int iq = findBin(Q2, q2_bins);
+    const int it = findBin(t,  t_bins);
+    const int ix = findBin(xB, xb_bins);
+
+    if (iq >= 0 && it >= 0 && ix >= 0)
+      histograms[ix][iq][it]->Fill(phi); 
+  };
+
+  df.Foreach(filler, {"Q2", "t", "xB", "phi"});
+
+  const double bin_width = (phi_max - phi_min) / n_phi_bins;
+
+  for (auto &vec_q2 : histograms)
+    for (auto &vec_t : vec_q2)
+      for (TH1D* h : vec_t)
+        if (h) {
+          for (int b = 1; b <= h->GetNbinsX(); ++b) {
+            const double raw  = h->GetBinContent(b);
+            const double norm = raw / (luminosity * bin_width);
+            const double err  = std::sqrt(raw) / (luminosity * bin_width);
+            h->SetBinContent(b, norm);
+            h->SetBinError(b, err);
+          }
+        }
+
+  std::cout << "DVCS cross-sections computed in a single pass.\n";
+  timer.Stop();
+  std::cout << "Time elapsed: " << timer.RealTime() << " s (real), "
+          << timer.CpuTime() << " s (CPU)\n";
+  return histograms;
+}
+
+
+
 /// BSA studeis 
 std::vector<TH1D *> ComputeBeamSpinAsymmetry(const std::vector<TH1D *> &sigma_pos,
   const std::vector<TH1D *> &sigma_neg) {
@@ -348,5 +431,83 @@ asymmetry_histograms.push_back(h_asym);
 std::cout << "Beam Spin Asymmetries computed.\n";
 return asymmetry_histograms;
 }
+
+// === NEW: 3D Beam-Spin Asymmetry ============================================
+std::vector<std::vector<std::vector<TH1D*>>>
+ComputeBeamSpinAsymmetry_optimized(const std::vector<std::vector<std::vector<TH1D*>>>& sigma_pos,
+                         const std::vector<std::vector<std::vector<TH1D*>>>& sigma_neg)
+{
+  if (sigma_pos.size() != sigma_neg.size()) {
+    std::cerr << "ERROR: xB dim mismatch!\n";
+    return {};
+  }
+
+  const size_t n_xb = sigma_pos.size();
+  std::vector<std::vector<std::vector<TH1D*>>> asym(n_xb);
+
+  for (size_t ix = 0; ix < n_xb; ++ix) {
+    if (sigma_pos[ix].size() != sigma_neg[ix].size()) {
+      std::cerr << "ERROR: Q² dim mismatch at xB " << ix << "!\n";
+      return {};
+    }
+    const size_t n_q2 = sigma_pos[ix].size();
+    asym[ix].resize(n_q2);
+
+    for (size_t iq = 0; iq < n_q2; ++iq) {
+      if (sigma_pos[ix][iq].size() != sigma_neg[ix][iq].size()) {
+        std::cerr << "ERROR: t dim mismatch at (xB,q2)=("<<ix<<','<<iq<<")!\n";
+        return {};
+      }
+      const size_t n_t = sigma_pos[ix][iq].size();
+      asym[ix][iq].resize(n_t,nullptr);
+
+      for (size_t it = 0; it < n_t; ++it) {
+        TH1D* hp = sigma_pos [ix][iq][it];
+        TH1D* hm = sigma_neg [ix][iq][it];
+        if (!hp || !hm) { std::cerr<<"WARNING: null hist @("<<ix<<','<<iq<<','<<it<<")\n"; continue; }
+
+        std::string nm = std::string(hp->GetName())+"_BSA";
+        TH1D* ha = dynamic_cast<TH1D*>(hp->Clone(nm.c_str()));
+        ha->Reset();
+        ha->SetTitle(("Beam Spin Asymmetry of "+std::string(hp->GetTitle())).c_str());
+
+        for (int b=1;b<=hp->GetNbinsX();++b){
+          const double Np=hp->GetBinContent(b), Nm=hm->GetBinContent(b);
+          const double Ep=hp->GetBinError(b)  , Em=hm->GetBinError(b);
+          const double den=Np+Nm, num=Np-Nm;
+          double A=(den!=0)?num/den:0.0;
+          double E=(den!=0)?2.0/(den*den)*std::sqrt(std::pow(Nm*Ep,2)+std::pow(Np*Em,2)):0.0;
+          ha->SetBinContent(b,A); ha->SetBinError(b,E);
+        }
+        asym[ix][iq][it]=ha;
+      }
+    }
+  }
+  std::cout<<"Beam-Spin Asymmetries (3D) computed.\n";
+  return asym;
+}
+
 };
+
+inline std::vector<TH1D*>
+DISANAMath::FlattenHists(const std::vector<std::vector<std::vector<TH1D*>>>& h3d)
+{
+  std::vector<TH1D*> flat;
+  if (h3d.empty()) return flat;
+
+  const size_t n_xb = h3d.size();
+  const size_t n_q2 = h3d[0].size();
+  const size_t n_t  = h3d[0][0].size();
+
+  // Q²  →  t  →  xB 
+  for (size_t iq = 0; iq < n_q2; ++iq)
+    for (size_t it = 0; it < n_t;  ++it)
+      for (size_t ix = 0; ix < n_xb; ++ix) {
+        TH1D* h = h3d[ix][iq][it]; 
+        if (h) flat.push_back(h);
+      }
+
+  return flat;
+}
+
 #endif  // DISANAMATH_H
