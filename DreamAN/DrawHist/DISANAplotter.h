@@ -79,26 +79,27 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
     return all;
   }
 
-  std::vector<TH1D*> ComputeDVCS_CrossSection(const BinManager& bins, double luminosity) {
-    DISANAMath kinCalc;
+  std::vector<std::vector<std::vector<TH1D*>>> ComputeDVCS_CrossSection(const BinManager& bins, double luminosity) {
     return kinCalc.ComputeDVCS_CrossSection(rdf, bins, luminosity);
   }
 
-  std::vector<std::vector<std::vector<TH1D*>>> ComputeDVCS_CrossSection2(const BinManager& bins, double luminosity) {
+  /// BSA computations // we need to have refined version of this codes
+  std::vector<TH1D*> ComputeBSA(const BinManager& bins, double luminosity, double pol = 1.0) {
+    // 1) Helicity selection
+    auto rdf_pos = rdf.Filter("REC_Event_helicity ==  1");
+    auto rdf_neg = rdf.Filter("REC_Event_helicity == -1");
+    // 2) One-pass cross-section per helicity
     DISANAMath kinCalc;
-    //return kinCalc.ComputeDVCS_CrossSection2(rdf, bins, luminosity);
-    return kinCalc.ComputeDVCS_CrossSection2_optimize(rdf, bins, luminosity);
+
+    auto sigma_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pos, bins, luminosity);
+    auto sigma_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_neg, bins, luminosity);
+    // 3) 3-D BSA
+    auto bsa_3d = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
+    // 4) Flatten to keep legacy return-type
+    return DISANAMath::FlattenHists(bsa_3d);
+
   }
 
-  /// BSA computations
-  std::vector<TH1D*> ComputeBSA(const BinManager& bins, double luminosity) {
-    auto filteredRDF_pos = std::make_unique<ROOT::RDF::RNode>(rdf.Filter("REC_Event_helicity == 1"));
-    auto filteredRDF_neg = std::make_unique<ROOT::RDF::RNode>(rdf.Filter("REC_Event_helicity == -1"));
-    DISANAMath kinCalc;
-    auto Xdvcs_pos = kinCalc.ComputeDVCS_CrossSection(*filteredRDF_pos, bins, luminosity);
-    auto Xdvcs_neg = kinCalc.ComputeDVCS_CrossSection(*filteredRDF_neg, bins, luminosity);
-    return kinCalc.ComputeBeamSpinAsymmetry(Xdvcs_pos, Xdvcs_neg);
-  }
 
   std::vector<TH1D*> ComputeBSA_optimized(const BinManager& bins, double luminosity) {
     // 1) Helicity selection
@@ -115,7 +116,17 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
   }
 
 
+  void ApplyPi0BkgCorr(THnSparseD *correctionHist ){
+      kinCalc.SetApplyCorrPi0BKG(true);
+      if (correctionHist) {
+        kinCalc.SetCorrHist(correctionHist);
+      } else {
+        std::cerr << "Error: Correction histogram is not set.\n";
+      }
+  }
+
  private:
+
   std::vector<std::string> disvars = {"Q2", "xB", "t", "W", "phi"};
   std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}}, {"W", {1.0, 10.0}}, {"t", {0.0, 10.0}}, {"phi", {-180.0, 180.0}}};
   std::map<std::string, std::pair<double, double>> kinematicAxisRanges = {
@@ -125,6 +136,7 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
       // Add more as needed
   };
 
+  DISANAMath kinCalc;
   std::unique_ptr<TFile> predFile;
   std::string predFileName = ".";
   double beam_energy;
