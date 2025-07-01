@@ -35,6 +35,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
 
+
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
   auto theta_bins = std::vector<std::pair<float, float>>({{5.0 * M_PI / 180, 10.0 * M_PI / 180},
@@ -228,6 +229,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
         float C_p = 0.0;
         return p + (A_p + B_p / p + C_p / (p * p));
       });
+
   // Task
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);
   dvcsTask->SetTrackCuts(trackCuts);
@@ -235,10 +237,13 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   dvcsTask->SetBeamEnergy(10.6);
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   dvcsTask->SetDoFiducialCut(true);
-  dvcsTask->SetDoInvMassCut(true);           // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
-  dvcsTask->SetMomentumCorrection(corr);     // Set the momentum correction object
+
+  dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
+  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
+
+
   mgr.AddTask(std::move(dvcsTask));
 
   // Processor

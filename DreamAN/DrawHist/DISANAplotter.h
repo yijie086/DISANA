@@ -90,14 +90,30 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
     auto rdf_neg = rdf.Filter("REC_Event_helicity == -1");
     // 2) One-pass cross-section per helicity
     DISANAMath kinCalc;
+
     auto sigma_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pos, bins, luminosity);
     auto sigma_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_neg, bins, luminosity);
     // 3) 3-D BSA
     auto bsa_3d = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
     // 4) Flatten to keep legacy return-type
     return DISANAMath::FlattenHists(bsa_3d);
+
   }
 
+
+  std::vector<TH1D*> ComputeBSA_optimized(const BinManager& bins, double luminosity) {
+    // 1) Helicity selection
+    auto rdf_pos = rdf.Filter("REC_Event_helicity ==  1");
+    auto rdf_neg = rdf.Filter("REC_Event_helicity == -1");
+    // 2) One-pass cross-section per helicity
+    DISANAMath kinCalc;
+    auto sigma_pos_3d = kinCalc.ComputeDVCS_CrossSection2_optimize(rdf_pos, bins, luminosity);
+    auto sigma_neg_3d = kinCalc.ComputeDVCS_CrossSection2_optimize(rdf_neg, bins, luminosity);
+    // 3) 3-D BSA
+    auto bsa_3d = kinCalc.ComputeBeamSpinAsymmetry_optimized(sigma_pos_3d, sigma_neg_3d);
+    // 4) Flatten to keep legacy return-type
+    return DISANAMath::FlattenHists(bsa_3d);
+  }
 
 
   void ApplyPi0BkgCorr(THnSparseD *correctionHist ){

@@ -401,6 +401,7 @@ class DISANAcomparer {
       std::cerr << "No models loaded to compare.\n";
       return;
     }
+
     std::vector<std::vector<TH1D*>> allBSA;
     for (auto& p : plotters) {
       auto h = p->ComputeBSA(fXbins, luminosity, pol);  
@@ -560,6 +561,7 @@ class DISANAcomparer {
           line2->Draw("SAME");
         }
 
+
         legend->Draw();
       }
 
@@ -569,6 +571,7 @@ class DISANAcomparer {
       delete canvas;
     }
   };
+
 
  private:
   BinManager fXbins;

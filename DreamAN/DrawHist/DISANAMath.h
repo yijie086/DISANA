@@ -100,6 +100,7 @@ class DISANAMath {
   double GetPhi() const { return phi_deg_; }
   double GetW() const { return W_; }
   double GetNu() const { return nu_; }
+
   double Gety() const { return y_; }
   static std::vector<TH1D *> FlattenHists(const std::vector<std::vector<std::vector<TH1D *>>> &h3d);
 
@@ -108,6 +109,8 @@ class DISANAMath {
   double GetPTmiss() const { return ptmiss_; }
   double GetMx2_epg() const { return mx2_epg_; }
   double GetDeltaPhi() const { return delta_phi_; }
+
+
   double GetTheta_gamma_gamma() const { return theta_gg_; }
   double GetMx2_egamma() const { return mx2_egamma_; }
   double GetTheta_e_gamma() const { return Theta_e_gamma_; }
@@ -323,6 +326,7 @@ class DISANAMath {
     std::cout << "Beam-Spin Asymmetries (3D) computed.\n";
     return asym;
   }
+
 };
 std::vector<TH1D *>DISANAMath::FlattenHists(const std::vector<std::vector<std::vector<TH1D *>>> &h3d)
 {
@@ -340,4 +344,5 @@ std::vector<TH1D *>DISANAMath::FlattenHists(const std::vector<std::vector<std::v
       }
   return flat;
 }
+
 #endif  // DISANAMATH_H

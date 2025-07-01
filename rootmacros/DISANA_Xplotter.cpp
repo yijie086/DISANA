@@ -130,6 +130,7 @@ void DISANA_Xplotter() {
 
   // comparer.AddModel(df_afterFid_afterCorr, "after Correction", beam_energy);
   // comparer.AddModel(df_afterFid, "Before Exclusivity cuts", beam_energy);
+
   //comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb C", beam_energy, false, "./../build/correction_factorsInb.root");
   comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb", beam_energy);
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB C", beam_energy, false, "./../build/correction_factorsOutb.root");
@@ -143,6 +144,7 @@ void DISANA_Xplotter() {
   comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   // comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
+
   gApplication->Terminate(0);
 }
 
