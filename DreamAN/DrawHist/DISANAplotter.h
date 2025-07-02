@@ -84,23 +84,28 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
   }
 
   /// BSA computations // we need to have refined version of this codes
-  std::vector<TH1D*> ComputeBSA(const BinManager& bins, double luminosity, double pol = 1.0) {
+  std::vector<std::vector<std::vector<TH1D*>>> ComputeBSA(const BinManager& bins, double luminosity, double pol = 1.0) {
     // 1) Helicity selection
     auto rdf_pos = rdf.Filter("REC_Event_helicity ==  1");
     auto rdf_neg = rdf.Filter("REC_Event_helicity == -1");
     // 2) One-pass cross-section per helicity
-    DISANAMath kinCalc;
 
     auto sigma_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pos, bins, luminosity);
     auto sigma_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_neg, bins, luminosity);
     // 3) 3-D BSA
-    auto bsa_3d = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
+    //auto bsa_3d = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
     // 4) Flatten to keep legacy return-type
-    return DISANAMath::FlattenHists(bsa_3d);
+    return kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
 
   }
 
+   /// BSA computations // we need to have refined version of this codes
+  std::vector<std::vector<std::vector<TH1D*>>> ComputePi0Corr(const BinManager& bins) {
+    // 4) Flatten to keep legacy return-type
+    return kinCalc.computePi0Corr(bins);
 
+  }
+  
   void ApplyPi0BkgCorr(THnSparseD *correctionHist ){
       kinCalc.SetApplyCorrPi0BKG(true);
       if (correctionHist) {
