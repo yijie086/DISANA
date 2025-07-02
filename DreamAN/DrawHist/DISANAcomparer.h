@@ -18,6 +18,17 @@
 #include "DrawStyle.h"
 
 namespace fs = std::filesystem;
+// color palettes for different models
+std::vector<std::tuple<double, double, double>> modelShades = {
+    {0.20, 0.30, 0.85},  // Blue
+    {0.90, 0.45, 0.10},  // Orange
+    {0.00, 0.60, 0.60},  // Teal green
+    {0.00, 0.70, 0.00},  // Green
+    {0.60, 0.30, 0.80},  // Purple
+    {0.85, 0.10, 0.25},  // Red
+    {0.40, 0.40, 0.40}   // Gray (fallback)
+};
+
 
 class DISANAcomparer {
  public:
@@ -395,91 +406,6 @@ class DISANAcomparer {
 
     allCSHists.clear();
   }
-
-  void PlotDIS_BSA_Comparison(double luminosity, double pol = 1.0) {
-    if (plotters.empty()) {
-      std::cerr << "No models loaded to compare.\n";
-      return;
-    }
-    std::vector<std::vector<TH1D*>> allBSA;
-    for (auto& p : plotters) {
-      auto h = p->ComputeBSA(fXbins, luminosity, pol);  
-      if (h.empty()) std::cerr << "Warning: empty BSA histos.\n";
-      allBSA.push_back(std::move(h));
-    }
-
-    const auto& q2_edges = fXbins.GetQ2Bins();
-    const auto& t_edges = fXbins.GetTBins();
-    const auto& xb_edges = fXbins.GetXBBins();
-
-    const size_t n_q2 = q2_edges.size() - 1;
-    const size_t n_t = t_edges.size() - 1;
-    const size_t n_xb = xb_edges.size() - 1;
-
-    const int rows = n_q2;
-    const int cols = n_xb;
-
-    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
-      TString cname = Form("DIS_BSA_t[%zu]", t_bin);
-      TCanvas* c = new TCanvas(cname, cname, 2000, 1500);
-      c->Divide(cols, rows);
-
-      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
-        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
-          const int pad = q2_bin * cols + xb_bin + 1;
-          c->cd(pad);
-          styleBSA_.StylePad((TPad*)gPad);
-
-          const int idx = q2_bin * (n_t * n_xb) + t_bin * n_xb + xb_bin;
-
-          TLegend* leg =  new TLegend(0.6, 0.7, 0.7, 0.8);
-          leg->SetBorderSize(0);
-          leg->SetFillStyle(0);
-          leg->SetTextSize(0.04);
-
-          bool first = true;
-          for (size_t m = 0; m < allBSA.size(); ++m) {
-            TH1D* h = allBSA[m][idx];
-            styleBSA_.StyleTH1(h);
-            h->SetLineColor(static_cast<int>(m + 2));
-            h->SetLineWidth(2);
-            h->SetMarkerStyle(20);
-            h->SetStats(0);
-            h->SetMarkerColor(static_cast<int>(m + 2));
-            h->SetMarkerSize(2);
-            h->SetStats(0);
-
-            h->GetXaxis()->SetTitle("#phi [deg]");
-            h->GetYaxis()->SetTitle("A_{LU}");
-
-            h->Draw(first ? "E1X0" : "E1X0 SAME");
-            first = false;
-            leg->AddEntry(h, labels[m].c_str(), "l");
-          }
-
-          double xB_low = xb_edges[xb_bin], xB_high = xb_edges[xb_bin + 1];
-          double Q2_low = q2_edges[q2_bin], Q2_high = q2_edges[q2_bin + 1];
-          double t_low = t_edges[t_bin], t_high = t_edges[t_bin + 1];
-
-       
-          leg->Draw();
-          TString labelText = Form("Q^{2} #in [%.1f-%.1f], x_{B} #in [%.2f-%.2f]", Q2_low, Q2_high, xB_low, xB_high);
-          TLatex* label = new TLatex(0.45, 0.85, labelText.Data());
-          label->SetNDC();
-          label->SetTextSize(0.04);
-          label->Draw();
-        }
-      }
-
-      c->SetLogy(false);
-      TString outfile = Form("%s/DIS_BSA_t_%.2f-%.2f.pdf", outputDir.c_str(), t_edges[t_bin], t_edges[t_bin + 1]);
-      c->SaveAs(outfile);
-      std::cout << "Saved: " << outfile << '\n';
-
-      delete c;
-    }
-  }
-
   ///
   /// For exclusivity cuts, you can use the following function to select one triplet
   void PlotExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
@@ -569,6 +495,150 @@ class DISANAcomparer {
       delete canvas;
     }
   };
+
+  void PlotDIS_BSA_Comparison(double luminosity, double pol = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "No models loaded to compare.\n";
+      return;
+    }
+
+    std::vector<std::vector<TH1D*>> allBSA;
+    for (auto& p : plotters) {
+      auto h = p->ComputeBSA(fXbins, luminosity, pol);
+      allBSA.push_back(std::move(h));
+    }
+
+    const auto& q2_edges = fXbins.GetQ2Bins();
+    const auto& t_edges = fXbins.GetTBins();
+    const auto& xb_edges = fXbins.GetXBBins();
+
+    const size_t n_q2 = q2_edges.size() - 1;
+    const size_t n_t = t_edges.size() - 1;
+    const size_t n_xb = xb_edges.size() - 1;
+
+    const int rows = n_q2;
+    const int cols = n_xb;
+
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      TString cname = Form("DIS_BSA_t[%zu]", t_bin);
+      TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
+      c->Divide(cols, rows, 0.00, 0.00);  // No gaps
+
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          int visualRow = rows - 1 - q2_bin;
+          int pad = visualRow * cols + xb_bin + 1;
+          TPad* thisPad = (TPad*)c->cd(pad);
+
+          // Pad margins
+          double l = (xb_bin == 0) ? 0.2 : 0.00;
+          double r = (xb_bin == cols - 1) ? 0.05 : 0.00;
+          double b = (visualRow == rows - 1) ? 0.16 : 0.00;
+          double t = (visualRow == 0) ? 0.001 : 0.00;
+
+          styleBSA_.StylePad(thisPad, l, r, b, t);
+          thisPad->SetTicks(1, 0);
+
+          const int idx = q2_bin * (n_t * n_xb) + t_bin * n_xb + xb_bin;
+
+          TLegend* leg = new TLegend(0.35, 0.85, 0.85, 0.95);
+          leg->SetBorderSize(0);
+          leg->SetFillStyle(0);
+          leg->SetTextSize(0.06);
+
+          TLegend* legParams = new TLegend(0.35, 0.16, 0.85, 0.32);  // Bottom legend for a₁
+          legParams->SetBorderSize(0);
+          legParams->SetFillStyle(0);
+          legParams->SetTextSize(0.06);
+
+          bool first = true;
+          gStyle->SetCanvasPreferGL(true);
+
+          for (size_t m = 0; m < allBSA.size(); ++m) {
+            TH1D* h = allBSA[m][idx];
+            styleBSA_.StyleTH1(h);
+
+            auto [r, g, b] = modelShades[m % modelShades.size()];
+
+            int colorIdx = 3000 + m*20;  // Avoid low TColor indices
+
+            if (!gROOT->GetColor(colorIdx)) {
+              new TColor(colorIdx, r, g, b);
+            }
+
+            h->SetLineColor(colorIdx);
+            h->SetMarkerColor(colorIdx);
+            h->SetFillColorAlpha(colorIdx, 1.0);
+
+            h->SetLineColor(colorIdx);
+            h->SetMarkerColor(colorIdx);
+            h->SetFillColorAlpha(colorIdx, 1.0);
+            h->SetLineWidth(1.2);
+            h->SetMarkerStyle(20);
+            h->SetMarkerSize(1.5);
+            h->SetStats(0);
+
+            h->GetXaxis()->SetTitle((visualRow == rows - 1) ? "#phi [deg]" : "");
+            h->GetYaxis()->SetTitle((xb_bin == 0) ? "A_{LU}" : "");
+            h->GetXaxis()->SetLabelSize((visualRow == rows - 1) ? 0.075 : 0.0);
+            h->GetXaxis()->SetTitleSize((visualRow == rows - 1) ? 0.09 : 0.0);
+            h->GetYaxis()->SetLabelSize((xb_bin == 0) ? 0.075 : 0.0);
+            h->GetYaxis()->SetTitleSize((xb_bin == 0) ? 0.09 : 0.0);
+
+            h->GetXaxis()->SetTitleOffset((visualRow == rows - 1) ? 0.8 : 0.0);
+            h->GetYaxis()->SetTitleOffset((xb_bin == 0) ? 1.1 : 0.0);
+     
+            h->GetXaxis()->SetNdivisions(4, false);
+            h->GetYaxis()->SetNdivisions(6, false);
+            h->GetYaxis()->SetRangeUser(-0.6, 0.6);
+            h->GetXaxis()->SetRangeUser(0.01, 355);
+            h->GetXaxis()->CenterTitle(true); 
+            h->GetYaxis()->CenterTitle(true); 
+
+            h->Draw(first ? "E1X0" : "E1X0 SAME");
+            first = false;
+
+            // Fit function and extract a₁
+            TF1* fitFunc = new TF1(Form("fit_%zu_%zu_%zu_%zu", m, t_bin, q2_bin, xb_bin), "[0] + ([1]*sin(x*TMath::DegToRad())) / (1 + [2]*cos(x*TMath::DegToRad()))", 0, 360);
+            fitFunc->SetParameters(0.0, 0.2, 0.1);
+            fitFunc->SetFillColorAlpha(colorIdx, 0.5);
+            fitFunc->SetLineColorAlpha(colorIdx, 0.5);
+            fitFunc->SetLineStyle(2);
+            fitFunc->SetLineWidth(1);
+            h->Fit(fitFunc, "Q0");
+            fitFunc->Draw("SAME");
+
+    
+            double a1  = fitFunc->GetParameter(1);
+            double a1e = fitFunc->GetParError(1);
+            TString a1label = Form("a_{1} = %.2f #pm %.2f", a1, a1e);
+            legParams->AddEntry(fitFunc, a1label, "l");
+
+            leg->AddEntry(h, labels[m].c_str(), "p");
+          }
+
+          // Annotate bin ranges
+          double xB_low = xb_edges[xb_bin], xB_high = xb_edges[xb_bin + 1];
+          double Q2_low = q2_edges[q2_bin], Q2_high = q2_edges[q2_bin + 1];
+          TString labelText = Form("x_{B} #in [%.2f, %.2f], Q^{2} #in [%.1f, %.1f]", xB_low, xB_high, Q2_low, Q2_high);
+          TLatex* latex = new TLatex(0.25, 0.82, labelText.Data());
+          latex->SetTextSize(0.055);
+          latex->SetNDC();
+          latex->SetTextFont(42);
+          latex->Draw();
+
+          leg->Draw();
+          legParams->Draw();
+        }
+      }
+
+      TString outfile = Form("%s/DIS_BSA_t_%.2f-%.2f.pdf", outputDir.c_str(), t_edges[t_bin], t_edges[t_bin + 1]);
+      c->SaveAs(outfile);
+      std::cout << "Saved: " << outfile << '\n';
+
+      delete c;
+    }
+  }
 
  private:
   BinManager fXbins;

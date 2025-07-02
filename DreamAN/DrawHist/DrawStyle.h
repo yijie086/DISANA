@@ -31,7 +31,6 @@ class DrawStyle {
     gStyle->SetLabelSize(labelSize_, "XYZ");
     gStyle->SetTitleFont(font_, "XYZ");
     gStyle->SetLabelFont(font_, "XYZ");
-
     gStyle->SetTitleOffset(xTitleOffset_, "X");
     gStyle->SetTitleOffset(yTitleOffset_, "Y");
 
@@ -47,71 +46,81 @@ class DrawStyle {
   }
 
   void NormalizeHistogram(TH1* hist) const {
-  if (!hist) return;
-  double integral = hist->Integral();
-  if (integral > 0)
-    hist->Scale(1.0 / integral);
+    if (!hist) return;
+    double integral = hist->Integral();
+    if (integral > 0) hist->Scale(1.0 / integral);
   }
 
-  void StylePad(TPad* pad) const {
+  void StylePad(TPad* pad,
+                double left = -1, double right = -1,
+                double bottom = -1, double top = -1) const {
     if (!pad) return;
-    pad->SetLeftMargin(leftMargin_);
-    pad->SetRightMargin(rightMargin_);
-    pad->SetBottomMargin(bottomMargin_);
-    pad->SetTopMargin(topMargin_);
+    pad->SetLeftMargin(left >= 0 ? left : leftMargin_);
+    pad->SetRightMargin(right >= 0 ? right : rightMargin_);
+    pad->SetBottomMargin(bottom >= 0 ? bottom : bottomMargin_);
+    pad->SetTopMargin(top >= 0 ? top : topMargin_);
     pad->SetTicks(1, 1);
   }
 
-  void StyleTH1(TH1* hist, const char* title = "") const {
-    if (!hist) return;
+  void StyleTH1(TH1* hist,
+              const char* title = "",
+              double titleSize = -1, double labelSize = -1,
+              double xOffset = -1, double yOffset = -1) const {
+  if (!hist) return;
 
-    hist->SetStats(0);
-    hist->SetLineWidth(2);
-    hist->SetTitle(title);
-    hist->SetTitleFont(font_, "");
-    hist->SetTitleSize(titleSize_, "");
+  hist->SetStats(0);
+  hist->SetLineWidth(2);
+  hist->SetTitle(title);
+  hist->SetTitleFont(font_, "");
+  hist->SetTitleSize(titleSize > 0 ? titleSize : titleSize_, "");
 
-    hist->GetXaxis()->SetTitleSize(titleSize_);
-    hist->GetXaxis()->SetLabelSize(labelSize_);
-    hist->GetXaxis()->SetTitleOffset(xTitleOffset_);
-    hist->GetXaxis()->SetTitleFont(font_);
-    hist->GetXaxis()->SetLabelFont(font_);
-    hist->GetXaxis()->SetNdivisions(nDivisions_);
+  hist->GetXaxis()->SetTitleSize(titleSize > 0 ? titleSize : titleSize_);
+  hist->GetXaxis()->SetLabelSize(labelSize > 0 ? labelSize : labelSize_);
+  hist->GetXaxis()->SetTitleOffset(xOffset > 0 ? xOffset : xTitleOffset_);
+  hist->GetXaxis()->SetTitleFont(font_);
+  hist->GetXaxis()->SetLabelFont(font_);
+  hist->GetXaxis()->SetNdivisions(nDivisions_);
 
-    hist->GetYaxis()->SetTitleSize(titleSize_);
-    hist->GetYaxis()->SetLabelSize(labelSize_);
-    hist->GetYaxis()->SetTitleOffset(yTitleOffset_);
-    hist->GetYaxis()->SetTitleFont(font_);
-    hist->GetYaxis()->SetLabelFont(font_);
-    hist->GetYaxis()->SetNdivisions(nDivisions_);
-  }
+  hist->GetYaxis()->SetTitleSize(titleSize > 0 ? titleSize : titleSize_);
+  hist->GetYaxis()->SetLabelSize(labelSize > 0 ? labelSize : labelSize_);
+  hist->GetYaxis()->SetTitleOffset(yOffset > 0 ? yOffset : yTitleOffset_);
+  hist->GetYaxis()->SetTitleFont(font_);
+  hist->GetYaxis()->SetLabelFont(font_);
+  hist->GetYaxis()->SetNdivisions(nDivisions_);
+}
 
-  void StyleTH2(TH2* hist, const char* title = "", double zLabelSize = -1.0) const {
-    if (!hist) return;
 
-    hist->SetStats(0);
-    hist->SetTitle(title);
-    hist->SetTitleFont(font_, "");
-    hist->SetTitleSize(titleSize_, "");
+ void StyleTH2(TH2* hist,
+              const char* title = "",
+              double titleSize = -1, double labelSize = -1,
+              double xOffset = -1, double yOffset = -1,
+              double zLabelSize = -1.0) const {
+  if (!hist) return;
 
-    hist->GetXaxis()->SetTitleSize(titleSize_);
-    hist->GetXaxis()->SetLabelSize(labelSize_);
-    hist->GetXaxis()->SetTitleOffset(xTitleOffset_);
-    hist->GetXaxis()->SetTitleFont(font_);
-    hist->GetXaxis()->SetLabelFont(font_);
-    hist->GetXaxis()->SetNdivisions(nDivisions_);
+  hist->SetStats(0);
+  hist->SetTitle(title);
+  hist->SetTitleFont(font_, "");
+  hist->SetTitleSize(titleSize > 0 ? titleSize : titleSize_, "");
 
-    hist->GetYaxis()->SetTitleSize(titleSize_);
-    hist->GetYaxis()->SetLabelSize(labelSize_);
-    hist->GetYaxis()->SetTitleOffset(yTitleOffset_);
-    hist->GetYaxis()->SetTitleFont(font_);
-    hist->GetYaxis()->SetLabelFont(font_);
-    hist->GetYaxis()->SetNdivisions(nDivisions_);
+  hist->GetXaxis()->SetTitleSize(titleSize > 0 ? titleSize : titleSize_);
+  hist->GetXaxis()->SetLabelSize(labelSize > 0 ? labelSize : labelSize_);
+  hist->GetXaxis()->SetTitleOffset(xOffset > 0 ? xOffset : xTitleOffset_);
+  hist->GetXaxis()->SetTitleFont(font_);
+  hist->GetXaxis()->SetLabelFont(font_);
+  hist->GetXaxis()->SetNdivisions(nDivisions_);
 
-    hist->GetZaxis()->SetLabelSize(zLabelSize > 0 ? zLabelSize : labelSize_);
-    hist->GetZaxis()->SetTitleFont(font_);
-    hist->GetZaxis()->SetNdivisions(nDivisions_);
-  }
+  hist->GetYaxis()->SetTitleSize(titleSize > 0 ? titleSize : titleSize_);
+  hist->GetYaxis()->SetLabelSize(labelSize > 0 ? labelSize : labelSize_);
+  hist->GetYaxis()->SetTitleOffset(yOffset > 0 ? yOffset : yTitleOffset_);
+  hist->GetYaxis()->SetTitleFont(font_);
+  hist->GetYaxis()->SetLabelFont(font_);
+  hist->GetYaxis()->SetNdivisions(nDivisions_);
+
+  hist->GetZaxis()->SetLabelSize(zLabelSize > 0 ? zLabelSize : (labelSize > 0 ? labelSize : labelSize_));
+  hist->GetZaxis()->SetTitleFont(font_);
+  hist->GetZaxis()->SetNdivisions(nDivisions_);
+}
+
 
  private:
   double titleSize_;
