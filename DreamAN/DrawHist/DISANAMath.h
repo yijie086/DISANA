@@ -110,7 +110,6 @@ class DISANAMath {
   double GetMx2_epg() const { return mx2_epg_; }
   double GetDeltaPhi() const { return delta_phi_; }
 
-
   double GetTheta_gamma_gamma() const { return theta_gg_; }
   double GetMx2_egamma() const { return mx2_egamma_; }
   double GetTheta_e_gamma() const { return Theta_e_gamma_; }
@@ -199,7 +198,7 @@ class DISANAMath {
     timer.Start();
     constexpr double phi_min = 0.0;
     constexpr double phi_max = 360.0;
-    constexpr int n_phi_bins = 12;
+    constexpr int n_phi_bins = 18;
 
     const auto &q2_bins = bins.GetQ2Bins();
     const auto &t_bins = bins.GetTBins();
@@ -241,11 +240,12 @@ class DISANAMath {
 
       if (iq >= 0 && it >= 0 && ix >= 0) {
         double factor = 1.0;
-        double q2xBtbin_size = (q2_bins[iq+1]-q2_bins[iq])*(t_bins[it+1]-t_bins[it])*(xb_bins[ix+1]-xb_bins[ix]);
+        // double q2xBtbin_size = (q2_bins[iq+1]-q2_bins[iq])*(t_bins[it+1]-t_bins[it])*(xb_bins[ix+1]-xb_bins[ix]);
+        double q2xBtbin_size = 1;
         if (applyCorrection && correctionHist) {
           factor = GetCorrectionFactor(Q2, t, xB, phi);
         }
-        histograms[ix][iq][it]->Fill(phi, factor/q2xBtbin_size);
+        histograms[ix][iq][it]->Fill(phi, factor / q2xBtbin_size);
       }
     };
 
@@ -276,7 +276,7 @@ class DISANAMath {
 
   // === NEW: 3D Beam-Spin Asymmetry ============================================Add commentMore actions
   std::vector<std::vector<std::vector<TH1D *>>> ComputeBeamSpinAsymmetry(const std::vector<std::vector<std::vector<TH1D *>>> &sigma_pos,
-                                                                                   const std::vector<std::vector<std::vector<TH1D *>>> &sigma_neg, double pol = 1.0) {
+                                                                         const std::vector<std::vector<std::vector<TH1D *>>> &sigma_neg, double pol = 1.0) {
     if (sigma_pos.size() != sigma_neg.size()) {
       std::cerr << "ERROR: xB dim mismatch!\n";
       return {};
@@ -317,8 +317,8 @@ class DISANAMath {
             const double den = Np + Nm, num = Np - Nm;
             double A = (den != 0) ? num / den : 0.0;
             double E = (den != 0) ? 2.0 / (den * den) * std::sqrt(std::pow(Nm * Ep, 2) + std::pow(Np * Em, 2)) : 0.0;
-            ha->SetBinContent(b, A/pol);
-            ha->SetBinError(b, E/pol);
+            ha->SetBinContent(b, A / pol);
+            ha->SetBinError(b, E / pol);
           }
           asym[ix][iq][it] = ha;
         }
@@ -328,22 +328,73 @@ class DISANAMath {
     return asym;
   }
 
-};
-std::vector<TH1D *>DISANAMath::FlattenHists(const std::vector<std::vector<std::vector<TH1D *>>> &h3d)
-{
-  std::vector<TH1D *> flat;
-  if (h3d.empty()) return flat;
-  const size_t n_xb = h3d.size();
-  const size_t n_q2 = h3d[0].size();
-  const size_t n_t = h3d[0][0].size();
-  // Q²  →  t  →  xB
-  for (size_t iq = 0; iq < n_q2; ++iq)
-    for (size_t it = 0; it < n_t; ++it)
-      for (size_t ix = 0; ix < n_xb; ++ix) {
-        TH1D *h = h3d[ix][iq][it];
-        if (h) flat.push_back(h);
+  /// pi0 correction histo for plotting
+  std::vector<std::vector<std::vector<TH1D *>>> computePi0Corr(const BinManager &bins) {
+    constexpr double phi_min = 0.0;
+    constexpr double phi_max = 360.0;
+    constexpr int n_phi_bins = 18;
+
+    const auto &q2_bins = bins.GetQ2Bins();
+    const auto &t_bins = bins.GetTBins();
+    const auto &xb_bins = bins.GetXBBins();
+
+    const size_t n_q2 = q2_bins.size() - 1;
+    const size_t n_t = t_bins.size() - 1;
+    const size_t n_xb = xb_bins.size() - 1;
+
+    std::vector<std::vector<std::vector<TH1D *>>> histograms(n_xb, std::vector<std::vector<TH1D *>>(n_q2, std::vector<TH1D *>(n_t, nullptr)));
+
+    for (size_t ix = 0; ix < n_xb; ++ix)
+      for (size_t iq = 0; iq < n_q2; ++iq)
+        for (size_t it = 0; it < n_t; ++it) {
+          std::string name = Form("pi0corr_q%d_t%d_xb%d", (int)iq, (int)it, (int)ix);
+          std::string title = Form("π⁰ Corr (Q² [%g,%g], t [%g,%g], xB [%g,%g])", q2_bins[iq], q2_bins[iq + 1], t_bins[it], t_bins[it + 1], xb_bins[ix], xb_bins[ix + 1]);
+
+          histograms[ix][iq][it] = new TH1D(name.c_str(), title.c_str(), n_phi_bins, phi_min, phi_max);
+          histograms[ix][iq][it]->SetDirectory(nullptr);
+        }
+
+    // Utility lambda to find bin index
+    auto findBin = [](double val, const std::vector<double> &edges) -> int {
+      auto it = std::upper_bound(edges.begin(), edges.end(), val);
+      if (it == edges.begin() || it == edges.end()) return -1;
+      return static_cast<int>(it - edges.begin()) - 1;
+    };
+
+    Long64_t nentries = correctionHist->GetNbins();
+    const Int_t ndim = correctionHist->GetNdimensions();
+
+    for (Long64_t i = 0; i < nentries; ++i) {
+      if (correctionHist->GetBinContent(i) == 0) continue;
+    auto* axQ2 = correctionHist->GetAxis(0);
+    auto* axT = correctionHist->GetAxis(1);
+    auto* axXB = correctionHist->GetAxis(2);
+    auto* axPhi = correctionHist->GetAxis(3);
+
+    const int nQ2 = axQ2->GetNbins();
+    const int nT = axT->GetNbins();
+    const int nXB = axXB->GetNbins();
+    const int nPhi = axPhi->GetNbins();
+      std::vector<Int_t> bins = {nQ2, nT, nXB, nPhi};
+
+      double Q2 = correctionHist->GetAxis(0)->GetBinCenter(bins[0]);
+      double t = correctionHist->GetAxis(1)->GetBinCenter(bins[1]);
+      double xB = correctionHist->GetAxis(2)->GetBinCenter(bins[2]);
+      double phi = correctionHist->GetAxis(3)->GetBinCenter(bins[3]);
+
+      double val = correctionHist->GetBinContent(i);
+
+      int iq = findBin(Q2, q2_bins);
+      int it = findBin(t, t_bins);
+      int ix = findBin(xB, xb_bins);
+      if (iq >= 0 && it >= 0 && ix >= 0) {
+        histograms[ix][iq][it]->Fill(phi, val);
       }
-  return flat;
-}
+    }
+
+    std::cout << "π⁰ correction histograms created from THnSparse.\n";
+    return histograms;
+  }
+};
 
 #endif  // DISANAMATH_H

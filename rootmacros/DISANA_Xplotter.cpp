@@ -124,17 +124,17 @@ void DISANA_Xplotter() {
   //xBins.SetTBins({0.4, 0.6});
   //xBins.SetXBBins({0.15, 0.25});
   xBins.SetQ2Bins({1.0, 1.5, 2.0, 3.0, 5.0});
-  xBins.SetTBins({0.1, 1.0});
+  xBins.SetTBins({0.0001, 1.5});
   xBins.SetXBBins({0.06, 0.1, 0.16, 0.24, 0.36, 0.48, 0.6});
   comparer.SetXBinsRanges(xBins);
 
   // comparer.AddModel(df_afterFid_afterCorr, "after Correction", beam_energy);
   // comparer.AddModel(df_afterFid, "Before Exclusivity cuts", beam_energy);
 
-  //comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb C", beam_energy, false, "./../build/correction_factorsInb.root");
-  comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb", beam_energy);
+  comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb C", beam_energy, false, "./../build/correction_factorsInb.root");
+  //comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb", beam_energy);
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB C", beam_energy, false, "./../build/correction_factorsOutb.root");
-  comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
+  //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
   //comparer.PlotKinematicComparison();
   //comparer.PlotDVCSKinematicsComparison();
@@ -143,6 +143,7 @@ void DISANA_Xplotter() {
 
   comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
+  comparer.PlotDIS_Pi0CorrComparison();
   // comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
 
   gApplication->Terminate(0);
@@ -306,6 +307,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
 
   return *df_;
 }
+
 //
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_) {
   return df_.Filter(
@@ -313,9 +315,10 @@ ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_) {
         int e = 0, g = 0, p = 0;
         for (size_t i = 0; i < pid.size(); ++i) {
           if (!pass[i]) continue;
+          if (daughterPass[i]) return false;  // reject if any daughter particle is a pi0
           if (pid[i] == 11)
             e++;
-          else if (pid[i] == 22 && !daughterPass[i])
+          else if (pid[i] == 22)
             g++;  // photon must NOT be from pi0
           else if (pid[i] == 2212)
             p++;
