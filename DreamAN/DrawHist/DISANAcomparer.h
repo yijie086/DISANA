@@ -406,6 +406,7 @@ class DISANAcomparer {
 
     allCSHists.clear();
   }
+
   ///
   /// For exclusivity cuts, you can use the following function to select one triplet
   void PlotExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
@@ -485,6 +486,7 @@ class DISANAcomparer {
           line1->Draw("SAME");
           line2->Draw("SAME");
         }
+
 
         legend->Draw();
       }
@@ -639,6 +641,7 @@ class DISANAcomparer {
       delete c;
     }
   }
+
 
  private:
   BinManager fXbins;
