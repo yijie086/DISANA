@@ -241,10 +241,11 @@ class DISANAMath {
 
       if (iq >= 0 && it >= 0 && ix >= 0) {
         double factor = 1.0;
+        double q2xBtbin_size = (q2_bins[iq+1]-q2_bins[iq])*(t_bins[it+1]-t_bins[it])*(xb_bins[ix+1]-xb_bins[ix]);
         if (applyCorrection && correctionHist) {
           factor = GetCorrectionFactor(Q2, t, xB, phi);
         }
-        histograms[ix][iq][it]->Fill(phi, factor);
+        histograms[ix][iq][it]->Fill(phi, factor/q2xBtbin_size);
       }
     };
 

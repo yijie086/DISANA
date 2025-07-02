@@ -100,6 +100,7 @@ class DISANAcomparer {
     f->Close();
     delete f;
     std::cout << "✅ Correction histogram loaded: " << histoname << "\n";
+    PlotPi0Corr(correctionHist);
   }
 
   // Plot all basic kinematic distributions (p, theta, phi) for all particle types
@@ -351,6 +352,7 @@ class DISANAcomparer {
         for (size_t ix = 0; ix < n_xb; ++ix) {
           int pad_idx = iq * n_xb + ix + 1;
           canvas->cd(pad_idx);
+          gPad->SetLogy();
           styleCrossSection_.StylePad((TPad*)gPad);
 
           TLegend* legend = new TLegend(0.6, 0.7, 0.7, 0.8);
@@ -575,7 +577,7 @@ class DISANAcomparer {
             h->SetLineColor(colorIdx);
             h->SetMarkerColor(colorIdx);
             h->SetFillColorAlpha(colorIdx, 1.0);
-            h->SetLineWidth(1.2);
+            h->SetLineWidth(1);
             h->SetMarkerStyle(20);
             h->SetMarkerSize(1.5);
             h->SetStats(0);
@@ -641,6 +643,114 @@ class DISANAcomparer {
       delete c;
     }
   }
+
+
+void PlotPi0Corr(THnSparseD* hCorr)
+{
+    if (!hCorr) return;
+
+    gStyle->SetOptStat(0);
+    gSystem->mkdir("CorrPlots_grid", /*recursive=*/kTRUE);
+
+    // Axis handles
+    auto* axQ2  = hCorr->GetAxis(0);
+    auto* axT   = hCorr->GetAxis(1);
+    auto* axXB  = hCorr->GetAxis(2);
+    auto* axPhi = hCorr->GetAxis(3);
+
+    const int nQ2 = axQ2->GetNbins();
+    const int nT  = axT ->GetNbins();
+    const int nXB = axXB->GetNbins();
+    const int nPhi = axPhi->GetNbins();
+
+    // Loop over t bins
+    for (int it = 1; it <= nT; ++it) {
+        double tLow  = axT->GetBinLowEdge(it);
+        double tHigh = axT->GetBinUpEdge(it);
+
+        // Canvas size adapts to grid
+        int rows = nQ2;
+        int cols = nXB;
+        int padW = 400, padH = 300;
+        TCanvas c(Form("c_tbin_%d", it),
+                  Form("t bin %d", it),
+                  cols * padW, rows * padH);
+        c.Divide(cols, rows, 0.001, 0.001); // minimal margins
+
+        std::vector<TH1D*> keep;   // store pointers to delete later
+        double globalMax = 0.0;
+
+        // Loop over Q2 rows (from top) and xB columns
+        for (int iq2 = 1; iq2 <= nQ2; ++iq2) {
+            double q2Low  = axQ2->GetBinLowEdge(iq2);
+            double q2High = axQ2->GetBinUpEdge (iq2);
+
+            for (int ixb = 1; ixb <= nXB; ++ixb) {
+                double xbLow  = axXB->GetBinLowEdge(ixb);
+                double xbHigh = axXB->GetBinUpEdge (ixb);
+
+                int padIdx = (iq2 - 1) * cols + ixb; // pad number 1.. rows*cols
+                c.cd(padIdx);
+
+                // Restrict ranges
+                axT ->SetRange(it , it );
+                axQ2->SetRange(iq2, iq2);
+                axXB->SetRange(ixb, ixb);
+
+                // Project to phi axis
+                TH1D* hPhi = dynamic_cast<TH1D*>(hCorr->Projection(3));
+                if (!hPhi || hPhi->Integral() == 0) {
+                    // Empty pad label
+                    TLatex txt;
+                    txt.SetNDC(); txt.SetTextFont(42); txt.SetTextSize(0.04);
+                    txt.DrawLatex(0.15, 0.5, "No entries");
+                    if (hPhi) delete hPhi;
+                    continue;
+                }
+                TString hname = Form("phi_t%d_q2%d_xb%d", it, iq2, ixb);
+                hPhi->SetName(hname);
+                keep.push_back(hPhi);
+
+                hPhi->SetLineWidth(2);
+                hPhi->SetLineColor(kBlue+1);
+                hPhi->SetTitle("");
+                hPhi->GetXaxis()->SetTitle("#phi [deg]");
+                hPhi->GetYaxis()->SetTitle("Correction");
+                hPhi->Draw("hist");
+                globalMax = std::max(globalMax, hPhi->GetMaximum());
+
+                // Add Q2 & xB labels
+                TLatex label;
+                label.SetNDC(); label.SetTextFont(42); label.SetTextSize(0.04);
+                label.DrawLatex(0.15, 0.85,
+                    Form("Q^{2}=%.2f-%.2f", q2Low, q2High));
+                label.DrawLatex(0.15, 0.75,
+                    Form("x_{B}=%.3f-%.3f", xbLow, xbHigh));
+            }
+        }
+
+        // Set common y-range
+        for (auto* h : keep) h->SetMaximum(globalMax * 1.10);
+
+        // Add overall t label
+        c.cd(1);
+        TLatex tlabel;
+        tlabel.SetNDC(); tlabel.SetTextFont(42); tlabel.SetTextSize(0.045);
+        tlabel.DrawLatex(0.60, 0.90,
+            Form("t = %.3f - %.3f GeV^{2}", tLow, tHigh));
+
+        // Save & cleanup
+        c.SaveAs(Form("CorrPlots_grid/corr_grid_tbin%d.png", it));
+        for (auto* h : keep) delete h;
+
+        // Reset all axis ranges
+        axT ->SetRange(0, 0);
+        axQ2->SetRange(0, 0);
+        axXB->SetRange(0, 0);
+    }
+
+    std::cout << "✅ Grid plots saved in CorrPlots_grid/\n";
+}
 
 
  private:
