@@ -40,18 +40,29 @@ class DISANAcomparer {
     if (integral > 0) hist->Scale(1.0 / integral);
   }
   // Add a new model with its DataFrame, label, and beam energy
-  void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, bool applyCorrection = false, const std::string& correctionFile = "",
-                const std::string& histoname = "h_correction") {
+  void AddModelwithPi0Corr(ROOT::RDF::RNode df_dvcs_data,
+                ROOT::RDF::RNode df_pi0_data,
+                ROOT::RDF::RNode df_dvcs_mc, 
+                ROOT::RDF::RNode df_pi0_mc, 
+                const std::string& label, double beamEnergy, bool fCorrection = false) {
+    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data,
+                                                   beamEnergy,
+                                                   df_pi0_data,
+                                                   df_dvcs_mc,
+                                                   df_pi0_mc
+                                                   );
+    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fCorrection << std::endl;
+    plotter->SetPlotApplyCorrection(fCorrection);
+    plotter->GenerateKinematicHistos("el");
+    plotter->GenerateKinematicHistos("pro");
+    plotter->GenerateKinematicHistos("pho");
+    labels.push_back(label);
+    plotters.push_back(std::move(plotter));
+  }
+
+  void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy) {
     auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy);
-    if (applyCorrection) {
-      LoadCorrectionHistogram(correctionFile, histoname);
-      if (!correctionHist) {
-        std::cerr << "Error: Correction histogram not loaded. Skipping background correction.\n";
-      } else {
-        std::cout << "Applying background correction for model: " << label << "\n";
-        plotter->ApplyPi0BkgCorr(correctionHist);
-      }
-    }
+    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV without Pi0 Correction" << std::endl;
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
@@ -683,6 +694,7 @@ class DISANAcomparer {
 
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
     for (auto& p : plotters) {
+      if (!p->getDoPi0Corr()) { allPi0Corr.emplace_back(); continue; }
       auto h = p->ComputePi0Corr(fXbins);
       allPi0Corr.push_back(std::move(h));
     }
@@ -699,7 +711,7 @@ class DISANAcomparer {
     const int cols = n_xb;
 
     for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
-      TString cname = Form("DIS_BSA_t[%zu]", t_bin);
+      TString cname = Form("DIS_pi0Corr_t[%zu]", t_bin);
       TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
       c->Divide(cols, rows, 0.00, 0.00);  // No gaps
 
@@ -729,7 +741,10 @@ class DISANAcomparer {
           gStyle->SetCanvasPreferGL(true);
 
           for (size_t m = 0; m < allPi0Corr.size(); ++m) {
+            if (allPi0Corr[m].empty())  continue;
+
             TH1D* h = allPi0Corr[m][xb_bin][q2_bin][t_bin];
+            if (!h) continue;
             styleBSA_.StyleTH1(h);
 
             auto [r, g, b] = modelShades[m % modelShades.size()];

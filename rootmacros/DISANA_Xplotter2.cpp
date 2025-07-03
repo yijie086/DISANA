@@ -99,7 +99,7 @@ void DISANA_Xplotter2() {
   //xBins.SetTBins({0.27, 0.39});
   //xBins.SetXBBins({0.17, 0.27});
   xBins.SetQ2Bins({1.0, 1.5, 2.0, 3.0, 5.0});
-  xBins.SetTBins({0.1,0.3,0.5,0.7,0.9});
+  xBins.SetTBins({0.1,0.9});
   xBins.SetXBBins({0.06, 0.1, 0.16, 0.24, 0.36, 0.48, 0.6});
   comparer.SetXBinsRanges(xBins);
 
@@ -112,7 +112,7 @@ void DISANA_Xplotter2() {
 
   comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
-  // comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
+  comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
 
   gApplication->Terminate(0);
 }

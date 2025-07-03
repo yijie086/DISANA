@@ -14,7 +14,19 @@
 
 class DISANAplotter {
  public:
-DISANAplotter(ROOT::RDF::RNode df, double beamEnergy) : rdf(df), beam_energy(beamEnergy) {}
+DISANAplotter(
+        ROOT::RDF::RNode                 df_dvcs_data,
+        double                           beamEnergy,
+        std::optional<ROOT::RDF::RNode>  df_pi0_data   = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_dvcs_mc    = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_pi0_mc     = std::nullopt
+        )
+        :rdf(std::move(df_dvcs_data)),
+        rdf_pi0_data(std::move(df_pi0_data)),
+        rdf_dvcs_mc(std::move(df_dvcs_mc)),
+        rdf_pi0_mc(std::move(df_pi0_mc)),
+        beam_energy(beamEnergy)
+    {}
 
   ~DISANAplotter() {
     disHistos.clear();
@@ -22,6 +34,10 @@ DISANAplotter(ROOT::RDF::RNode df, double beamEnergy) : rdf(df), beam_energy(bea
   }
    
 ROOT::RDF::RNode GetRDF() { return rdf; }
+
+void SetPlotApplyCorrection(bool apply) {dopi0corr = apply;}
+bool getDoPi0Corr() const { return dopi0corr; }
+
 
 
   void GenerateKinematicHistos(const std::string& type) {
@@ -80,7 +96,12 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> ComputeDVCS_CrossSection(const BinManager& bins, double luminosity) {
-    return kinCalc.ComputeDVCS_CrossSection(rdf, bins, luminosity);
+    auto result = kinCalc.ComputeDVCS_CrossSection(rdf, bins, luminosity);
+    if (dopi0corr) {
+      auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(*rdf_pi0_data, bins, luminosity);
+      result = UsePi0Correction(result,sigma_pi0_3d,ComputePi0Corr(bins));
+    }
+    return result;
   }
 
   /// BSA computations // we need to have refined version of this codes
@@ -92,19 +113,90 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
 
     auto sigma_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pos, bins, luminosity);
     auto sigma_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_neg, bins, luminosity);
-    // 3) 3-D BSA
-    //auto bsa_3d = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
-    // 4) Flatten to keep legacy return-type
-    return kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
+
+    auto result = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
+
+    if (dopi0corr) {
+      auto rdf_pi0_data_pos = rdf_pi0_data->Filter("REC_Event_helicity ==  1");
+      auto rdf_pi0_data_neg = rdf_pi0_data->Filter("REC_Event_helicity == -1");
+    // 2) One-pass cross-section per helicity
+
+      auto sigma_pi0_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pi0_data_pos, bins, luminosity);
+      auto sigma_pi0_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pi0_data_neg, bins, luminosity);
+      
+      auto corr3D = ComputePi0Corr(bins);
+      auto Api0 = kinCalc.ComputeBeamSpinAsymmetry(sigma_pi0_pos_3d, sigma_pi0_neg_3d, pol);
+      result = UsePi0Correction(result, Api0, corr3D);
+    }
+    return result;
 
   }
 
    /// BSA computations // we need to have refined version of this codes
   std::vector<std::vector<std::vector<TH1D*>>> ComputePi0Corr(const BinManager& bins) {
-    // 4) Flatten to keep legacy return-type
-    return kinCalc.computePi0Corr(bins);
+    if (!rdf_dvcs_mc || !rdf_pi0_mc || !rdf_pi0_data) {
+      std::cerr << "[ComputePi0Corr] Missing input RDFs.\n";
+      return {};
+    }
+    return kinCalc.CalcPi0Corr(*rdf_dvcs_mc, *rdf_pi0_mc, rdf, *rdf_pi0_data, bins);
 
   }
+
+
+  std::vector<std::vector<std::vector<TH1D*>>> UsePi0Correction(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
+                                                                const std::vector<std::vector<std::vector<TH1D*>>>& xsPi03D,
+                                                                  const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+    if (xs3D.size() != corr3D.size()) {
+        std::cerr << "[UsePi0Correction] Dimension mismatch (level-0)\n";
+        return {};
+    }
+    std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
+    for (size_t iq = 0; iq < xs3D.size(); ++iq) {
+        if (xs3D[iq].size() != corr3D[iq].size()) {
+            std::cerr << "[UsePi0Correction] Dimension mismatch (level-1)\n";
+            return {};
+        }
+        xsCorr3D[iq].resize(xs3D[iq].size());
+        for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+            if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+                std::cerr << "[UsePi0Correction] Dimension mismatch (level-2)\n";
+                return {};
+            }
+            xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+            for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+                TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+                TH1D* hPi0XS = xsPi03D[iq][it][ix]; // σ_pi0
+                TH1D* hCorr = corr3D[iq][it][ix];   //     c
+              
+                if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+                
+                TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
+
+                const int nb = hXS->GetNbinsX();
+                for (int b = 1; b <= nb; ++b) {
+                    const double xs_val = hXS->GetBinContent(b);
+                    const double xs_err = hXS->GetBinError  (b);
+                    const double pi0_val = hPi0XS ? hPi0XS->GetBinContent(b) : 0.0;
+                    const double pi0_err = hPi0XS ? hPi0XS->GetBinError  (b) : 0.0;
+                    const double c_val  = hCorr ? hCorr->GetBinContent(b) : 0.0;
+                    const double c_err  = hCorr ? hCorr->GetBinError  (b) : 0.0;
+
+                    const double val_corr = xs_val/(1.0 - c_val)-c_val/(1.0 - c_val)* pi0_val;
+                    const double err_corr = std::sqrt(
+                        std::pow(xs_err * (1.0 - c_val), 2) +
+                        std::pow(xs_val * c_err, 2));
+
+                    hNew->SetBinContent(b, val_corr);
+                    hNew->SetBinError  (b, err_corr);
+                }
+
+                xsCorr3D[iq][it][ix] = hNew;
+            }
+        }
+    }
+    return xsCorr3D;
+  }
+
   
   void ApplyPi0BkgCorr(THnSparseD *correctionHist ){
       kinCalc.SetApplyCorrPi0BKG(true);
@@ -130,10 +222,16 @@ ROOT::RDF::RNode GetRDF() { return rdf; }
   std::unique_ptr<TFile> predFile;
   std::string predFileName = ".";
   double beam_energy;
+  bool dopi0corr = false;
   std::string ttreeName;
   std::vector<ROOT::RDF::RResultPtr<TH1>> kinematicHistos, disHistos;
   std::vector<std::shared_ptr<TH1>> acceptHistos;
   ROOT::RDF::RNode rdf;
+  //ROOT::RDF::RNode rdf_dvcs_data;
+  std::optional<ROOT::RDF::RNode> rdf_pi0_data;
+  std::optional<ROOT::RDF::RNode> rdf_dvcs_mc;
+  std::optional<ROOT::RDF::RNode> rdf_pi0_mc;
+  
 };
 
 #endif  // DISANA_PLOTTER_H

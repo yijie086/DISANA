@@ -328,91 +328,56 @@ class DISANAMath {
     return asym;
   }
 
-  /// pi0 correction histo for plotting
-  std::vector<std::vector<std::vector<TH1D *>>> computePi0Corr(const BinManager &bins) {
-    constexpr double phi_min = 0.0;
-    constexpr double phi_max = 360.0;
-    constexpr int n_phi_bins = 18;
+  std::vector<std::vector<std::vector<TH1D*>>> CalcPi0Corr(ROOT::RDF::RNode df_dvcs_mc,
+                       ROOT::RDF::RNode df_pi0_mc,
+                       ROOT::RDF::RNode df_dvcs_data,
+                       ROOT::RDF::RNode df_pi0_data,
+                       const BinManager &xBins
+                       ) {
+    const size_t n_t  = xBins.GetTBins().size()  - 1;
+    const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
+    const size_t n_xb = xBins.GetXBBins().size() - 1;
 
-    const auto &q2_bins = bins.GetQ2Bins();
-    const auto &t_bins = bins.GetTBins();
-    const auto &xb_bins = bins.GetXBBins();
+    DISANAMath pi0Corr;
+    auto df_dvcs_mc_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_dvcs_mc, xBins, 1);
+    auto df_pi0_mc_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_pi0_mc, xBins, 1);
+    auto df_dvcs_data_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_dvcs_data, xBins, 1);
+    auto df_pi0_data_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_pi0_data, xBins, 1);
 
-    const size_t n_q2 = q2_bins.size() - 1;
-    const size_t n_t = t_bins.size() - 1;
-    const size_t n_xb = xb_bins.size() - 1;
 
-    std::vector<std::vector<std::vector<TH1D *>>> histograms(n_xb, std::vector<std::vector<TH1D *>>(n_q2, std::vector<TH1D *>(n_t, nullptr)));
+    std::vector<std::vector<std::vector<TH1D*>>> hCorr(n_xb,std::vector<std::vector<TH1D*>>(n_q2,std::vector<TH1D*>(n_t, nullptr)));
 
-    for (size_t ix = 0; ix < n_xb; ++ix)
-      for (size_t iq = 0; iq < n_q2; ++iq)
-        for (size_t it = 0; it < n_t; ++it) {
-          std::string name = Form("pi0corr_q%d_t%d_xb%d", (int)iq, (int)it, (int)ix);
-          std::string title = Form("π⁰ Corr (Q² [%g,%g], t [%g,%g], xB [%g,%g])", q2_bins[iq], q2_bins[iq + 1], t_bins[it], t_bins[it + 1], xb_bins[ix], xb_bins[ix + 1]);
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          TH1D* h_dvcs_mc = df_dvcs_mc_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_pi0_mc = df_pi0_mc_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_dvcs_data = df_dvcs_data_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_pi0_data = df_pi0_data_CrossSection[xb_bin][q2_bin][t_bin];
 
-          histograms[ix][iq][it] = new TH1D(name.c_str(), title.c_str(), n_phi_bins, phi_min, phi_max);
-          histograms[ix][iq][it]->SetDirectory(nullptr);
+          if (!h_dvcs_mc || !h_pi0_mc || !h_dvcs_data || !h_pi0_data) {
+            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            continue;
+          }
+          TH1D* hRatio = static_cast<TH1D*>(h_dvcs_mc->Clone(Form("hPi0Corr_xb%zu_q2%zu_t%zu",xb_bin, q2_bin, t_bin)));
+          hRatio->Reset();
+          hRatio->Divide(h_dvcs_mc, h_pi0_mc);
+          hRatio->Multiply(hRatio, h_pi0_data);
+          hRatio->Divide(hRatio,h_dvcs_data);
+          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+          
         }
-
-    // Utility lambda to find bin index
-    auto findBin = [](double val, const std::vector<double> &edges) -> int {
-      auto it = std::upper_bound(edges.begin(), edges.end(), val);
-      if (it == edges.begin() || it == edges.end()) return -1;
-      return static_cast<int>(it - edges.begin()) - 1;
-    };
-
-    if (!applyCorrection || !correctionHist) {
-      std::cerr << "no correctionHist\n";
-      return histograms; 
-    }
-
-    Int_t nbin[4] = {
-      correctionHist->GetAxis(0)->GetNbins(),
-      correctionHist->GetAxis(1)->GetNbins(),
-      correctionHist->GetAxis(2)->GetNbins(),
-      correctionHist->GetAxis(3)->GetNbins()
-    };
-
-    Long64_t nentries = correctionHist->GetNbins();
-    //const Int_t ndim = correctionHist->GetNdimensions();
-    Int_t coords[4];
-
-    for (Long64_t i = 0; i < nentries; ++i) {
-      if (correctionHist->GetBinContent(i) == 0) continue;
-      
-      Long64_t rem = i;
-      for (int d = 3; d >= 0; --d) {
-        coords[d] = (rem % nbin[d]) + 1;   // ROOT bin 编号从 1 起
-        rem      /= nbin[d];
-      }
-
-      double Q2  = correctionHist->GetAxis(0)->GetBinCenter(coords[0]);
-      double t   = correctionHist->GetAxis(1)->GetBinCenter(coords[1]);
-      double xB  = correctionHist->GetAxis(2)->GetBinCenter(coords[2]);
-      double phi = correctionHist->GetAxis(3)->GetBinCenter(coords[3]);
-
-      double val = correctionHist->GetBinContent(i);
-      double err = correctionHist->GetBinError(i);
-      int iq = findBin(Q2, q2_bins);
-      int it = findBin(t, t_bins);
-      int ix = findBin(xB, xb_bins);
-      //std::cout << "iq: " << iq << " it: " << it << " ix: " << ix << std::endl;
-
-      if (iq >= 0 && it >= 0 && ix >= 0) {
-        
-        int  binPhi = histograms[ix][iq][it]->GetXaxis()->FindFixBin(phi);  // 找到 φ 所在的 x-bin
-        histograms[ix][iq][it]->SetBinContent(binPhi, val);
-        histograms[ix][iq][it]->SetBinError(binPhi, 0.01);
-        //std::cout << err << " " << val << std::endl;
-        //std::cout<< "Filling histogram: Q2=" << Q2 << ", t=" << t << ", xB=" << xB << ", phi=" << phi
-        //         << ", value=" << val << " at bin " << binPhi << '\n';
-        //histograms[ix][iq][it]->Fill(phi, val);
       }
     }
-
-    std::cout << "π⁰ correction histograms created from THnSparse.\n";
-    return histograms;
+    return hCorr;
   }
+
+
 };
+
+//(df_final_dvcsPi_rejected_inb_MC, df_final_OnlPi0_inb_MC, df_final_dvcsPi_rejected_inb_data, df_final_OnlPi0_inb_data, xBins)
+
+
+
 
 #endif  // DISANAMATH_H

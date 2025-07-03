@@ -84,9 +84,12 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
   EventCutResult result;
   result.particlePass.resize(pid.size(), false);
   result.particleDaughterPass.resize(pid.size(), false);
+  result.MaxPhotonEnergyPass.resize(pid.size(), false);
   result.MotherMass.resize(pid.size(), -999);
 
   bool allCutsPassed = true;
+  float MaxEphotonEnergy = 0.0f;
+  float MaxPhotonEnergyIndex = 0;
 
   for (const auto& [name, cut] : fParticleCuts) {
     int count = 0;
@@ -114,9 +117,16 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
       bool vzCut = IsInRange(vz[i], cut.minVz, cut.maxVz);
       if (momentumCut && betaCut && thetaCut && phiCut && vzCut) {
         result.particlePass[i] = true;
+        if (pid[i] == 22 && momentum > MaxEphotonEnergy) {
+            MaxEphotonEnergy = momentum;
+            result.MaxPhotonEnergyPass[MaxPhotonEnergyIndex] = false;
+            result.MaxPhotonEnergyPass[i] = true;
+            MaxPhotonEnergyIndex = i;
+        }
         ++count;
       }
     }
+
 
     if (!IsInRange(count, cut.minCount, cut.maxCount)) {
       allCutsPassed = false;

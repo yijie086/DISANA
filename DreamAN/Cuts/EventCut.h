@@ -46,6 +46,7 @@ struct EventCutResult {
   bool eventPass = false;
   std::vector<bool> particlePass;
   std::vector<bool> particleDaughterPass;
+  std::vector<bool> MaxPhotonEnergyPass;
   std::vector<float> MotherMass; // corresponding
 };
 
