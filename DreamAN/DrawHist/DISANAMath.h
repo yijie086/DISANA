@@ -361,34 +361,52 @@ class DISANAMath {
       return static_cast<int>(it - edges.begin()) - 1;
     };
 
+    if (!applyCorrection || !correctionHist) {
+      std::cerr << "no correctionHist\n";
+      return histograms; 
+    }
+
+    Int_t nbin[4] = {
+      correctionHist->GetAxis(0)->GetNbins(),
+      correctionHist->GetAxis(1)->GetNbins(),
+      correctionHist->GetAxis(2)->GetNbins(),
+      correctionHist->GetAxis(3)->GetNbins()
+    };
+
     Long64_t nentries = correctionHist->GetNbins();
-    const Int_t ndim = correctionHist->GetNdimensions();
+    //const Int_t ndim = correctionHist->GetNdimensions();
+    Int_t coords[4];
 
     for (Long64_t i = 0; i < nentries; ++i) {
       if (correctionHist->GetBinContent(i) == 0) continue;
-    auto* axQ2 = correctionHist->GetAxis(0);
-    auto* axT = correctionHist->GetAxis(1);
-    auto* axXB = correctionHist->GetAxis(2);
-    auto* axPhi = correctionHist->GetAxis(3);
+      
+      Long64_t rem = i;
+      for (int d = 3; d >= 0; --d) {
+        coords[d] = (rem % nbin[d]) + 1;   // ROOT bin 编号从 1 起
+        rem      /= nbin[d];
+      }
 
-    const int nQ2 = axQ2->GetNbins();
-    const int nT = axT->GetNbins();
-    const int nXB = axXB->GetNbins();
-    const int nPhi = axPhi->GetNbins();
-      std::vector<Int_t> bins = {nQ2, nT, nXB, nPhi};
-
-      double Q2 = correctionHist->GetAxis(0)->GetBinCenter(bins[0]);
-      double t = correctionHist->GetAxis(1)->GetBinCenter(bins[1]);
-      double xB = correctionHist->GetAxis(2)->GetBinCenter(bins[2]);
-      double phi = correctionHist->GetAxis(3)->GetBinCenter(bins[3]);
+      double Q2  = correctionHist->GetAxis(0)->GetBinCenter(coords[0]);
+      double t   = correctionHist->GetAxis(1)->GetBinCenter(coords[1]);
+      double xB  = correctionHist->GetAxis(2)->GetBinCenter(coords[2]);
+      double phi = correctionHist->GetAxis(3)->GetBinCenter(coords[3]);
 
       double val = correctionHist->GetBinContent(i);
-
+      double err = correctionHist->GetBinError(i);
       int iq = findBin(Q2, q2_bins);
       int it = findBin(t, t_bins);
       int ix = findBin(xB, xb_bins);
+      //std::cout << "iq: " << iq << " it: " << it << " ix: " << ix << std::endl;
+
       if (iq >= 0 && it >= 0 && ix >= 0) {
-        histograms[ix][iq][it]->Fill(phi, val);
+        
+        int  binPhi = histograms[ix][iq][it]->GetXaxis()->FindFixBin(phi);  // 找到 φ 所在的 x-bin
+        histograms[ix][iq][it]->SetBinContent(binPhi, val);
+        histograms[ix][iq][it]->SetBinError(binPhi, 0.01);
+        //std::cout << err << " " << val << std::endl;
+        //std::cout<< "Filling histogram: Q2=" << Q2 << ", t=" << t << ", xB=" << xB << ", phi=" << phi
+        //         << ", value=" << val << " at bin " << binPhi << '\n';
+        //histograms[ix][iq][it]->Fill(phi, val);
       }
     }
 

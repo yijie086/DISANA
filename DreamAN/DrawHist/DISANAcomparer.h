@@ -725,11 +725,6 @@ class DISANAcomparer {
           leg->SetFillStyle(0);
           leg->SetTextSize(0.06);
 
-          TLegend* legParams = new TLegend(0.35, 0.16, 0.85, 0.32);  // Bottom legend for a₁
-          legParams->SetBorderSize(0);
-          legParams->SetFillStyle(0);
-          legParams->SetTextSize(0.06);
-
           bool first = true;
           gStyle->SetCanvasPreferGL(true);
 
@@ -769,28 +764,13 @@ class DISANAcomparer {
 
             h->GetXaxis()->SetNdivisions(4, false);
             h->GetYaxis()->SetNdivisions(6, false);
-            h->GetYaxis()->SetRangeUser(-0.6, 0.6);
-            h->GetXaxis()->SetRangeUser(0.01, 355);
+            h->GetYaxis()->SetRangeUser(-0.1, 1.1);
+            h->GetXaxis()->SetRangeUser(0.0, 360);
             h->GetXaxis()->CenterTitle(true);
             h->GetYaxis()->CenterTitle(true);
 
             h->Draw(first ? "E1X0" : "E1X0 SAME");
             first = false;
-
-            // Fit function and extract a₁
-            TF1* fitFunc = new TF1(Form("fit_%zu_%zu_%zu_%zu", m, t_bin, q2_bin, xb_bin), "[0] + ([1]*sin(x*TMath::DegToRad())) / (1 + [2]*cos(x*TMath::DegToRad()))", 0, 360);
-            fitFunc->SetParameters(0.0, 0.2, 0.1);
-            fitFunc->SetFillColorAlpha(colorIdx, 0.5);
-            fitFunc->SetLineColorAlpha(colorIdx, 0.5);
-            fitFunc->SetLineStyle(2);
-            fitFunc->SetLineWidth(1);
-            h->Fit(fitFunc, "Q0");
-            fitFunc->Draw("SAME");
-
-            double a1 = fitFunc->GetParameter(1);
-            double a1e = fitFunc->GetParError(1);
-            TString a1label = Form("a_{1} = %.2f #pm %.2f", a1, a1e);
-            legParams->AddEntry(fitFunc, a1label, "l");
 
             leg->AddEntry(h, labels[m].c_str(), "p");
           }
@@ -806,7 +786,6 @@ class DISANAcomparer {
           latex->Draw();
 
           leg->Draw();
-          legParams->Draw();
         }
       }
 

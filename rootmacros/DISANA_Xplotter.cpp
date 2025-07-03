@@ -45,7 +45,7 @@ ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, c
 }
 
 void DISANA_Xplotter() {
-  bool ComputeBgk_core = false;  // Set to true if you want to compute background
+  bool ComputeBgk_core = true;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
 
   ROOT::EnableImplicitMT();
@@ -131,9 +131,9 @@ void DISANA_Xplotter() {
   // comparer.AddModel(df_afterFid_afterCorr, "after Correction", beam_energy);
   // comparer.AddModel(df_afterFid, "Before Exclusivity cuts", beam_energy);
 
-  comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb C", beam_energy, false, "./../build/correction_factorsInb.root");
+  comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb C", beam_energy, DoBkgCorr, "./../build/correction_factorsInb.root");
   //comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb", beam_energy);
-  //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB C", beam_energy, false, "./../build/correction_factorsOutb.root");
+  //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB C", beam_energy, DoBkgCorr, "./../build/correction_factorsOutb.root");
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
   //comparer.PlotKinematicComparison();
