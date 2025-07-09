@@ -779,7 +779,7 @@ class DISANAcomparer {
 
             h->GetXaxis()->SetNdivisions(4, false);
             h->GetYaxis()->SetNdivisions(6, false);
-            h->GetYaxis()->SetRangeUser(-0.1, 1.1);
+            h->GetYaxis()->SetRangeUser(-0.05, 0.55);
             h->GetXaxis()->SetRangeUser(0.0, 360);
             h->GetXaxis()->CenterTitle(true);
             h->GetYaxis()->CenterTitle(true);

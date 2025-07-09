@@ -19,6 +19,12 @@ struct FiducialCut3D {
   FiducialAxisCut lwCut;
 };
 
+struct SFCutABC {
+  float A0;
+  float Bm1;
+  float Cm2;
+};
+
 class TrackCut {
  public:
   TrackCut();
@@ -34,6 +40,7 @@ class TrackCut {
   void SetECALEdgeCut(float minEdge, float maxEdge);
   void SetSectorCut_Bhawani(const std::vector<int>& sectors, int selectpid, int selectdetector, bool selectSector);
   void SetDoFiducialCut(bool isFiducial) { fDoFiducialCut = isFiducial; }
+  void SetSFCut(bool doSFCut,int SFpid, float SFmin, float SFminP) { fdoSFCut = doSFCut; fSFpid = SFpid; fSFmin = SFmin; fSFminP = SFminP; }
   void SetFiducialCutOptions(bool doDC, bool doECAL) {
     fDoDCFiducial = doDC;
     fDoECALFiducial = doECAL;
@@ -99,6 +106,7 @@ class TrackCut {
                                  const std::vector<float>&,    // m3w
                                  const std::vector<short>&,      // status
                                  const std::vector<int>&,      // pid
+                                 const std::vector<float>&, // p
                                  const int& REC_Particle_num)>
   RECCalorimeterPass() const;
 
@@ -182,6 +190,9 @@ void AddECinFiducialRange(int pid, int sector, const std::string& axis, float mi
 void AddECoutFiducialRange(int pid, int sector, const std::string& axis, float min, float max);
 void SetMinECALEnergyCut(int pid, int layer, float minEnergy);
 
+void AddSamplingFractionMinCut(int pid, int sector, float A0, float Bm1, float Cm2);
+void AddSamplingFractionMaxCut(int pid, int sector, float A0, float Bm1, float Cm2);
+
 
 
  private:
@@ -189,6 +200,11 @@ void SetMinECALEnergyCut(int pid, int layer, float minEnergy);
   bool fDoFiducialCut = false;
   bool fDoDCFiducial = false;
   bool fDoECALFiducial = false;
+  bool fdoSFCut = false; 
+
+  int fSFpid = 11;  // Default PID for SF cut
+  float fSFmin = 0.0;  // Default minimum SF value
+  float fSFminP = 100.0;  // Default minimum SF value for positive particles
 
   struct FiducialAxisCut {
     std::vector<std::pair<float, float>> excludedRanges;
@@ -237,6 +253,9 @@ void SetMinECALEnergyCut(int pid, int layer, float minEnergy);
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsPCal;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECin;
   std::map<int, std::map<int, FiducialCut3D>> fFiducialCutsECout;
+
+  std::map<int, std::map<int, SFCutABC>> fSFCutsMinCut;  // Sampling Fraction cuts per PID and sector
+  std::map<int, std::map<int, SFCutABC>> fSFCutsMaxCut;  // Sampling Fraction cuts per PID and sector
 
   ///ECAL min energy cuts
   std::map<int, std::map<int, float>> fMinECALEnergyCutPerPIDLayer;

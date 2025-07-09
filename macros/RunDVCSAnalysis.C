@@ -165,9 +165,23 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   /// set sampling fraction for the particle in detector
   trackCuts->SetMinECALEnergyCut(11, 1, 0.06);  // Electron PCal layer 1
   // apply sampling fraction and diagolal cuts tbd!!
+  trackCuts->SetSFCut(true,11,0.19,4.9);  // Set to true if you want to apply sampling fraction cut
+  trackCuts->AddSamplingFractionMinCut(11, 1, 0.167070, 0.010930, -0.001085);  // Electronsector 1
+  trackCuts->AddSamplingFractionMaxCut(11, 1, 0.302129, -0.000735, -0.000409);  // Electro sector 1
+  trackCuts->AddSamplingFractionMinCut(11, 2, 0.146344, 0.023547, -0.002660);  // Electronsector 2
+  trackCuts->AddSamplingFractionMaxCut(11, 2, 0.313502, -0.004386, 0.000036);  // Electronsector 2
+  trackCuts->AddSamplingFractionMinCut(11, 3, 0.136665, 0.031226, -0.003705);  // Electronsector 3
+  trackCuts->AddSamplingFractionMaxCut(11, 3, 0.310201, -0.001985, -0.000242);  // Electro sector 3
+  trackCuts->AddSamplingFractionMinCut(11, 4, 0.152493, 0.018234, -0.001604);  // Electronsector 4
+  trackCuts->AddSamplingFractionMaxCut(11, 4, 0.315967, -0.004037, 0.000058);  // Electronsector 4
+  trackCuts->AddSamplingFractionMinCut(11, 5, 0.143086, 0.023846, -0.002510);  // Electronsector 5
+  trackCuts->AddSamplingFractionMaxCut(11, 5, 0.321858, -0.009117, 0.000657);  // Electronsector 5
+  trackCuts->AddSamplingFractionMinCut(11, 6, 0.152500, 0.021085, -0.002384);  // Electronsector 6
+  trackCuts->AddSamplingFractionMaxCut(11, 6, 0.313124, -0.003053, -0.000193);  // Electro sector 6
 
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
+
 
   ParticleCut proton;
   proton.pid = 2212;                              // Proton PID
@@ -184,6 +198,16 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   proton.minPhi = 0.0f;                           // Minimum phi for protons
   proton.maxPhi = 2.0f * M_PI;
 
+/*
+  ParticleCut proton;
+  proton.pid = 2212;                              // Proton PID
+  proton.charge = 1;                              // Proton charge
+  proton.minCount = 1;                            // Minimum count of protons
+  proton.maxCount = 1;                            // Maximum count of protons
+  proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
+  if (IsInbending) proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD Inbending
+  if (!IsInbending) proton.minFDMomentum = 0.4f;  // Minimum momentum for protons in FD Outbending
+*/
   ParticleCut electron;
   electron.pid = 11;              // Electron PID
   electron.charge = -1;           // Electron charge
@@ -239,7 +263,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   dvcsTask->SetDoFiducialCut(true);
 
   dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
 

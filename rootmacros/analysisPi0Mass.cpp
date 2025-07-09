@@ -183,7 +183,7 @@ void DrawPi0Mass(const std::string& filename, const std::string& treename, const
 
 void analysisPi0Mass() {
   //std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/";
-  std::string path = "./../build/";
+  std::string path = "./../build/mc/";
   DrawPi0Mass(path + "dfSelected_afterFid.root", "dfSelected_afterFid");
   gApplication->Terminate(0);
 }

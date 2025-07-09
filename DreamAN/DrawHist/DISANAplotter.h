@@ -126,7 +126,7 @@ bool getDoPi0Corr() const { return dopi0corr; }
       
       auto corr3D = ComputePi0Corr(bins);
       auto Api0 = kinCalc.ComputeBeamSpinAsymmetry(sigma_pi0_pos_3d, sigma_pi0_neg_3d, pol);
-      result = UsePi0Correction(result, Api0, corr3D);
+      result = UsePi0CorrectionForBSA(result, Api0, corr3D);
     }
     return result;
 
@@ -181,7 +181,7 @@ bool getDoPi0Corr() const { return dopi0corr; }
                     const double c_val  = hCorr ? hCorr->GetBinContent(b) : 0.0;
                     const double c_err  = hCorr ? hCorr->GetBinError  (b) : 0.0;
 
-                    const double val_corr = xs_val/(1.0 - c_val)-c_val/(1.0 - c_val)* pi0_val;
+                    const double val_corr = xs_val*(1.0 - c_val);
                     const double err_corr = std::sqrt(
                         std::pow(xs_err * (1.0 - c_val), 2) +
                         std::pow(xs_val * c_err, 2));
@@ -193,6 +193,61 @@ bool getDoPi0Corr() const { return dopi0corr; }
                 xsCorr3D[iq][it][ix] = hNew;
             }
         }
+    }
+    return xsCorr3D;
+  }
+
+
+  std::vector<std::vector<std::vector<TH1D*>>> UsePi0CorrectionForBSA(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
+    const std::vector<std::vector<std::vector<TH1D*>>>& xsPi03D,
+      const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+    if (xs3D.size() != corr3D.size()) {
+      std::cerr << "[UsePi0Correction] Dimension mismatch (level-0)\n";
+      return {};
+    }
+    std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
+    for (size_t iq = 0; iq < xs3D.size(); ++iq) {
+      if (xs3D[iq].size() != corr3D[iq].size()) {
+        std::cerr << "[UsePi0Correction] Dimension mismatch (level-1)\n";
+        return {};
+      }
+      xsCorr3D[iq].resize(xs3D[iq].size());
+      for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+        if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+          std::cerr << "[UsePi0Correction] Dimension mismatch (level-2)\n";
+          return {};
+        }
+        xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+        for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+          TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+          TH1D* hPi0XS = xsPi03D[iq][it][ix]; // σ_pi0
+          TH1D* hCorr = corr3D[iq][it][ix];   //     c
+
+          if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+
+          TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
+
+          const int nb = hXS->GetNbinsX();
+          for (int b = 1; b <= nb; ++b) {
+            const double xs_val = hXS->GetBinContent(b);
+            const double xs_err = hXS->GetBinError  (b);
+            const double pi0_val = hPi0XS ? hPi0XS->GetBinContent(b) : 0.0;
+            const double pi0_err = hPi0XS ? hPi0XS->GetBinError  (b) : 0.0;
+            const double c_val  = hCorr ? hCorr->GetBinContent(b) : 0.0;
+            const double c_err  = hCorr ? hCorr->GetBinError  (b) : 0.0;
+
+            const double val_corr = xs_val/(1.0 - c_val)-
+                                    (pi0_val*c_val/(1.0 - c_val));
+            const double err_corr = std::sqrt(
+            std::pow(xs_err * (1.0 - c_val), 2) +
+            std::pow(xs_val * c_err, 2));
+
+            hNew->SetBinContent(b, val_corr);
+            hNew->SetBinError  (b, err_corr);
+          }
+          xsCorr3D[iq][it][ix] = hNew;
+        }
+      }
     }
     return xsCorr3D;
   }
@@ -212,8 +267,8 @@ bool getDoPi0Corr() const { return dopi0corr; }
   std::vector<std::string> disvars = {"Q2", "xB", "t", "W", "phi"};
   std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}}, {"W", {1.0, 10.0}}, {"t", {0.0, 10.0}}, {"phi", {-180.0, 180.0}}};
   std::map<std::string, std::pair<double, double>> kinematicAxisRanges = {
-      {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 2.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 5.0}},
-      {"recpho_theta", {-0.01, 2.0}}, {"recpho_phi", {-0.01, 6.1}},   {"recpro_p", {-0.01, 12.0}},  {"recpro_theta", {-0.01, 2.0}},
+      {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 1.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 10.0}},
+      {"recpho_theta", {-0.01, 1.0}}, {"recpho_phi", {-0.01, 6.1}},   {"recpro_p", {-0.01, 2.0}},  {"recpro_theta", {-0.01, 2.0}},
       {"recpro_phi", {-0.01, 6.1}}
       // Add more as needed
   };
