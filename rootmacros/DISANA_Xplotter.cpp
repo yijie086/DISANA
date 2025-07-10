@@ -53,10 +53,11 @@ void DISANA_Xplotter() {
   // std::string input_path_from_analysisRun = "/work/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
   // test case
   //std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/";
-  std::string input_path_from_analysisRun_inb_data = "./../build/";
-  //std::string input_path_from_analysisRun_inb_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
-  std::string input_path_from_analysisRun_inb_MC = "./../build/pi0mc/";
-  std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Outb/";
+  std::string input_path_from_analysisRun_inb_data = "./../build/RGAinb/";
+  std::string input_path_from_analysisRun_inb_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
+  //std::string input_path_from_analysisRun_inb_MC = "./../build/pi0mc/";
+  std::string input_path_from_analysisRun_out_data = "./../build/RGAoutb/";
+  //std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Outb/";
   std::string input_path_from_analysisRun_out_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Outb/";
 
   // std::string input_path_from_analysisRun = "./../build";
@@ -70,8 +71,8 @@ void DISANA_Xplotter() {
   ROOT::RDF::RNode df_afterFid_inb_data = InitKinematics(filename_afterFid_inb_data, "dfSelected_afterFid", beam_energy);
   ROOT::RDF::RNode df_afterFid_inb_MC = InitKinematics(filename_afterFid_inb_MC, "dfSelected_afterFid", beam_energy);
 
-  //ROOT::RDF::RNode df_afterFid_outb_data = InitKinematics(filename_afterFid_outb_data, "dfSelected_afterFid", beam_energy);
-  //ROOT::RDF::RNode df_afterFid_outb_MC = InitKinematics(filename_afterFid_outb_MC, "dfSelected_afterFid", beam_energy);
+  ROOT::RDF::RNode df_afterFid_outb_data = InitKinematics(filename_afterFid_outb_data, "dfSelected_afterFid", beam_energy);
+  ROOT::RDF::RNode df_afterFid_outb_MC = InitKinematics(filename_afterFid_outb_MC, "dfSelected_afterFid", beam_energy);
 
   // ROOT::RDF::RNode df_afterFid_afterCorr = InitKinematics(filename_afterFid_afterCorr, "dfSelected_afterFid_afterCorr");
   // input files for the data
@@ -89,18 +90,18 @@ void DISANA_Xplotter() {
   auto df_final_dvcsPi_rejected_inb_MC = RejectPi0TwoPhoton(df_final_dvcs_inb_MC);
 
   // outb
-  //auto df_final_dvcs_outb_data = ApplyFinalDVCSSelections(df_afterFid_outb_data, false);
-  //auto df_final_dvcsPi_rejected_outb_data = RejectPi0TwoPhoton(df_final_dvcs_outb_data);
-  //auto df_final_dvcs_outb_MC = ApplyFinalDVCSSelections(df_afterFid_outb_MC, false);
-  //auto df_final_dvcsPi_rejected_outb_MC = RejectPi0TwoPhoton(df_final_dvcs_outb_MC);
+  auto df_final_dvcs_outb_data = ApplyFinalDVCSSelections(df_afterFid_outb_data, false);
+  auto df_final_dvcsPi_rejected_outb_data = RejectPi0TwoPhoton(df_final_dvcs_outb_data);
+  auto df_final_dvcs_outb_MC = ApplyFinalDVCSSelections(df_afterFid_outb_MC, false);
+  auto df_final_dvcsPi_rejected_outb_MC = RejectPi0TwoPhoton(df_final_dvcs_outb_MC);
 
   // pi0 event selection cuts
   // inb
   auto df_final_OnlPi0_inb_data = SelectPi0Event(df_final_dvcs_inb_data);
   auto df_final_OnlPi0_inb_MC = SelectPi0Event(df_final_dvcs_inb_MC);
   // outb
-  //auto df_final_OnlPi0_outb_data = SelectPi0Event(df_final_dvcs_outb_data);
-  //auto df_final_OnlPi0_outb_MC = SelectPi0Event(df_final_dvcs_outb_MC);
+  auto df_final_OnlPi0_outb_data = SelectPi0Event(df_final_dvcs_outb_data);
+  auto df_final_OnlPi0_outb_MC = SelectPi0Event(df_final_dvcs_outb_MC);
 
   // final single photon from pi0 correction factors here
 
@@ -119,12 +120,12 @@ void DISANA_Xplotter() {
   // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
   // xBins.SetTBins({0.0, 1.2});
   // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  //xBins.SetQ2Bins({1.0, 10.0});
+  xBins.SetQ2Bins({1.0, 10.0});
+  xBins.SetTBins({0.0, 0.1});
+  xBins.SetXBBins({0.0, 1.0});
+  //xBins.SetQ2Bins({1.0, 1.5, 2.0, 3.0, 5.0});
   //xBins.SetTBins({0.0, 1.0});
-  //xBins.SetXBBins({0.0, 1.0});
-  xBins.SetQ2Bins({1.0, 1.5, 2.0, 3.0, 5.0});
-  xBins.SetTBins({0.1, 1.0});
-  xBins.SetXBBins({0.06, 0.1, 0.16, 0.24, 0.36, 0.48, 0.6});
+  //xBins.SetXBBins({0.06, 0.1, 0.16, 0.24, 0.36, 0.48, 0.6});
   //xBins.SetQ2Bins({1.0, 5.0});
   //xBins.SetTBins({0.0, 1.0});
   //xBins.SetXBBins({0.0, 1.0});
@@ -154,14 +155,15 @@ void DISANA_Xplotter() {
 
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC, "Sp18 Inb C", beam_energy, DoBkgCorr);
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC, "Sp18 Inb", beam_energy, false);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data,df_final_OnlPi0_outb_data,df_final_dvcsPi_rejected_outb_MC,df_final_OnlPi0_outb_MC, "Sp18 Outb", beam_energy, false);
   //comparer.AddModel(df_final_dvcsPi_rejected_inb_MC, "Sp18 Inb MC", beam_energy);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data,df_final_OnlPi0_outb_data,df_final_dvcsPi_rejected_outb_MC,df_final_OnlPi0_outb_MC, "Sp18 OutB C", beam_energy, DoBkgCorr);
   //comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb", beam_energy);
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB C", beam_energy, DoBkgCorr, "./../build/correction_factorsOutb.root");
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
   //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
-  comparer.PlotKinematicComparison();
-  comparer.PlotDVCSKinematicsComparison();
+  //comparer.PlotKinematicComparison();
+  //comparer.PlotDVCSKinematicsComparison();
   double luminosity = 1.0;  // Set your desired luminosity here
   double polarisation = 0.85;  // Set your desired polarisation here
 
@@ -375,10 +377,11 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
       // 4. Q2 > 1
       .Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
       .Filter("t < 1.0", "Cut: t > 1 GeV^2")
+      //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
 
       // 5. W > 2
       .Filter("W > 2.0", "Cut: W > 1.8 GeV")
-      //.Filter("phi > 90.0 && phi < 270 ", "Cut: phi")
+      //.Filter("phi > 100.0 && phi < 300 ", "Cut: phi")
 
 
   // 6. Electron and photon in different sectors
@@ -394,12 +397,13 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
   //
   // 9. 3σ exclusivity cuts
   //.Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma")
-  //.Filter("Emiss > 0 && Emiss < 2.0", "Cut: Missing energy")
-  //.Filter("PTmiss < 0.35", "Cut: Transverse missing momentum");
+  //.Filter("Emiss > -0.5 && Emiss < 1.5", "Cut: Missing energy")
+  //.Filter("PTmiss < 0.2", "Cut: Transverse missing momentum")
+  //.Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
   //.Filter("Theta_gamma_gamma < 2.0", "Cut: photon-missing angle")
   //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
-  .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: PTmiss in 3sigma");
-  //.Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.28)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.46)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.23)", "Cut: PTmiss in 3sigma")；
+  .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config");
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.28)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.46)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.23)", "Cut: PTmiss in 3sigma")
   //.Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<1.15&&Emiss>-0.95)||(pho_det_region==1&&pro_det_region==1&&Emiss<1.23&&Emiss>-0.99)||(pho_det_region==1&&pro_det_region==2&&Emiss<1.2&&Emiss>-0.96)", "Cut: Emiss in 3sigma")
   //.Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<3.38&&Mx2_eg>-0.76)||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<2.52&&Mx2_eg>-0.48)||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<2.81&&Mx2_eg>-0.67)", "Cut: Mx2_eg in 3sigma");
 

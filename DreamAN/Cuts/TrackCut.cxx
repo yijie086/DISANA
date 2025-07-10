@@ -24,6 +24,9 @@ TrackCut::TrackCut(const TrackCut& other) {
   this->fSFmin = other.fSFmin;
   this->fSFminP = other.fSFminP;
 
+  this->fSFCutsMinCut = other.fSFCutsMinCut;
+  this->fSFCutsMaxCut = other.fSFCutsMaxCut;
+
   // Also copy other necessary cuts if needed
   this->fMinX = other.fMinX;
   this->fMaxX = other.fMaxX;
@@ -341,6 +344,7 @@ TrackCut::RECCalorimeterPass() const {
                 const int& REC_Particle_num) -> std::vector<int> {
     // Initialize return_values with size REC_Particle_num and default value 9999.0
     std::vector<int> return_values(REC_Particle_num, 1);
+    std::vector<float> SF14(REC_Particle_num, 0.0);
     std::vector<float> SF(REC_Particle_num, 0.0);
     std::vector<int> REC_Particle_Sector(REC_Particle_num, -1);// Later save it in the RDF
     auto isExcluded = [](float value, const FiducialAxisCut& cut) -> bool {
@@ -361,7 +365,8 @@ TrackCut::RECCalorimeterPass() const {
           else if (layer[i] == 7)
             cutMap = &fFiducialCutsECout;
           
-          if (layer[i] == 1 || layer[i] == 4) SF[pindex[i]] = SF[pindex[i]] + energy[i]; // Example SF calculation, adjust as needed
+          if (layer[i] == 1 || layer[i] == 4) SF14[pindex[i]] = SF14[pindex[i]] + energy[i]; // Example SF calculation, adjust as needed
+          SF[pindex[i]] = SF[pindex[i]] + energy[i];
           REC_Particle_Sector[pindex[i]] = sector[i];
 
           if (cutMap) {
@@ -388,6 +393,7 @@ TrackCut::RECCalorimeterPass() const {
       int cur_pid = pid[i];
       if (p[i] <= 0) continue;
       SF[i] = SF[i] / p[i];
+      SF14[i] = SF14[i] / p[i];
 
       // Sector-dependent minimum cut
       auto minIt = fSFCutsMinCut.find(cur_pid);
@@ -406,8 +412,8 @@ TrackCut::RECCalorimeterPass() const {
       auto maxIt = fSFCutsMaxCut.find(cur_pid);
       if (maxIt != fSFCutsMaxCut.end()) {
         auto& sectorMap = maxIt->second;
-        if (sectorMap.count(sector[i])) {
-          const auto& abc = sectorMap.at(sector[i]);
+        if (sectorMap.count(REC_Particle_Sector[i])) {
+          const auto& abc = sectorMap.at(REC_Particle_Sector[i]);
           float maxCut = abc.A0 + abc.Bm1 * p[i] + abc.Cm2 * (p[i] * p[i]);
           if (SF[i] > maxCut) {
             return_values[i] = 0;
@@ -415,7 +421,7 @@ TrackCut::RECCalorimeterPass() const {
         }
       }
 
-      if (cur_pid == fSFpid && SF[i] < fSFmin && p[i] > fSFminP) {
+      if (cur_pid == fSFpid && SF14[i] < fSFmin && p[i] > fSFminP) {
         return_values[i] = 0;
       }
     }

@@ -661,7 +661,7 @@ void DrawDeltaPByThetaBins(
 
 //================ example driver =================
 void analysisMomentumCorrection() {
-    std::string path = "./../build/data7546/";
+    std::string path = "./../build/";
     std::string filename = path + "dfSelected_afterFid.root";
     std::string filenameCorrected = path + "dfSelected_afterFid_afterCorr.root";
     std::string treename = "dfSelected_afterFid";

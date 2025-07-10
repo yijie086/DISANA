@@ -51,7 +51,7 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
                    const RVec<int> &pid, const RVec<int> &passFid,
                    const RVec<float> &lv, const RVec<float> &lw,
                    const RVec<float> &energy,
-                   const RVec<float> &px, const RVec<float> &py, const RVec<float> &pz) {
+                   const RVec<float> &px, const RVec<float> &py, const RVec<float> &pz, const RVec<bool> &parPass) {
         struct HitInfo {
             float totalE = 0;
             float PCAL_E = 0;
@@ -100,13 +100,13 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
             float eOverP = info.totalE / p;
             float PCALeOverP = info.PCAL_E / p;
             float ECINeOverP = info.ECIN_E / p;
-            if (eOverP!=0) hist_SF[sec]->Fill(p, eOverP);
-            if (info.hasL1 && info.hasL4) hist_Triangle[sec]->Fill(ECINeOverP, PCALeOverP);
+            if (parPass[idx] && eOverP!=0) hist_SF[sec]->Fill(p, eOverP);
+            if (parPass[idx] && info.hasL1 && info.hasL4) hist_Triangle[sec]->Fill(ECINeOverP, PCALeOverP);
         }
     }, {"REC_Calorimeter_detector", "REC_Calorimeter_layer", "REC_Calorimeter_sector",
         "REC_Calorimeter_pindex", "REC_Particle_pid", "REC_Track_pass_fid",
         "REC_Calorimeter_lv", "REC_Calorimeter_lw", "REC_Calorimeter_energy",
-        "REC_Particle_px", "REC_Particle_py", "REC_Particle_pz"});
+        "REC_Particle_px", "REC_Particle_py", "REC_Particle_pz","REC_Particle_pass"});
 
     std::string outdir = "ECALSFPlots";
     gSystem->Exec(("mkdir -p " + outdir).c_str());
@@ -178,10 +178,10 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
         }
         hist_SF[sector]->GetYaxis()->SetRangeUser(0.05, 0.35);
         hist_SF[sector]->Draw("COLZ");
-        grUpper->Draw("L SAME");
-        grLower->Draw("L SAME");
-        fUpFit.Draw("L SAME");      // --- NEW ---
-        fLoFit.Draw("L SAME");
+        //grUpper->Draw("L SAME");
+        //grLower->Draw("L SAME");
+        //fUpFit.Draw("L SAME");      // --- NEW ---
+        //fLoFit.Draw("L SAME");
 
         std::string outname;
         if (selectedPid == 11) {
@@ -207,8 +207,8 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
         } else {
             hist_Triangle[sector]->SetTitle(Form("PID %d E_{dep} in Sector %d; ECIN E/p; PCAL E/p", selectedPid, sector));
         }
-        hist_Triangle[sector]->GetYaxis()->SetRangeUser(0.05, 0.3);
-        hist_Triangle[sector]->GetXaxis()->SetRangeUser(0.05, 0.3);
+        hist_Triangle[sector]->GetYaxis()->SetRangeUser(0.00, 0.3);
+        hist_Triangle[sector]->GetXaxis()->SetRangeUser(0.00, 0.3);
         hist_Triangle[sector]->Draw("COLZ");
 
         std::string outname2;
@@ -234,7 +234,7 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
 void analysisECALSF() {
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "./../build/";
+    std::string path = "./../build/RGAoutb/";
     //std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
