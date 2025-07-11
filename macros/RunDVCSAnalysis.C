@@ -7,7 +7,7 @@
 void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   bool IsMC = false;              // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
-  bool IsInbending = true;        // Set to true if you want to run on inbending data
+  bool IsInbending = false;        // Set to true if you want to run on inbending data
   std::string inputFileDir = inputDir;
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";
@@ -236,21 +236,22 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   eventCuts->AddParticleMotherCut("pi0", pi0);      // Applies defaults automatically
 
   auto corr = std::make_shared<MomentumCorrection>();
-  corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA Fa18 Out
+  corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA Fa18 in
       2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
         theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-        float A_p = -0.1927861 + 0.0099546 * theta - 0.0001299 * theta * theta;
-        float B_p = 0.44307822 - 0.02309469 * theta + 0.00030784 * theta * theta;
-        float C_p = -0.32938000 + 0.01648659 * theta - 0.00021181 * theta * theta;
+        float A_p = -0.0285153 + 0.000678814 * theta;
+        float B_p = 0.0468792 - 0.00089179 * theta;
+        float C_p = -0.026879 + 0.000431868 * theta;
         return p + (A_p + B_p * p + C_p * p * p);
       });
 
-  corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA Fa18 Out
+  corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA Fa18 in
       2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
         theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-        float A_p = 0.0135790 - 0.0005303 * theta;
-        float B_p = -0.02165929 + 0.00121123 * theta;
-        float C_p = 0.0;
+        float A_p = 0.0120379 - 0.00173099 * theta + 0.000158133 * theta * theta - 6.23728e-06 * theta * theta * theta + 9.24082e-08 * theta * theta * theta * theta;
+        float B_p = -0.0128831 + 0.00384179 * theta - 0.00044874 * theta * theta + 1.96184e-05 * theta * theta * theta - 2.81305e-07 * theta * theta * theta * theta;
+        float C_p = -0.0102071 + 0.00370448 * theta - 0.000250471 * theta * theta + 6.16952e-06 * theta * theta * theta - 3.72598e-08 * theta * theta * theta * theta;
+
         return p + (A_p + B_p / p + C_p / (p * p));
       });
 
@@ -263,7 +264,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   dvcsTask->SetDoFiducialCut(true);
 
   dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
 

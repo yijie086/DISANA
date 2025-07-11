@@ -111,6 +111,47 @@ class DISANAcomparer {
     delete f; 
     std::cout << "✅ Correction histogram loaded: " << histoname << "\n";
   }
+  /// get mean values of Q^2 and x_B
+std::vector<std::vector<std::vector<std::tuple<double, double, double>>>> getMeanQ2xBt(const BinManager& bins, std::unique_ptr<DISANAplotter>& plotter) {
+  const auto& xb_bins = bins.GetXBBins();
+  const auto& q2_bins = bins.GetQ2Bins();
+  const auto& t_bins  = bins.GetTBins();
+
+  size_t n_xb = xb_bins.size() - 1;
+  size_t n_q2 = q2_bins.size() - 1;
+  size_t n_t  = t_bins.size() - 1;
+
+  auto rdf = plotter->GetRDF();
+
+  std::vector<std::vector<std::vector<std::tuple<double, double, double>>>> result(
+    n_xb, std::vector<std::vector<std::tuple<double, double, double>>>(
+             n_q2, std::vector<std::tuple<double, double, double>>(n_t)));
+
+  for (size_t ix = 0; ix < n_xb; ++ix) {
+    for (size_t iq = 0; iq < n_q2; ++iq) {
+      for (size_t it = 0; it < n_t; ++it) {
+        double xb_lo = xb_bins[ix], xb_hi = xb_bins[ix + 1];
+        double q2_lo = q2_bins[iq], q2_hi = q2_bins[iq + 1];
+        double t_lo  = t_bins[it],  t_hi  = t_bins[it + 1];
+
+        // Apply filter
+        auto rdf_cut = rdf
+          .Filter(Form("xB >= %f && xB < %f", xb_lo, xb_hi))
+          .Filter(Form("Q2 >= %f && Q2 < %f", q2_lo, q2_hi))
+          .Filter(Form("t >= %f && t < %f", t_lo, t_hi));
+
+        // Compute means
+        double mean_xB = rdf_cut.Mean("xB").GetValue();
+        double mean_Q2 = rdf_cut.Mean("Q2").GetValue();
+        double mean_t  = rdf_cut.Mean("t").GetValue();
+
+        result[ix][iq][it] = std::make_tuple(mean_xB, mean_Q2, mean_t);
+      }
+    }
+  }
+
+  return result;
+}
 
   // Plot all basic kinematic distributions (p, theta, phi) for all particle types
   void PlotKinematicComparison() {
@@ -474,7 +515,10 @@ class DISANAcomparer {
           gStyle->SetCanvasPreferGL(true);
 
           for (size_t m = 0; m < allCSHists.size(); ++m) {
+            
             TH1D* h = allCSHists[m][xb_bin][q2_bin][t_bin];
+
+            if (!h || h->GetEntries() < 10) continue;
             styleBSA_.StyleTH1(h);
 
             auto [r, g, b] = modelShades[m % modelShades.size()];
@@ -541,6 +585,170 @@ class DISANAcomparer {
     }
   }
 
+  void PlotDIS_BSA_Comparison2(double luminosity, double pol = 1.0) {
+  if (plotters.empty()) {
+    std::cerr << "No models loaded to compare.\n";
+    return;
+  }
+
+  std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
+  for (auto& p : plotters) {
+    auto h = p->ComputeBSA(fXbins, luminosity, pol);
+    allBSA.push_back(std::move(h));
+  }
+
+  const auto& q2_edges = fXbins.GetQ2Bins();
+  const auto& t_edges = fXbins.GetTBins();
+  const auto& xb_edges = fXbins.GetXBBins();
+
+  const size_t n_q2 = q2_edges.size() - 1;
+  const size_t n_t = t_edges.size() - 1;
+  const size_t n_xb = xb_edges.size() - 1;
+
+  const int rows = n_q2;
+  const int cols = n_xb;
+
+  for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+    TString cname = Form("DIS_BSA_t[%zu]", t_bin);
+    TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
+    c->Divide(cols, rows, 0.00, 0.00);  // No gaps
+
+    std::vector<bool> columnHasDrawnY(cols, false);
+    std::vector<bool> rowHasDrawnX(rows, false);
+
+    for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+      for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+        int visualRow = rows - 1 - q2_bin;
+        int pad = visualRow * cols + xb_bin + 1;
+        TPad* thisPad = (TPad*)c->cd(pad);
+
+        double l = (xb_bin == 0) ? 0.2 : 0.00;
+        double r = (xb_bin == cols - 1) ? 0.05 : 0.00;
+        double b = (visualRow == 0) ? 0.20 : 0.00;
+        double t = (visualRow == rows - 1) ? 0.001 : 0.00;
+
+        styleBSA_.StylePad(thisPad, l, r, b, t);
+        thisPad->SetTicks(1, 0);
+
+        TLegend* leg = new TLegend(0.35, 0.85, 0.85, 0.95);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.06);
+
+        TLegend* legParams = new TLegend(0.35, 0.16, 0.85, 0.32);
+        legParams->SetBorderSize(0);
+        legParams->SetFillStyle(0);
+        legParams->SetTextSize(0.06);
+
+        bool first = true;
+        bool hasValidHistogram = false;
+
+        for (size_t m = 0; m < allBSA.size(); ++m) {
+          TH1D* h = allBSA[m][xb_bin][q2_bin][t_bin];
+          if (!h || h->GetBinContent(5) == 0) continue;
+
+          hasValidHistogram = true;
+          columnHasDrawnY[xb_bin] = true;
+          rowHasDrawnX[visualRow] = true;
+
+          styleBSA_.StyleTH1(h);
+
+          auto [r, g, b] = modelShades[m % modelShades.size()];
+          int colorIdx = 3000 + m * 20;
+          if (!gROOT->GetColor(colorIdx))
+            new TColor(colorIdx, r, g, b);
+
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetFillColorAlpha(colorIdx, 1.0);
+          h->SetLineWidth(1);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.5);
+          h->SetStats(0);
+
+          // X-axis: only first drawn in this row
+          if (!rowHasDrawnX[visualRow]) {
+            h->GetXaxis()->SetLabelSize(0.09);
+            h->GetXaxis()->SetTitleSize(0.11);
+            h->GetXaxis()->SetTitleOffset(1.0);
+            h->GetXaxis()->SetTitle("#phi [deg]");
+          } else {
+            h->GetXaxis()->SetLabelSize(0.0);
+            h->GetXaxis()->SetTitleSize(0.0);
+            h->GetXaxis()->SetTitleOffset(0.0);
+            h->GetXaxis()->SetTitle("");
+          }
+
+          // Y-axis: only first drawn in this column
+          if (!columnHasDrawnY[xb_bin]) {
+            h->GetYaxis()->SetLabelSize(0.09);
+            h->GetYaxis()->SetTitleSize(0.11);
+            h->GetYaxis()->SetTitleOffset(1.1);
+            h->GetYaxis()->SetTitle("A_{LU}");
+          } else {
+            h->GetYaxis()->SetLabelSize(0.0);
+            h->GetYaxis()->SetTitleSize(0.0);
+            h->GetYaxis()->SetTitleOffset(0.0);
+            h->GetYaxis()->SetTitle("");
+          }
+
+          h->GetXaxis()->SetNdivisions(4, false);
+          h->GetYaxis()->SetNdivisions(6, false);
+          h->GetYaxis()->SetRangeUser(-0.6, 0.6);
+          h->GetXaxis()->SetRangeUser(0.01, 355);
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+
+          h->Draw(first ? "E1X0" : "E1X0 SAME");
+          first = false;
+
+          TF1* fitFunc = new TF1(Form("fit_%zu_%zu_%zu_%zu", m, t_bin, q2_bin, xb_bin),
+                                 "[0] + ([1]*sin(x*TMath::DegToRad())) / (1 + [2]*cos(x*TMath::DegToRad()))",
+                                 0, 360);
+          fitFunc->SetParameters(0.0, 0.2, 0.1);
+          fitFunc->SetFillColorAlpha(colorIdx, 0.5);
+          fitFunc->SetLineColorAlpha(colorIdx, 0.5);
+          fitFunc->SetLineStyle(2);
+          fitFunc->SetLineWidth(1);
+          h->Fit(fitFunc, "Q0");
+          fitFunc->Draw("SAME");
+
+          double a1 = fitFunc->GetParameter(1);
+          double a1e = fitFunc->GetParError(1);
+          TString a1label = Form("a_{1} = %.2f #pm %.2f", a1, a1e);
+          legParams->AddEntry(fitFunc, a1label, "l");
+
+          leg->AddEntry(h, labels[m].c_str(), "p");
+        }
+
+        if (hasValidHistogram) {
+          double xB_low = xb_edges[xb_bin], xB_high = xb_edges[xb_bin + 1];
+          double Q2_low = q2_edges[q2_bin], Q2_high = q2_edges[q2_bin + 1];
+          TString labelText = Form("x_{B} #in [%.2f, %.2f], Q^{2} #in [%.1f, %.1f]", xB_low, xB_high, Q2_low, Q2_high);
+          TLatex* latex = new TLatex(0.25, 0.82, labelText.Data());
+          latex->SetTextSize(0.055);
+          latex->SetNDC();
+          latex->SetTextFont(42);
+          latex->Draw();
+
+          leg->Draw();
+          legParams->Draw();
+          thisPad->Update();
+          thisPad->RedrawAxis();
+        }
+      }
+    }
+
+    TString outfile = Form("%s/DIS_BSA_t_%.2f-%.2f.pdf", outputDir.c_str(), t_edges[t_bin], t_edges[t_bin + 1]);
+    c->SaveAs(outfile);
+    std::cout << "Saved: " << outfile << '\n';
+    delete c;
+  }
+}
+
+
+
+
   /// BSA a plots
   void PlotDIS_BSA_Comparison(double luminosity, double pol = 1.0) {
     if (plotters.empty()) {
@@ -549,10 +757,17 @@ class DISANAcomparer {
     }
 
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
+    // job for chatgpt
+    std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
+
+
     for (auto& p : plotters) {
       auto h = p->ComputeBSA(fXbins, luminosity, pol);
       allBSA.push_back(std::move(h));
+      //job for chatgpt write a getter function which takes the fXbins and the plotter to find out the mean values of Q2 and xB
+      //allBSAmeans.push_back(getMeanQ2xBt(fXbins, p));
     }
+
 
     const auto& q2_edges = fXbins.GetQ2Bins();
     const auto& t_edges = fXbins.GetTBins();
@@ -564,6 +779,8 @@ class DISANAcomparer {
 
     const int rows = n_q2;
     const int cols = n_xb;
+
+    bool Doplot = true;
 
     for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
       TString cname = Form("DIS_BSA_t[%zu]", t_bin);
@@ -602,8 +819,9 @@ class DISANAcomparer {
 
           for (size_t m = 0; m < allBSA.size(); ++m) {
             TH1D* h = allBSA[m][xb_bin][q2_bin][t_bin];
+            if (!h || h->GetBinContent(5)==0) {continue; Doplot = false;}
             styleBSA_.StyleTH1(h);
-
+            
             auto [r, g, b] = modelShades[m % modelShades.size()];
 
             int colorIdx = 3000 + m * 20;  // Avoid low TColor indices
@@ -660,6 +878,21 @@ class DISANAcomparer {
             legParams->AddEntry(fitFunc, a1label, "l");
 
             leg->AddEntry(h, labels[m].c_str(), "p");
+            //auto [mean_xB, mean_Q2, mean_t] = allBSAmeans[m][xb_bin][q2_bin][t_bin];
+/*
+            // Format mean values as LaTeX
+            TString meanText = Form("<x_{B}> = %.3f, <Q^{2}> = %.3f, <t> = %.3f", mean_xB, mean_Q2, mean_t);
+
+            // Draw mean values (bottom-left corner)
+            TLatex* meanLatex = new TLatex(0.25, 0.78-m*0.10, meanText.Data());
+            meanLatex->SetTextSize(0.05);
+            meanLatex->SetNDC();
+            meanLatex->SetTextFont(42);
+            meanLatex->Draw();*/
+          }
+          if (!Doplot) {
+            std::cout << "No data for this bin combination, skipping...\n";
+            continue;
           }
 
           // Annotate bin ranges

@@ -517,6 +517,19 @@ void DrawDeltaPByThetaBins(
     timer.Start();
 
     ROOT::EnableImplicitMT();
+
+    std::vector<double> thetaMidVec, aVec, bVec, cVec;
+    std::vector<double> aErrVec, bErrVec, cErrVec;
+
+    auto GetParticleName = [](int pid) -> std::string {
+        if (pid == 11) return "electron";
+        if (pid == 22) return "photon";
+        if (pid == 2212) return "proton";
+        return "pid" + std::to_string(pid);
+    };
+    std::string prefix = GetParticleName(selectedPid) + "_" + selecteddetector;
+
+
     ROOT::RDataFrame df(treename, filename);
     gStyle->SetOptStat(0);
 
@@ -571,6 +584,9 @@ void DrawDeltaPByThetaBins(
                    const RVec<float> &mcpy,
                    const RVec<float> &mcpz)
     {
+        std::vector<double> thetaCenters;
+        std::vector<double> fitParamA, fitParamB, fitParamC;
+
         for (size_t i = 0; i < pid.size(); ++i) {
             if (pid[i] != selectedPid) continue;
             if (!passPar[i]) continue;
@@ -612,8 +628,8 @@ void DrawDeltaPByThetaBins(
             v.overall->SetTitle((selecteddetector + " " + v.title).c_str());
             gPad->SetLogz();
             v.overall->Draw("COLZ");
-            TGraph* gPeak = MakePeakGraph(v.overall,outDir + "/" + v.saveName + "_" + selecteddetector + "_overall.txt");
-            gPeak->Draw("PEZ SAME");
+            //TGraph* gPeak = MakePeakGraph(v.overall,outDir + "/" + v.saveName + "_" + selecteddetector + "_overall.txt");
+            //gPeak->Draw("PEZ SAME");
             //drawHist(v.overall, selecteddetector + " " + v.title, "p [GeV]", "#Delta p [GeV]");
             if (v.name == "deltaP:p") {
                 v.overall->GetXaxis()->SetTitle("p [GeV]");
@@ -635,6 +651,65 @@ void DrawDeltaPByThetaBins(
             v.binHists[ti]->Draw("COLZ");
             TGraph* gPeak2 = MakePeakGraph(v.binHists[ti],outDir + "/" + v.saveName + "_" + selecteddetector + Form("_T%zu.txt", ti));
             gPeak2->Draw("PEZ SAME");
+  
+            TF1* fitFunc = nullptr;
+            std::string fitExpr;
+
+            if (selectedPid == 2212) { // Proton
+                if (selecteddetector == "FD") {
+                    fitExpr = "[0] + [1]/x + [2]/(x*x)";
+                } else if (selecteddetector == "CD") {
+                    fitExpr = "[0] + [1]*x + [2]*x*x";  // a + bx + cx^2
+                } else {
+                    std::cerr << "Unknown detector for proton: " << selecteddetector << "\n";
+                    continue;
+                }
+            } else if (selectedPid == 11 || selectedPid == 22) { // Electron or Photon
+                fitExpr = "[0] + [1]*x + [2]*x*x"; 
+            } else {
+                std::cerr << "Unknown pid for fitting: " << selectedPid << "\n";
+                fitExpr = "[0] + [1]*x + [2]*x*x"; // fallback
+            }
+
+            fitFunc = new TF1("fitFunc", fitExpr.c_str(), v.binHists[ti]->GetXaxis()->GetXmin(), v.binHists[ti]->GetXaxis()->GetXmax());
+
+
+            if (gPeak2->GetN() > 2) {
+                gPeak2->Fit(fitFunc, "Q");  // Quiet mode
+
+                std::ofstream foutFit(outDir + "/" + v.saveName + "_" + selecteddetector + Form("_T%zu_fit.txt", ti));
+                foutFit << "# Fit expression: " << fitExpr << "\n";
+                foutFit << "# Fit parameters:\n";
+                for (int i = 0; i < fitFunc->GetNpar(); ++i)
+                    foutFit << "p" << i << " = " << fitFunc->GetParameter(i)
+                            << " ± " << fitFunc->GetParError(i) << "\n";
+                foutFit.close();
+
+                fitFunc->SetLineColor(kBlue + 2);
+                fitFunc->SetLineWidth(2);
+                fitFunc->Draw("SAME");
+
+                // === 记录每个 bin 的 theta center 和 拟合参数 ===
+                double thetaMid;
+                if (ti == 0)
+                    thetaMid = thetaCuts[0];
+                else if (ti == thetaCuts.size())
+                    thetaMid = thetaCuts.back();
+                else
+                    thetaMid = 0.5 * (thetaCuts[ti] + thetaCuts[ti - 1]);
+
+                if (fitFunc->GetNpar() >= 3 && ti < thetaCuts.size()-1) {
+                    thetaMidVec.push_back(thetaMid);
+                    aVec.push_back(fitFunc->GetParameter(0));
+                    bVec.push_back(fitFunc->GetParameter(1));
+                    cVec.push_back(fitFunc->GetParameter(2));
+                    aErrVec.push_back(fitFunc->GetParError(0));
+                    bErrVec.push_back(fitFunc->GetParError(1));
+                    cErrVec.push_back(fitFunc->GetParError(2));
+
+                }
+            }
+
             //drawHist(v.binHists[ti],selecteddetector + " " + v.title + " in " + GetThetaBinLabel(ti, thetaCuts),"p [GeV]", "#Delta p [GeV]");
 
             if (v.name == "deltaP:p") {
@@ -650,6 +725,65 @@ void DrawDeltaPByThetaBins(
             std::cout << "Saved: " << out << std::endl;
         }
     }
+    std::string fitParamOutDir = outDir + "/ParamFits";
+    gSystem->Exec(("mkdir -p " + fitParamOutDir).c_str());
+
+    auto PlotParamVsTheta = [&](const std::vector<double>& theta,
+                             const std::vector<double>& param,
+                             const std::vector<double>& errors,
+                             const std::string& pname,
+                             const std::string& fitExpr) {
+        if (theta.size() < 3) return;
+
+        TCanvas *c = new TCanvas(("c_" + prefix + "_" + pname + "_vs_theta").c_str(), "", 1800, 1200);
+        TGraphErrors* g = new TGraphErrors(theta.size());
+        for (size_t i = 0; i < theta.size(); ++i) {
+            g->SetPoint(i, theta[i], param[i]);
+            g->SetPointError(i, 0.0, errors[i]); // X误差设为0，Y误差来自拟合
+        }
+
+        TF1* f = new TF1(("fit_" + pname).c_str(), fitExpr.c_str(),
+                     *std::min_element(theta.begin(), theta.end()),
+                     *std::max_element(theta.begin(), theta.end()));
+        g->Fit(f, "Q");
+
+        g->SetTitle((prefix + ": " + pname + " vs #theta").c_str());
+        g->GetXaxis()->SetTitle("#theta [deg]");
+        g->GetYaxis()->SetTitle((pname + " value").c_str());
+        g->SetMarkerStyle(20);
+        g->SetMarkerSize(1.2);
+        g->Draw("AP");
+
+        f->SetLineColor(kRed + 1);
+        f->SetLineWidth(2);
+        f->Draw("SAME");
+        g->GetYaxis()->SetRangeUser(-0.05, 0.05);
+
+
+        std::string imgPath = fitParamOutDir + "/" + prefix + "_" + pname + "_vs_theta.png";
+        c->SaveAs(imgPath.c_str());
+        delete c;
+        std::cout << "Saved: " << imgPath << std::endl;
+
+        std::ofstream fout(fitParamOutDir + "/" + prefix + "_" + pname + "_vs_theta.txt");
+        fout << "# Fit expression: " << fitExpr << "\n";
+        for (int i = 0; i < f->GetNpar(); ++i)
+        fout << "p" << i << " = " << f->GetParameter(i)
+             << " ± " << f->GetParError(i) << "\n";
+        fout.close();
+    };
+
+    if (selecteddetector == "FD") {
+        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x + [2]*x*x + [3]*x*x*x + [4]*x*x*x*x");
+        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x + [2]*x*x + [3]*x*x*x + [4]*x*x*x*x");
+        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x + [2]*x*x + [3]*x*x*x + [4]*x*x*x*x");
+    } else if (selecteddetector == "CD") {
+        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+    }
+
+
 
     timer.Stop();
     std::cout << "Time for DrawDeltaPByThetaBins: ";
@@ -661,17 +795,18 @@ void DrawDeltaPByThetaBins(
 
 //================ example driver =================
 void analysisMomentumCorrection() {
-    std::string path = "./../build/";
+    std::string path = "./../build/rgaspring2018inb/";
     std::string filename = path + "dfSelected_afterFid.root";
     std::string filenameCorrected = path + "dfSelected_afterFid_afterCorr.root";
     std::string treename = "dfSelected_afterFid";
     std::string treenameCorrected = "dfSelected_afterFid_afterCorr";
 
     std::vector<float> thetaCutsFDelectron = {10,15,20,25};
-    std::vector<float> thetaCutsFDproton = {20,25,30,35,40};
+    std::vector<float> thetaCutsFDproton = {5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,
+                                            26,27,28,29,30,31,32,33,34,35,36,37,38,39,40};
     std::vector<float> thetaCutsFDphoton = {10,15,20,25};
 
-    std::vector<float> thetaCutsCDproton = {50,55,60,65,70};
+    std::vector<float> thetaCutsCDproton = {40,42,44,46,48,50,52,54,56,58,60};
 
     std::vector<float> thetaCutsFTelectron = {3,3.5,4};
     std::vector<float> thetaCutsFTphoton = {3,3.5,4};
@@ -745,34 +880,35 @@ void analysisMomentumCorrection() {
     Draw2DParticleKinematicsByThetaBins(11,{0},"FD",{{"electron_phi_vs_theta","electron phi vs theta","phi:theta",500,0,360,500,0,40}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(11,{0},"FT",{{"electron_p_vs_theta","electron p vs theta","p:theta",500,0,10,500,0,10}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(11,{0},"FT",{{"electron_phi_vs_theta","electron phi vs theta","phi:theta",500,0,360,500,0,10}},filename,treename);
-  */Draw2DParticleKinematicsByThetaBins(11,{0},"ALL",{{"electron_p_vs_theta","electron p vs theta","p:theta",500,0,10,500,0,40}},filename,treename);
+  Draw2DParticleKinematicsByThetaBins(11,{0},"ALL",{{"electron_p_vs_theta","electron p vs theta","p:theta",500,0,10,500,0,40}},filename,treename);
+*/
 /*
     Draw2DParticleKinematicsByThetaBins(2212,{0},"FD",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,60}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(2212,{0},"FD",{{"proton_phi_vs_theta","proton phi vs theta","phi:theta",500,0,360,500,0,60}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(2212,{0},"CD",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,2,500,20,150}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(2212,{0},"CD",{{"proton_phi_vs_theta","proton phi vs theta","phi:theta",500,0,360,500,20,150}},filename,treename);
-  */Draw2DParticleKinematicsByThetaBins(2212,{0},"ALL",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,150}},filename,treename);
-  
+    Draw2DParticleKinematicsByThetaBins(2212,{0},"ALL",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,150}},filename,treename);
+  */
 /*
     Draw2DParticleKinematicsByThetaBins(22,{0},"FD",{{"photon_p_vs_theta","photon p vs theta","p:theta",500,0,8,500,0,40}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(22,{0},"FD",{{"photon_phi_vs_theta","photon phi vs theta","phi:theta",500,0,360,500,0,40}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(22,{0},"FT",{{"photon_p_vs_theta","photon p vs theta","p:theta",500,0,8,500,0,10}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(22,{0},"FT",{{"photon_phi_vs_theta","photon phi vs theta","phi:theta",500,0,360,500,0,10}},filename,treename);
- */ Draw2DParticleKinematicsByThetaBins(22,{0},"ALL",{{"photon_p_vs_theta","photon p vs theta","p:theta",500,0,8,500,0,40}},filename,treename);
+    Draw2DParticleKinematicsByThetaBins(22,{0},"ALL",{{"photon_p_vs_theta","photon p vs theta","p:theta",500,0,8,500,0,40}},filename,treename);
     Draw2DParticleKinematicsByThetaBins(22,{0},"ALL",{{"photon_phi_vs_theta","photon phi vs theta","phi:theta",500,0,360,500,0,40}},filename,treename);
-
+*/
 /*
     DrawDeltaPByThetaBins(11,thetaCutsFDelectron,"FD",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.03,0.03}},filename,treename);
     DrawDeltaPByThetaBins(11,thetaCutsFTelectron,"FT",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-1.0,1.0}},filename,treename);
     DrawDeltaPByThetaBins(11,{0},"ALL",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.1,0.1}},filename,treename);
   */
-  /*  
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",200,0,2,200,-0.1,0.1}},filename,treename);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",200,0,2,200,-0.2,0.2}},filename,treename);
-    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",200,0,2,200,-0.1,0.1}},filename,treename);
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",200,0,2,200,-0.1,0.1}},filenameCorrected,treenameCorrected);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",200,0,2,200,-0.2,0.2}},filenameCorrected,treenameCorrected);
-*/
+   
+    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename);
+    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.2,0.2}},filename,treename);
+    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename);
+    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filenameCorrected,treenameCorrected);
+    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2,100,-0.2,0.2}},filenameCorrected,treenameCorrected);
+
     /*
     DrawDeltaPByThetaBins(22,thetaCutsFDphoton,"FD",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
     DrawDeltaPByThetaBins(22,thetaCutsFTphoton,"FT",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.2,0.2}},filename,treename);
