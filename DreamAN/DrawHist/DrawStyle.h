@@ -60,6 +60,7 @@ class DrawStyle {
     pad->SetBottomMargin(bottom >= 0 ? bottom : bottomMargin_);
     pad->SetTopMargin(top >= 0 ? top : topMargin_);
     pad->SetTicks(1, 1);
+    pad->SetFillStyle(4000);
   }
 
   void StyleTH1(TH1* hist,

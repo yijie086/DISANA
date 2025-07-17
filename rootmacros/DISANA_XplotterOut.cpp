@@ -43,24 +43,24 @@ ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, c
                      {"recel_p", "recel_theta", "recel_phi", "recpro_p", "recpro_theta", "recpro_phi", "recpho_p", "recpho_theta", "recpho_phi"});
 }
 
-void DISANA_Xplotter2() {
+void DISANA_XplotterOut() {
   bool ComputeBgk_core = false;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
 
   ROOT::EnableImplicitMT();
  
-  std::string input_path_from_analysisRun_7546_data = "./../build/rgk7546dataSF/";
-  std::string input_path_from_analysisRun_7546_data_mc = "./../build/rgk7546mc/";
-  std::string input_path_from_analysisRun_7546_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
+  std::string input_path_from_analysisRun_rgasp18outb_data = "./../build/rgasp18outdatanoSF/";
+  std::string input_path_from_analysisRun_rgasp18outb_data_mc = "./../build/";
+  std::string input_path_from_analysisRun_rgasp18outb_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
 
-  std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_7546_data.c_str());
-  std::string filename_afterFid_7546_data_mc = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_7546_data_mc.c_str());
-  std::string filename_afterFid_7546_MC = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_7546_MC.c_str());
-  float beam_energy = 7.546;
+  std::string filename_afterFid_rgasp18outb_data = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_rgasp18outb_data.c_str());
+  std::string filename_afterFid_rgasp18outb_data_mc = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_rgasp18outb_data_mc.c_str());
+  std::string filename_afterFid_rgasp18outb_MC = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_rgasp18outb_MC.c_str());
+  float beam_energy = 10.6;
 
-  ROOT::RDF::RNode df_afterFid_7546_data = InitKinematics(filename_afterFid_7546_data, "dfSelected_afterFid", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_data_mc = InitKinematics(filename_afterFid_7546_data_mc, "dfSelected_afterFid", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_MC = InitKinematics(filename_afterFid_7546_MC, "dfSelected_afterFid", beam_energy);
+  ROOT::RDF::RNode df_afterFid_rgasp18outb_data = InitKinematics(filename_afterFid_rgasp18outb_data, "dfSelected_afterFid", beam_energy);
+  ROOT::RDF::RNode df_afterFid_rgasp18outb_data_mc = InitKinematics(filename_afterFid_rgasp18outb_data_mc, "dfSelected_afterFid", beam_energy);
+  ROOT::RDF::RNode df_afterFid_rgasp18outb_MC = InitKinematics(filename_afterFid_rgasp18outb_MC, "dfSelected_afterFid", beam_energy);
 
 
 
@@ -68,16 +68,16 @@ void DISANA_Xplotter2() {
   // DVCS event selection cuts
 
   // Apply final DVCS cuts
-  auto df_final_dvcs_7546_data = ApplyFinalDVCSSelections(df_afterFid_7546_data, true);
-  auto df_final_dvcsPi_rejected_7546_data = RejectPi0TwoPhoton(df_final_dvcs_7546_data);
-  auto df_final_dvcs_7546_data_mc = ApplyFinalDVCSSelections(df_afterFid_7546_data_mc, false);
-  auto df_final_dvcsPi_rejected_7546_data_mc = RejectPi0TwoPhoton(df_final_dvcs_7546_data_mc);  
-  auto df_final_dvcs_7546_MC = ApplyFinalDVCSSelections(df_afterFid_7546_MC, true);
-  auto df_final_dvcsPi_rejected_7546_MC = RejectPi0TwoPhoton(df_final_dvcs_7546_MC);
+  auto df_final_dvcs_rgasp18outb_data = ApplyFinalDVCSSelections(df_afterFid_rgasp18outb_data, true);
+  auto df_final_dvcsPi_rejected_rgasp18outb_data = RejectPi0TwoPhoton(df_final_dvcs_rgasp18outb_data);
+  auto df_final_dvcs_rgasp18outb_data_mc = ApplyFinalDVCSSelections(df_afterFid_rgasp18outb_data_mc, false);
+  auto df_final_dvcsPi_rejected_rgasp18outb_data_mc = RejectPi0TwoPhoton(df_final_dvcs_rgasp18outb_data_mc);  
+  auto df_final_dvcs_rgasp18outb_MC = ApplyFinalDVCSSelections(df_afterFid_rgasp18outb_MC, false);
+  auto df_final_dvcsPi_rejected_rgasp18outb_MC = RejectPi0TwoPhoton(df_final_dvcs_rgasp18outb_MC);
 
-  auto df_final_OnlPi0_7546_data = SelectPi0Event(df_final_dvcs_7546_data);
-  auto df_final_OnlPi0_7546_data_mc = SelectPi0Event(df_final_dvcs_7546_data_mc);
-  auto df_final_OnlPi0_7546_MC = SelectPi0Event(df_final_dvcs_7546_MC);
+  auto df_final_OnlPi0_rgasp18outb_data = SelectPi0Event(df_final_dvcs_rgasp18outb_data);
+  auto df_final_OnlPi0_rgasp18outb_data_mc = SelectPi0Event(df_final_dvcs_rgasp18outb_data_mc);
+  auto df_final_OnlPi0_rgasp18outb_MC = SelectPi0Event(df_final_dvcs_rgasp18outb_MC);
 
   DISANAcomparer comparer;
   comparer.SetOutputDir("./");
@@ -92,26 +92,25 @@ void DISANA_Xplotter2() {
   // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
   // xBins.SetTBins({0.0, 1.2});
   // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  //xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51});
+  xBins.SetQ2Bins({1.0, 10.0});
   //xBins.SetTBins({0.0, 1.0});
-  //xBins.SetXBBins({0.118, 0.155, 0.204, 0.268, 0.35});
-  xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
+  xBins.SetXBBins({0.0, 1.0});
+  //xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
   xBins.SetTBins({0.11, 1.0});
-  xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
+  //xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   //xBins.SetQ2Bins({1.0, 5.0});
   //xBins.SetTBins({0.0, 1.0});
   //xBins.SetXBBins({0.0, 1.0});
   comparer.SetXBinsRanges(xBins);
 
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data_mc,df_final_OnlPi0_7546_data_mc,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV mc ", beam_energy, false);
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV", beam_energy, false);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_rgasp18outb_data_mc,df_final_OnlPi0_rgasp18outb_data_mc,df_final_dvcsPi_rejected_rgasp18outb_MC,df_final_OnlPi0_rgasp18outb_MC, "RGA Sp18 Outb mc ", beam_energy, false);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_rgasp18outb_data,df_final_OnlPi0_rgasp18outb_data,df_final_dvcsPi_rejected_rgasp18outb_MC,df_final_OnlPi0_rgasp18outb_MC, "RGA Sp18 Outb", beam_energy, false);
   
-  double luminosity = 24.3065*pow(10,6);  // Set your desired luminosity here nb^-1
+  double luminosity = 1.0;  // Set your desired luminosity here
   double polarisation = 0.85;  // Set your desired polarisation here
 
-  //comparer.PlotKinematicComparison();
+  comparer.PlotKinematicComparison();
   //comparer.PlotDVCSKinematicsComparison();
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, false, true, false, false);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
@@ -345,17 +344,17 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
   .Filter("Emiss < 1.0", "Cut: Missing energy")
   .Filter("PTmiss < 0.2", "Cut: Transverse missing momentum")
   .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
-  .Filter("Theta_gamma_gamma < 2.0", "Cut: photon-missing angle")
+  .Filter("Theta_gamma_gamma < 2.0", "Cut: photon-missing angle");
   //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
-  .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.33&&Mx2_ep>-0.33)||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)", "Cut: Mx2_ep in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.37&&Emiss>-0.29)||(pho_det_region==1&&pro_det_region==1&&Emiss<0.64&&Emiss>-0.56)||(pho_det_region==1&&pro_det_region==2&&Emiss<0.72&&Emiss>-0.6)", "Cut: Emiss in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.08&&PTmiss>-0.04)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.18&&PTmiss>-0.06)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.13&&PTmiss>-0.05)", "Cut: PTmiss in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.16&&Theta_gamma_gamma>-0.58)||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.81&&Theta_gamma_gamma>-0.71)||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.26&&Theta_gamma_gamma>-0.6)", "Cut: Theta_gamma_gamma in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<3.93&&DeltaPhi>-2.55)||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<11.75&&DeltaPhi>-6.73)||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<7.42&&DeltaPhi>-4.76)", "Cut: DeltaPhi in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)", "Cut: Mx2_epg in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.55&&Mx2_eg>0.35)||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.68&&Mx2_eg>0.12)||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<1.99&&Mx2_eg>-0.05)", "Cut: Mx2_eg in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.68&&Theta_e_gamma>29.32)||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
+  //.Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.33&&Mx2_ep>-0.33)||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)", "Cut: Mx2_ep in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.37&&Emiss>-0.29)||(pho_det_region==1&&pro_det_region==1&&Emiss<0.64&&Emiss>-0.56)||(pho_det_region==1&&pro_det_region==2&&Emiss<0.72&&Emiss>-0.6)", "Cut: Emiss in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.08&&PTmiss>-0.04)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.18&&PTmiss>-0.06)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.13&&PTmiss>-0.05)", "Cut: PTmiss in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.16&&Theta_gamma_gamma>-0.58)||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.81&&Theta_gamma_gamma>-0.71)||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.26&&Theta_gamma_gamma>-0.6)", "Cut: Theta_gamma_gamma in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<3.93&&DeltaPhi>-2.55)||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<11.75&&DeltaPhi>-6.73)||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<7.42&&DeltaPhi>-4.76)", "Cut: DeltaPhi in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)", "Cut: Mx2_epg in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.55&&Mx2_eg>0.35)||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.68&&Mx2_eg>0.12)||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<1.99&&Mx2_eg>-0.05)", "Cut: Mx2_eg in 3sigma")
+  //.Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.68&&Theta_e_gamma>29.32)||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
 
   // 10. Quality Assurance Cut
   //.Filter("REC_Event_pass == true", "Cut: QA pass");

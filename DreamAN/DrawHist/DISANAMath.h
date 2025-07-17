@@ -63,8 +63,8 @@ class DISANAMath {
  private:
   // Kinematic variables
   double Q2_, xB_, t_, phi_deg_, W_, nu_, y_;
-  bool applyCorrection = false;
-  THnSparseD *correctionHist = nullptr;
+  //bool applyCorrection = false;
+  //THnSparseD *correctionHist = nullptr;
 
   // Exclusivity variables
   double mx2_ep_;         // Missing mass² of ep system
@@ -90,8 +90,8 @@ class DISANAMath {
 
     ComputeKinematics(electron_in, electron_out, proton_in, proton_out, photon);
   }
-  void SetApplyCorrPi0BKG(bool enable) { applyCorrection = enable; }
-  void SetCorrHist(THnSparseD *hist) { correctionHist = hist; }
+  //void SetApplyCorrPi0BKG(bool enable) { applyCorrection = enable; }
+  //void SetCorrHist(THnSparseD *hist) { correctionHist = hist; }
 
   // Accessor methods for computed values
   double GetQ2() const { return Q2_; }
@@ -114,7 +114,7 @@ class DISANAMath {
   double GetMx2_egamma() const { return mx2_egamma_; }
   double GetTheta_e_gamma() const { return Theta_e_gamma_; }
   double GetDeltaE() const { return DeltaE_; }
-
+/*
   double GetCorrectionFactor(double Q2, double t, double xB, double phi_deg) const {
     if (!applyCorrection || !correctionHist) return 1.0;
 
@@ -123,7 +123,7 @@ class DISANAMath {
 
     return correctionHist->GetBinContent(bins);
   }
-
+*/
   double ComputePhiH(const TVector3 &q1_, const TVector3 &k1_, const TVector3 &q2_) const {
     double t1 = ((q1_.Cross(k1_)).Dot(q2_)) / std::abs((q1_.Cross(k1_)).Dot(q2_));
 
@@ -209,6 +209,8 @@ class DISANAMath {
     const size_t n_xb = xb_bins.size() - 1;
 
     std::vector<std::vector<std::vector<TH1D *>>> histograms(n_xb, std::vector<std::vector<TH1D *>>(n_q2, std::vector<TH1D *>(n_t, nullptr)));
+    std::vector<std::vector<std::vector<double>>> q2xBtbins(n_xb, std::vector<std::vector<double>>(n_q2, std::vector<double>(n_t, 0.0)));
+
 
     for (size_t ix = 0; ix < n_xb; ++ix)
       for (size_t iq = 0; iq < n_q2; ++iq)
@@ -224,6 +226,7 @@ class DISANAMath {
               qmin, qmax, tmin, tmax, xbmin, xbmax);
 
           histograms[ix][iq][it] = new TH1D(name.c_str(), title.c_str(), n_phi_bins, phi_min, phi_max);
+          q2xBtbins[ix][iq][it] = (q2_bins[iq+1]-q2_bins[iq])*(t_bins[it+1]-t_bins[it])*(xb_bins[ix+1]-xb_bins[ix]);
           histograms[ix][iq][it]->SetDirectory(nullptr);  // 独立于当前文件
         }
 
@@ -241,19 +244,18 @@ class DISANAMath {
       if (iq >= 0 && it >= 0 && ix >= 0) {
         double factor = 1.0;
         // double q2xBtbin_size = (q2_bins[iq+1]-q2_bins[iq])*(t_bins[it+1]-t_bins[it])*(xb_bins[ix+1]-xb_bins[ix]);
-        double q2xBtbin_size = 1;
-        if (applyCorrection && correctionHist) {
-          factor = GetCorrectionFactor(Q2, t, xB, phi);
-        }
-        histograms[ix][iq][it]->Fill(phi, factor / q2xBtbin_size);
+        //if (applyCorrection && correctionHist) {
+        //  factor = GetCorrectionFactor(Q2, t, xB, phi);
+        //}
+        histograms[ix][iq][it]->Fill(phi);
       }
     };
 
     df.Foreach(filler, {"Q2", "t", "xB", "phi"});
     // Normalize histograms
 
-    const double bin_width = (phi_max - phi_min) / n_phi_bins;
-    for (auto &vec_q2 : histograms)
+    const double bin_width = (M_PI/180)*(phi_max - phi_min) / n_phi_bins;
+    /*for (auto &vec_q2 : histograms)
       for (auto &vec_t : vec_q2)
         for (TH1D *h : vec_t)
           if (h) {
@@ -267,6 +269,25 @@ class DISANAMath {
               h->SetBinError(b, err);
             }
           }
+*/
+    for (size_t ix = 0; ix < histograms.size(); ++ix) {
+      for (size_t iq = 0; iq < histograms[ix].size(); ++iq) {
+        for (size_t it = 0; it < histograms[ix][iq].size(); ++it) {
+          TH1D *h = histograms[ix][iq][it];
+          if (h) {
+            double binVolume = q2xBtbins[ix][iq][it];
+            for (int b = 1; b <= h->GetNbinsX(); ++b) {
+              const double raw = h->GetBinContent(b);
+              const double norm = raw / (luminosity * bin_width * binVolume);
+              const double err = std::sqrt(raw) / (luminosity * bin_width * binVolume);
+
+              h->SetBinContent(b, norm);
+              h->SetBinError(b, err);
+            }
+          }
+        }
+      }
+    }
 
     std::cout << "DVCS cross-sections computed in a single pass.\n";
     timer.Stop();

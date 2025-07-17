@@ -252,7 +252,7 @@ bool getDoPi0Corr() const { return dopi0corr; }
     return xsCorr3D;
   }
 
-  
+  /*
   void ApplyPi0BkgCorr(THnSparseD *correctionHist ){
       kinCalc.SetApplyCorrPi0BKG(true);
       if (correctionHist) {
@@ -261,6 +261,7 @@ bool getDoPi0Corr() const { return dopi0corr; }
         std::cerr << "Error: Correction histogram is not set.\n";
       }
   }
+  */
 
  private:
 

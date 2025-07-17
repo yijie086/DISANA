@@ -40,8 +40,8 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
     std::map<int, TH2F*> hist_SF, hist_Triangle;
 
     for (int sector : sectors) {
-        hist_SF[sector] = new TH2F(Form("lw_S%d", sector), ";PCAL lw [cm];E/p", 500, 0, 10, 500, 0, 0.4);
-        hist_Triangle[sector] = new TH2F(Form("lv_S%d", sector), ";PCAL lv [cm];E/p", 500, 0, 0.4, 500, 0, 0.4);
+        hist_SF[sector] = new TH2F(Form("lw_S%d", sector), ";PCAL lw [cm];E/p", 200, 0, 10, 200, 0, 0.4);
+        hist_Triangle[sector] = new TH2F(Form("lv_S%d", sector), ";PCAL lv [cm];E/p", 200, 0, 0.4, 200, 0, 0.4);
         hist_SF[sector]->SetDirectory(nullptr);
         hist_Triangle[sector]->SetDirectory(nullptr);
     }
@@ -152,15 +152,16 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
         std::ofstream fout(Form("ECALSFPlots/fitParams_sector%d.txt",sector));
         auto dump = [&](const char* tag, TF1& f){
+            std::cout << "p[0]+p[1]*x+p[2]*x^2 "<<std::endl;
             std::cout << Form("Sector %d  %s  a=%.4g±%.3g  b=%.4g±%.3g  c=%.4g±%.3g\n",
                     sector,tag,
                     f.GetParameter(0),f.GetParError(0),
                     f.GetParameter(1),f.GetParError(1),
                     f.GetParameter(2),f.GetParError(2));
-            fout << tag << " "
-                 << f.GetParameter(0) << " " << f.GetParError(0) << " "
-                 << f.GetParameter(1) << " " << f.GetParError(1) << " "
-                 << f.GetParameter(2) << " " << f.GetParError(2) << "\n";
+            fout << tag << "p[0]+p[1]*x+p[2]*x^2 \n "
+                 << f.GetParameter(0) << ", "
+                 << f.GetParameter(1) << ", "
+                 << f.GetParameter(2) << " "<<"\n";
         };
         dump("Upper",fUpFit);
         dump("Lower",fLoFit);
@@ -176,12 +177,17 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
         } else {
             hist_SF[sector]->SetTitle(Form("PID %d E/p in Sector %d; p [GeV];E/p", selectedPid, sector));
         }
-        hist_SF[sector]->GetYaxis()->SetRangeUser(0.05, 0.35);
+        hist_SF[sector]->GetYaxis()->SetRangeUser(0.1, 0.35);
+        hist_SF[sector]->GetXaxis()->SetRangeUser(fitpMin, fitpMax);
         hist_SF[sector]->Draw("COLZ");
-        //grUpper->Draw("L SAME");
-        //grLower->Draw("L SAME");
-        //fUpFit.Draw("L SAME");      // --- NEW ---
-        //fLoFit.Draw("L SAME");
+        grUpper->SetLineWidth(10);
+        grLower->SetLineWidth(10);
+        fUpFit.SetLineWidth(10);
+        fLoFit.SetLineWidth(10);
+        grUpper->Draw("L SAME");
+        grLower->Draw("L SAME");
+        fUpFit.Draw("L SAME");      // --- NEW ---
+        fLoFit.Draw("L SAME");
 
         std::string outname;
         if (selectedPid == 11) {
@@ -234,11 +240,11 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
 void analysisECALSF() {
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "./../build/RGAoutb/";
+    std::string path = "../build/rgk7546dataSFCorr/";
     //std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true, 3, 1, 8);
+    DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 5.5);
     //DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }
