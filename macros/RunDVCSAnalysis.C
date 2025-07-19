@@ -6,7 +6,7 @@
 
 void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   bool IsMC = false;              // Set to true if you want to run on MC data
-  bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
+  bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
 
   //std::string dataconfig = "rgasp18_inb";
@@ -37,7 +37,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   }
   // If you are reprocossing the existing output you may want to change the path and ttree name if you are using a different ROOT file
   if (IsreprocRootFile) {
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
+    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
+    inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
     // inputFileDir = "./";
     inputRootFileName = "dfSelected.root";
     inputRootTreeName = "dfSelected";
@@ -338,7 +339,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   dvcsTask->SetDoFiducialCut(true);
 
   dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
 

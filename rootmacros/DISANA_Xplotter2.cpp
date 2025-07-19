@@ -49,18 +49,18 @@ void DISANA_Xplotter2() {
 
   ROOT::EnableImplicitMT();
  
-  std::string input_path_from_analysisRun_7546_data = "./../build/rgk7546dataSF/";
-  std::string input_path_from_analysisRun_7546_data_mc = "./../build/rgk7546mc/";
-  std::string input_path_from_analysisRun_7546_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
+  std::string input_path_from_analysisRun_7546_data = "./../build/rgk7546dataSFCorrNew/";
+  std::string input_path_from_analysisRun_7546_data_mc = "./../build/rgk7546mcSFCorr";
+  std::string input_path_from_analysisRun_7546_MC = "../build/rgk7546pi0mcNEW/";
 
-  std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_7546_data.c_str());
-  std::string filename_afterFid_7546_data_mc = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_7546_data_mc.c_str());
-  std::string filename_afterFid_7546_MC = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_7546_MC.c_str());
+  std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data.c_str());
+  std::string filename_afterFid_7546_data_mc = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data_mc.c_str());
+  std::string filename_afterFid_7546_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_MC.c_str());
   float beam_energy = 7.546;
 
-  ROOT::RDF::RNode df_afterFid_7546_data = InitKinematics(filename_afterFid_7546_data, "dfSelected_afterFid", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_data_mc = InitKinematics(filename_afterFid_7546_data_mc, "dfSelected_afterFid", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_MC = InitKinematics(filename_afterFid_7546_MC, "dfSelected_afterFid", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_data = InitKinematics(filename_afterFid_7546_data, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_data_mc = InitKinematics(filename_afterFid_7546_data_mc, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_MC = InitKinematics(filename_afterFid_7546_MC, "dfSelected_afterFid_afterCorr", beam_energy);
 
 
 
@@ -79,6 +79,7 @@ void DISANA_Xplotter2() {
   auto df_final_OnlPi0_7546_data_mc = SelectPi0Event(df_final_dvcs_7546_data_mc);
   auto df_final_OnlPi0_7546_MC = SelectPi0Event(df_final_dvcs_7546_MC);
 
+
   DISANAcomparer comparer;
   comparer.SetOutputDir("./");
   comparer.SetKinStyle(KinStyle);
@@ -92,26 +93,28 @@ void DISANA_Xplotter2() {
   // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
   // xBins.SetTBins({0.0, 1.2});
   // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  //xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51});
+  xBins.SetQ2Bins({1.0,4.0});
   //xBins.SetTBins({0.0, 1.0});
-  //xBins.SetXBBins({0.118, 0.155, 0.204, 0.268, 0.35});
-  xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
-  xBins.SetTBins({0.11, 1.0});
-  xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
+  xBins.SetXBBins({0,0.4});
+  //xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
+  xBins.SetTBins({0.2, 1.0});
+  //xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   //xBins.SetQ2Bins({1.0, 5.0});
   //xBins.SetTBins({0.0, 1.0});
   //xBins.SetXBBins({0.0, 1.0});
   comparer.SetXBinsRanges(xBins);
 
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data_mc,df_final_OnlPi0_7546_data_mc,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV mc ", beam_energy, false);
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV", beam_energy, false);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV C", beam_energy, true);
+  //comparer.AddModelwithPi0Corr(df_afterFid_7546_MC,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV", beam_energy, false);
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data_mc,df_final_OnlPi0_7546_data_mc,df_final_dvcsPi_rejected_7546_MC,df_final_OnlPi0_7546_MC, "RGK 7.5GeV mc ", beam_energy, false);
   
   double luminosity = 24.3065*pow(10,6);  // Set your desired luminosity here nb^-1
   double polarisation = 0.85;  // Set your desired polarisation here
 
   //comparer.PlotKinematicComparison();
   //comparer.PlotDVCSKinematicsComparison();
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, false, true, false, false);   
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, false);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
@@ -147,28 +150,28 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
              .Define("pho_px",
                      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
-                         if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return px[i];
+                         if (pid[i] == 22 && trackpass[i] /*&& maxEpass[i]*/) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pho_py",
                      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
-                         if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return py[i];
+                         if (pid[i] == 22 && trackpass[i] /*&& maxEpass[i]*/) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pho_pz",
                      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
-                         if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return pz[i];
+                         if (pid[i] == 22 && trackpass[i] /*&& maxEpass[i]*/) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("recpho_beta",
                      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& beta, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
-                         if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return beta[i];
+                         if (pid[i] == 22 && trackpass[i] /*&& maxEpass[i]*/) return beta[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_beta", "REC_Particle_pass", "REC_Photon_MaxE"})
@@ -206,7 +209,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
              .Define("pho_det_region",
                      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i) {
-                         if (pid[i] == 22 && pass[i] && maxEpass[i]) {
+                         if (pid[i] == 22 && pass[i] /*&& maxEpass[i]*/) {
                            int abs_status = std::abs(status[i]);
                            if (abs_status >= 1000 && abs_status < 2000)
                              return 0;  // FT
@@ -303,16 +306,26 @@ ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df_) {
   return df_.Filter(
       [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& daughterPass) {
         int e = 0, g = 0, p = 0;
+        bool hasPi0Daughter = false;
+        bool result = false;
         for (size_t i = 0; i < pid.size(); ++i) {
           if (!pass[i]) continue;
-          if (pid[i] == 11)
+          if (pid[i] == 11){
             e++;
-          else if (pid[i] == 22 && daughterPass[i])
+          }
+          else if (pid[i] == 22 /*&& daughterPass[i]*/){
             g++;  // photon must NOT be from pi0
-          else if (pid[i] == 2212)
+            hasPi0Daughter = hasPi0Daughter || daughterPass[i];  // check if this photon is a daughter of pi0
+            //std::cout << "pid[i] = " << pid[i] << " pass[i] = " << pass[i] << " daughterPass[i] = " << daughterPass[i] << std::endl;
+          }
+          else if (pid[i] == 2212){
             p++;
+          }
         }
-        return (e == 1 && g == 2 && p == 1);
+        //if(g==2) std::cout << "e = " << e << " g = " << g << " p = " << p << std::endl;
+        result = (e == 1 && g >= 1 && p == 1 && hasPi0Daughter);  // at least one photon, no pi0 daughter
+        hasPi0Daughter = false;  // reset for next event
+        return result;  // at least one photon, no pi0 daughter
       },
       {"REC_Particle_pid", "REC_Particle_pass", "REC_DaughterParticle_pass"}, "Cut: one good e, γ (not π⁰-like), p");
 }
@@ -348,14 +361,14 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
   .Filter("Theta_gamma_gamma < 2.0", "Cut: photon-missing angle")
   //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
   .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.33&&Mx2_ep>-0.33)||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)", "Cut: Mx2_ep in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.37&&Emiss>-0.29)||(pho_det_region==1&&pro_det_region==1&&Emiss<0.64&&Emiss>-0.56)||(pho_det_region==1&&pro_det_region==2&&Emiss<0.72&&Emiss>-0.6)", "Cut: Emiss in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.35&&Mx2_ep>-0.31)||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)", "Cut: Mx2_ep in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.37&&Emiss>-0.29)||(pho_det_region==1&&pro_det_region==1&&Emiss<0.62&&Emiss>-0.58)||(pho_det_region==1&&pro_det_region==2&&Emiss<0.72&&Emiss>-0.6)", "Cut: Emiss in 3sigma")
   .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.08&&PTmiss>-0.04)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.18&&PTmiss>-0.06)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.13&&PTmiss>-0.05)", "Cut: PTmiss in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.16&&Theta_gamma_gamma>-0.58)||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.81&&Theta_gamma_gamma>-0.71)||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.26&&Theta_gamma_gamma>-0.6)", "Cut: Theta_gamma_gamma in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<3.93&&DeltaPhi>-2.55)||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<11.75&&DeltaPhi>-6.73)||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<7.42&&DeltaPhi>-4.76)", "Cut: DeltaPhi in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.16&&Theta_gamma_gamma>-0.58)||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.73&&Theta_gamma_gamma>-0.79)||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.26&&Theta_gamma_gamma>-0.6)", "Cut: Theta_gamma_gamma in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<3.93&&DeltaPhi>-2.55)||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<11.87&&DeltaPhi>-6.85)||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<7.42&&DeltaPhi>-4.76)", "Cut: DeltaPhi in 3sigma")
   .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)", "Cut: Mx2_epg in 3sigma")
   .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.55&&Mx2_eg>0.35)||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.68&&Mx2_eg>0.12)||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<1.99&&Mx2_eg>-0.05)", "Cut: Mx2_eg in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.68&&Theta_e_gamma>29.32)||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.71&&Theta_e_gamma>29.17)||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
 
   // 10. Quality Assurance Cut
   //.Filter("REC_Event_pass == true", "Cut: QA pass");

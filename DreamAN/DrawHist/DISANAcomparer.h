@@ -487,7 +487,7 @@ class DISANAcomparer {
 
     if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "png", true, true, false, false, meanKinVar);
     if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "png", false, false, true, true, meanKinVar);
-    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "png", false, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "png", false, true, false, meanKinVar);
   }
 
   void MakeTiledGridComparison(const std::string& observableName, const std::string& yAxisTitle, const std::vector<std::vector<std::vector<std::vector<TH1D*>>>>& histograms,
@@ -519,8 +519,8 @@ class DISANAcomparer {
       TString cname = Form("DIS_BSA_t[%zu]", t_bin);
       TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
 
-      double canvasBorderX = 0.03;
-      double canvasBorderY = 0.04;
+      double canvasBorderX = 0.06;
+      double canvasBorderY = 0.08;
       double gpad_margin_ratio = 0.2;
 
       double cellW = (1 - 2 * canvasBorderX) / cols, cellH = (1 - 2 * canvasBorderY) / rows;
@@ -621,8 +621,8 @@ class DISANAcomparer {
             h->GetYaxis()->SetNdivisions(6, true);
             if (setManualYrange) h->GetYaxis()->SetRangeUser(yMin, yMax);
             if (fixlineYrang && first_perbin_q2&&h->GetMinimum()>0) {
-              fixlineYMin = h->GetMinimum() * 0.1;
-              fixlineYMax = h->GetMaximum() * 10;
+              fixlineYMin = h->GetMinimum() * 0.3;
+              fixlineYMax = h->GetMaximum() * 3;
               h->GetYaxis()->SetRangeUser(fixlineYMin, fixlineYMax);
             }
             if (fixlineYrang && !first_perbin_q2) {

@@ -37,18 +37,12 @@ void EventCut::AddParticleMotherCut(const std::string& name, const TwoBodyMother
   if (name == "pi0") {
     cut.pidDaug1 = 22;
     cut.pidDaug2 = 22;
-    cut.expectedMotherMass = 0.135;
-    cut.massSigma = 0.005;
   } else if (name == "phi") {
     cut.pidDaug1 = 321;
     cut.pidDaug2 = -321;
-    cut.expectedMotherMass = 1.019f;
-    cut.massSigma = 0.5f;
   } else if (name == "rho") {
     cut.pidDaug1 = 211;
     cut.pidDaug2 = -211;
-    cut.expectedMotherMass = 0.770f;
-    cut.massSigma = 0.5f;
   }
 
   fTwoBodyMotherCuts[name] = cut;

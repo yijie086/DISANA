@@ -164,7 +164,7 @@ void DrawPi0Mass(const std::string& filename, const std::string& treename, const
   auto df_afterCut = df_filtered.Define("MotherMass_passed", [](const RVec<float>& masses, const RVec<int>& pass) {
     RVec<float> out;
     for (size_t i = 0; i < masses.size(); ++i)
-      if (pass[i] == 1 && masses[i] > 0) out.push_back(masses[i]);
+      if (pass[i] == 0 && masses[i] > 0) out.push_back(masses[i]);
     return out;
   }, {"REC_MotherMass", "REC_DaughterParticle_pass_int"});
 
@@ -183,7 +183,7 @@ void DrawPi0Mass(const std::string& filename, const std::string& treename, const
 
 void analysisPi0Mass() {
   //std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/";
-  std::string path = "./../build/mc/";
-  DrawPi0Mass(path + "dfSelected_afterFid.root", "dfSelected_afterFid");
+  std::string path = "../build/rgk7546pi0mcNEW/";
+  DrawPi0Mass(path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr");
   gApplication->Terminate(0);
 }

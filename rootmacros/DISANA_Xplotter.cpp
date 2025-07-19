@@ -53,11 +53,11 @@ void DISANA_Xplotter() {
   // std::string input_path_from_analysisRun = "/work/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
   // test case
   //std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/";
-  std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/data20250711/rgaspring2018data";
+  std::string input_path_from_analysisRun_inb_data = "../build/rgasp18inbdatanoSF/";
   //std::string input_path_from_analysisRun_inb_data = "./../build/rgaspring2018data/";
   std::string input_path_from_analysisRun_inb_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
   //std::string input_path_from_analysisRun_inb_MC = "./../build/pi0mc/";
-  std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Outb/";
+  std::string input_path_from_analysisRun_out_data = "../build/rgasp18outdatanoSF/";
   //std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Outb/";
   std::string input_path_from_analysisRun_out_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Outb/";
 
@@ -125,12 +125,12 @@ void DISANA_Xplotter() {
   // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
   // xBins.SetTBins({0.0, 1.2});
   // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  //xBins.SetQ2Bins({1.0, 10.0});
+  xBins.SetQ2Bins({1.0, 10.0});
   //xBins.SetTBins({0.0, 1.0});
-  //xBins.SetXBBins({0.0, 1.0});
-  xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
+  xBins.SetXBBins({0.0, 1.0});
+  //xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
   xBins.SetTBins({0.11, 1.0});
-  xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
+  //xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   //xBins.SetQ2Bins({1.0, 5.0});
   //xBins.SetTBins({0.0, 1.0});
   //xBins.SetXBBins({0.0, 1.0});
@@ -173,8 +173,9 @@ void DISANA_Xplotter() {
   double luminosity = 1.0;  // Set your desired luminosity here
   double polarisation = 0.85;  // Set your desired polarisation here
 
-  comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
-  comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
+  //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
+  //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, false, false);
   //comparer.PlotDIS_Pi0CorrComparison();
   //comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
 
@@ -403,10 +404,10 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
   //
   // 9. 3σ exclusivity cuts
   //.Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma")
-  //.Filter("Emiss < 1.0", "Cut: Missing energy")
-  //.Filter("PTmiss < 0.15", "Cut: Transverse missing momentum")
-  //.Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
-  //.Filter("Theta_gamma_gamma < 0.7", "Cut: photon-missing angle")
+  .Filter("Emiss < 1.0", "Cut: Missing energy")
+  .Filter("PTmiss < 0.15", "Cut: Transverse missing momentum")
+  .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
+  .Filter("Theta_gamma_gamma < 0.7", "Cut: photon-missing angle")
   //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
   .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config");
   //.Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.28)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.46)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.23)", "Cut: PTmiss in 3sigma")
