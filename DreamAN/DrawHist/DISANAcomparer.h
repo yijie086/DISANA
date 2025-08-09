@@ -5,6 +5,7 @@
 #include <TCanvas.h>
 #include <TLegend.h>
 
+#include <sys/stat.h>
 // STL headers
 #include <filesystem>
 #include <iostream>
@@ -42,11 +43,15 @@ class DISANAcomparer {
     if (integral > 0) hist->Scale(1.0 / integral);
   }
   // Add a new model with its DataFrame, label, and beam energy
-  void AddModelwithPi0Corr(ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data, ROOT::RDF::RNode df_dvcs_mc, ROOT::RDF::RNode df_pi0_mc, const std::string& label,
-                           double beamEnergy, bool fCorrection = false) {
-    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, df_pi0_data, df_dvcs_mc, df_pi0_mc);
-    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fCorrection << std::endl;
-    plotter->SetPlotApplyCorrection(fCorrection);
+  void AddModelwithPi0Corr(ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data, ROOT::RDF::RNode df_dvcs_pi0mc, ROOT::RDF::RNode df_pi0_pi0mc, 
+                           ROOT::RDF::RNode df_gen_dvcsmc,
+                           ROOT::RDF::RNode df_accept_dvcsmc,
+                           const std::string& label,
+                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false) {
+    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc);
+    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction << ", Acceptance Correction: " << fAcceptanceCorrection << std::endl;
+    plotter->SetPlotApplyCorrection(fPi0Correction);
+    plotter->SetPlotApplyAcceptanceCorrection(fAcceptanceCorrection);
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
@@ -366,6 +371,100 @@ class DISANAcomparer {
     delete canvas;
     TGaxis::SetMaxDigits(oldMaxDigits);
   }
+
+  void PlotxBQ2tBin(bool plotIndividual = false) {
+    // Store current global TGaxis state
+    int oldMaxDigits = TGaxis::GetMaxDigits();
+
+    std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi"};
+    std::map<std::string, std::string> titles = {{"Q2", "Q^{2} [GeV^{2}]"}, {"xB", "x_{B}"}, {"t", "-t [GeV^{2}]"}, {"W", "W [GeV]"}, {"phi", "#phi [deg]"}};
+
+    TCanvas* canvas = new TCanvas("xBQ2tBin", "xB-Q2-t-Bin Set", 5400, 1800);
+    canvas->Divide(3, 1);
+
+    canvas->cd(1);
+    auto rdf = plotters.front()->GetRDF();
+    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 500, 0, 1.0, 500, 0, 10.0}, "xB", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d->GetYaxis()->SetNoExponent(true);
+    h2d->SetStats(0);
+    h2d->SetTitle("");
+    h2d->GetYaxis()->SetLabelFont(42);
+    h2d->GetYaxis()->SetLabelSize(0.06);
+    h2d->GetYaxis()->SetTitleOffset(1.0);
+    h2d->GetYaxis()->SetTitleSize(0.06);
+    h2d->GetYaxis()->SetNdivisions(410);
+
+    h2d->GetXaxis()->SetTitleSize(0.065);
+    h2d->GetXaxis()->SetLabelFont(42);
+    h2d->GetXaxis()->SetLabelSize(0.06);
+    h2d->GetXaxis()->SetTitleOffset(0.9);
+    h2d->GetXaxis()->SetNdivisions(205);
+
+    h2d->GetZaxis()->SetNdivisions(410);
+    h2d->GetZaxis()->SetLabelSize(0.06);
+    h2d->GetZaxis()->SetTitleOffset(1.5);
+    h2d->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d->DrawCopy("COLZ");
+
+    canvas->cd(2);
+    auto h2d2 = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs -t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 500, 0, 1.0, 500, 0, 10.0}, "t", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d2->GetYaxis()->SetNoExponent(true);
+    h2d2->SetStats(0);
+    h2d2->SetTitle("");
+    h2d2->GetYaxis()->SetLabelFont(42);
+    h2d2->GetYaxis()->SetLabelSize(0.06);
+    h2d2->GetYaxis()->SetTitleOffset(1.0);
+    h2d2->GetYaxis()->SetTitleSize(0.06);
+    h2d2->GetYaxis()->SetNdivisions(410);
+    h2d2->GetXaxis()->SetTitleSize(0.065);
+    h2d2->GetXaxis()->SetLabelFont(42);
+    h2d2->GetXaxis()->SetLabelSize(0.06);
+    h2d2->GetXaxis()->SetTitleOffset(0.9);
+    h2d2->GetXaxis()->SetNdivisions(205);
+    h2d2->GetZaxis()->SetNdivisions(410);
+    h2d2->GetZaxis()->SetLabelSize(0.06);
+    h2d2->GetZaxis()->SetTitleOffset(1.5);
+    h2d2->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d2->DrawCopy("COLZ");
+
+    canvas->cd(3);
+    auto h2d3 = rdf.Histo2D({"h_xB_vs_t", "x_{B} vs -t;-t[GeV^{2}];x_{B}", 500, 0, 1.0, 500, 0, 1.0}, "t", "xB");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d3->GetYaxis()->SetNoExponent(true);
+    h2d3->SetStats(0);
+    h2d3->SetTitle("");
+    h2d3->GetYaxis()->SetLabelFont(42);
+    h2d3->GetYaxis()->SetLabelSize(0.06);
+    h2d3->GetYaxis()->SetTitleOffset(1.0);
+    h2d3->GetYaxis()->SetTitleSize(0.06);
+    h2d3->GetYaxis()->SetNdivisions(410);
+    h2d3->GetXaxis()->SetTitleSize(0.065);
+    h2d3->GetXaxis()->SetLabelFont(42);
+    h2d3->GetXaxis()->SetLabelSize(0.06);
+    h2d3->GetXaxis()->SetTitleOffset(0.9);
+    h2d3->GetXaxis()->SetNdivisions(205);
+    h2d3->GetZaxis()->SetNdivisions(410);
+    h2d3->GetZaxis()->SetLabelSize(0.06);
+    h2d3->GetZaxis()->SetTitleOffset(1.5);
+    h2d3->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d3->DrawCopy("COLZ");
+    // Final save and cleanup
+    canvas->SaveAs((outputDir + "/xBQ2tBin.pdf").c_str());
+    std::cout << "Saved xBQ2tBin kinematics to: " << outputDir + "/xBQ2tBin.pdf" << std::endl;
+    delete canvas;
+    TGaxis::SetMaxDigits(oldMaxDigits);
+  }
   /// For exclusivity cuts, you can use the following function to select one triplet
   void PlotExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
     std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
@@ -455,7 +554,7 @@ class DISANAcomparer {
     }
   };
 
-  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double luminosity, double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false,
+  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double luminosity, double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false,
                                                     bool meanKinVar = false) {
     if (plotters.empty()) {
       std::cerr << "No models loaded to compare.\n";
@@ -464,6 +563,7 @@ class DISANAcomparer {
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
     // job for chatgpt
     std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
 
@@ -480,6 +580,10 @@ class DISANAcomparer {
         auto hcorr = p->ComputePi0Corr(fXbins);
         allPi0Corr.push_back(std::move(hcorr));
       }
+      if (plotAccCorr) {
+        auto hacc = p->ComputeAccCorr(fXbins);
+        allAccCorr.push_back(std::move(hacc));
+      }
       if (meanKinVar) {
         allBSAmeans.push_back(getMeanQ2xBt(fXbins, p));
       }
@@ -487,7 +591,47 @@ class DISANAcomparer {
 
     if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "png", true, true, false, false, meanKinVar);
     if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "png", false, false, true, true, meanKinVar);
-    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "png", false, true, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "png", false, true, false, false, meanKinVar);
+    if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.001, 0.2, "png", false, true, true, false, meanKinVar);
+  }
+
+  bool file_exists(const char* name) {
+    struct stat buffer;
+    return (stat(name, &buffer) == 0);
+  }
+
+  void dumpHistogram(TH1D* h,
+                   double xB,
+                   double Q2,
+                   double t,
+                   const char* filename="h_data.txt") {
+    bool exists = file_exists(filename);
+
+    std::ofstream fout(filename, std::ios::out | std::ios::app);
+    if (!fout.is_open()) {
+        std::cerr << "cannot open " << filename << " to write!\n";
+        return;
+    }
+
+    if (!exists) {
+        fout << "# xB\tQ2\t-t\tphi\tvalue\terror\n";
+    }
+    for (int ibin = 1; ibin <= h->GetNbinsX(); ++ibin) {
+        double phi   = h->GetBinCenter(ibin);
+        double value = h->GetBinContent(ibin);
+        double err   = h->GetBinError(ibin);
+        fout << xB   << "\t"
+             << Q2   << "\t"
+             << t    << "\t"
+             << phi  << "\t"
+             << value<< "\t"
+             << err  << "\n";
+    }
+
+    fout.close();
+    std::cout << "Data " << h->GetName()
+              << " written into " << filename
+              << (exists ? " (appended)" : "") << "\n";
   }
 
   void MakeTiledGridComparison(const std::string& observableName, const std::string& yAxisTitle, const std::vector<std::vector<std::vector<std::vector<TH1D*>>>>& histograms,
@@ -518,7 +662,8 @@ class DISANAcomparer {
     for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
       TString cname = Form("DIS_BSA_t[%zu]", t_bin);
       TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
-
+      first_perbin_xb = 0;
+      first_first_perbin_q2 = true;
       double canvasBorderX = 0.06;
       double canvasBorderY = 0.08;
       double gpad_margin_ratio = 0.2;
@@ -680,12 +825,13 @@ class DISANAcomparer {
             // auto [mean_xB, mean_Q2, mean_t] = meanValues[m][xb_bin][q2_bin][t_bin];
             if (showMeanKin) {
               auto [mean_xB, mean_Q2, mean_t] = (*meanValues)[m][xb_bin][q2_bin][t_bin];
-              TString meanText = Form("<x_{B}> = %.2f, <Q^{2}> = %.2f, <t> = %.2f", mean_xB, mean_Q2, mean_t);
+              TString meanText = Form("<x_{B}> = %.2f, <Q^{2}> = %.2f, <|t|> = %.2f", mean_xB, mean_Q2, mean_t);
               TLatex* meanLatex = new TLatex(0.25, 0.78 - m * 0.10, meanText.Data());
-              meanLatex->SetTextSize(0.06);
+              meanLatex->SetTextSize(0.05);
               meanLatex->SetNDC();
               meanLatex->SetTextFont(42);
               meanLatex->Draw();
+              dumpHistogram(h, mean_xB, mean_Q2, mean_t, Form("data_%s.txt", observableName.c_str()));
             }
           }
           if (!Doplot) {

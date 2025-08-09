@@ -349,8 +349,8 @@ class DISANAMath {
     return asym;
   }
 
-  std::vector<std::vector<std::vector<TH1D*>>> CalcPi0Corr(ROOT::RDF::RNode df_dvcs_mc,
-                       ROOT::RDF::RNode df_pi0_mc,
+  std::vector<std::vector<std::vector<TH1D*>>> CalcPi0Corr(ROOT::RDF::RNode df_dvcs_pi0mc,
+                       ROOT::RDF::RNode df_pi0_pi0mc,
                        ROOT::RDF::RNode df_dvcs_data,
                        ROOT::RDF::RNode df_pi0_data,
                        const BinManager &xBins
@@ -360,8 +360,8 @@ class DISANAMath {
     const size_t n_xb = xBins.GetXBBins().size() - 1;
 
     DISANAMath pi0Corr;
-    auto df_dvcs_mc_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_dvcs_mc, xBins, 1);
-    auto df_pi0_mc_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_pi0_mc, xBins, 1);
+    auto df_dvcs_pi0mc_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_dvcs_pi0mc, xBins, 1);
+    auto df_pi0_pi0mc_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_pi0_pi0mc, xBins, 1);
     auto df_dvcs_data_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_dvcs_data, xBins, 1);
     auto df_pi0_data_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_pi0_data, xBins, 1);
 
@@ -371,20 +371,57 @@ class DISANAMath {
     for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
       for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
         for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
-          TH1D* h_dvcs_mc = df_dvcs_mc_CrossSection[xb_bin][q2_bin][t_bin];
-          TH1D* h_pi0_mc = df_pi0_mc_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_dvcs_pi0mc = df_dvcs_pi0mc_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_pi0_pi0mc = df_pi0_pi0mc_CrossSection[xb_bin][q2_bin][t_bin];
           TH1D* h_dvcs_data = df_dvcs_data_CrossSection[xb_bin][q2_bin][t_bin];
           TH1D* h_pi0_data = df_pi0_data_CrossSection[xb_bin][q2_bin][t_bin];
 
-          if (!h_dvcs_mc || !h_pi0_mc || !h_dvcs_data || !h_pi0_data) {
+          if (!h_dvcs_pi0mc || !h_pi0_pi0mc || !h_dvcs_data || !h_pi0_data) {
             std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
             continue;
           }
-          TH1D* hRatio = static_cast<TH1D*>(h_dvcs_mc->Clone(Form("hPi0Corr_xb%zu_q2%zu_t%zu",xb_bin, q2_bin, t_bin)));
+          TH1D* hRatio = static_cast<TH1D*>(h_dvcs_pi0mc->Clone(Form("hPi0Corr_xb%zu_q2%zu_t%zu",xb_bin, q2_bin, t_bin)));
           hRatio->Reset();
-          hRatio->Divide(h_dvcs_mc, h_pi0_mc);
+          hRatio->Divide(h_dvcs_pi0mc, h_pi0_pi0mc);
           hRatio->Multiply(hRatio, h_pi0_data);
           hRatio->Divide(hRatio,h_dvcs_data);
+          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+          
+        }
+      }
+    }
+    return hCorr;
+  }
+
+
+  std::vector<std::vector<std::vector<TH1D*>>> CalcAcceptanceCorr(ROOT::RDF::RNode df_gen_dvcsmc,
+                       ROOT::RDF::RNode df_accept_dvcsmc,
+                       const BinManager &xBins
+                       ) {
+    const size_t n_t  = xBins.GetTBins().size()  - 1;
+    const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
+    const size_t n_xb = xBins.GetXBBins().size() - 1;
+
+    DISANAMath AccCorr;
+    auto df_gen_dvcsmc_CrossSection = AccCorr.ComputeDVCS_CrossSection(df_gen_dvcsmc, xBins, 1);
+    auto df_accept_dvcsmc_CrossSection = AccCorr.ComputeDVCS_CrossSection(df_accept_dvcsmc, xBins, 1);
+
+
+    std::vector<std::vector<std::vector<TH1D*>>> hCorr(n_xb,std::vector<std::vector<TH1D*>>(n_q2,std::vector<TH1D*>(n_t, nullptr)));
+
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          TH1D* h_gen_dvcsmc = df_gen_dvcsmc_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_accept_dvcsmc = df_accept_dvcsmc_CrossSection[xb_bin][q2_bin][t_bin];
+
+          if (!h_gen_dvcsmc || !h_accept_dvcsmc) {
+            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            continue;
+          }
+          TH1D* hRatio = static_cast<TH1D*>(h_gen_dvcsmc->Clone(Form("hAccCorr_xb%zu_q2%zu_t%zu",xb_bin, q2_bin, t_bin)));
+          hRatio->Reset();
+          hRatio->Divide(h_accept_dvcsmc, h_gen_dvcsmc);
           hCorr[xb_bin][q2_bin][t_bin] = hRatio;
           
         }

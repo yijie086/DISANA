@@ -35,6 +35,7 @@ class DVCSAnalysis : public AnalysisTask {
 
   void SetEventCuts(EventCut *evtCuts) { fEventCuts = evtCuts; };
   void SetDoInvMassCut(bool cut) { fDoInvMassCut = cut; };
+  void SetAcceptEverything(bool accept) { fAcceptAll = accept; };
  
   void SetDoFiducialCut(bool cut) { fFiducialCut = cut; };
 
@@ -53,6 +54,8 @@ class DVCSAnalysis : public AnalysisTask {
  private:
   bool IsMC = false;
   bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
+  bool fAcceptAll = false;  // Flag to indicate if all events are accepted without cuts
+
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;

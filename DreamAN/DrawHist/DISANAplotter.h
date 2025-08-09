@@ -18,13 +18,17 @@ DISANAplotter(
         ROOT::RDF::RNode                 df_dvcs_data,
         double                           beamEnergy,
         std::optional<ROOT::RDF::RNode>  df_pi0_data   = std::nullopt,
-        std::optional<ROOT::RDF::RNode>  df_dvcs_mc    = std::nullopt,
-        std::optional<ROOT::RDF::RNode>  df_pi0_mc     = std::nullopt
+        std::optional<ROOT::RDF::RNode>  df_dvcs_pi0mc    = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_pi0_pi0mc     = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_gen_dvcsmc = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_accept_dvcsmc = std::nullopt
         )
         :rdf(std::move(df_dvcs_data)),
         rdf_pi0_data(std::move(df_pi0_data)),
-        rdf_dvcs_mc(std::move(df_dvcs_mc)),
-        rdf_pi0_mc(std::move(df_pi0_mc)),
+        rdf_dvcs_pi0mc(std::move(df_dvcs_pi0mc)),
+        rdf_pi0_pi0mc(std::move(df_pi0_pi0mc)),
+        rdf_gen_dvcsmc(std::move(df_gen_dvcsmc)),
+        rdf_accept_dvcsmc(std::move(df_accept_dvcsmc)),
         beam_energy(beamEnergy)
     {}
 
@@ -36,6 +40,7 @@ DISANAplotter(
 ROOT::RDF::RNode GetRDF() { return rdf; }
 
 void SetPlotApplyCorrection(bool apply) {dopi0corr = apply;}
+void SetPlotApplyAcceptanceCorrection(bool apply) {doacceptcorr = apply;}
 bool getDoPi0Corr() const { return dopi0corr; }
 
 
@@ -101,6 +106,10 @@ bool getDoPi0Corr() const { return dopi0corr; }
       auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(*rdf_pi0_data, bins, luminosity);
       result = UsePi0Correction(result,sigma_pi0_3d,ComputePi0Corr(bins));
     }
+    if (doacceptcorr) {
+      auto acc3D = ComputeAccCorr(bins);
+      result = UseAccCorrection(result, acc3D);
+    }
     return result;
   }
 
@@ -134,14 +143,75 @@ bool getDoPi0Corr() const { return dopi0corr; }
 
    /// BSA computations // we need to have refined version of this codes
   std::vector<std::vector<std::vector<TH1D*>>> ComputePi0Corr(const BinManager& bins) {
-    if (!rdf_dvcs_mc || !rdf_pi0_mc || !rdf_pi0_data) {
+    if (!rdf_dvcs_pi0mc || !rdf_pi0_pi0mc || !rdf_pi0_data) {
       std::cerr << "[ComputePi0Corr] Missing input RDFs.\n";
       return {};
     }
-    return kinCalc.CalcPi0Corr(*rdf_dvcs_mc, *rdf_pi0_mc, rdf, *rdf_pi0_data, bins);
+    return kinCalc.CalcPi0Corr(*rdf_dvcs_pi0mc, *rdf_pi0_pi0mc, rdf, *rdf_pi0_data, bins);
 
   }
 
+  std::vector<std::vector<std::vector<TH1D*>>> ComputeAccCorr(const BinManager& bins) {
+    if (!rdf_gen_dvcsmc || !rdf_accept_dvcsmc) {
+      std::cerr << "[ComputeAccCorr] Missing input RDFs.\n";
+      return {};
+    }
+    return kinCalc.CalcAcceptanceCorr(*rdf_gen_dvcsmc, *rdf_accept_dvcsmc, bins);
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> UseAccCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
+                                                                  const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+    if (xs3D.size() != corr3D.size()) {
+        std::cerr << "[UseAccCorrection] Dimension mismatch (level-0)\n";
+        return {};
+    }
+    std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
+    for (size_t iq = 0; iq < xs3D.size(); ++iq) {
+        if (xs3D[iq].size() != corr3D[iq].size()) {
+            std::cerr << "[UseAccCorrection] Dimension mismatch (level-1)\n";
+            return {};
+        }
+        xsCorr3D[iq].resize(xs3D[iq].size());
+        for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+            if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+                std::cerr << "[UseAccCorrection] Dimension mismatch (level-2)\n";
+                return {};
+            }
+            xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+            for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+                TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+                TH1D* hCorr = corr3D[iq][it][ix];   //     c
+              
+                if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+                
+                TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
+
+                const int nb = hXS->GetNbinsX();
+                for (int b = 1; b <= nb; ++b) {
+                    const double xs_val = hXS->GetBinContent(b);
+                    const double xs_err = hXS->GetBinError  (b);
+                    const double c_val  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinContent(b) : 1.0;
+                    const double c_err  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinError  (b) : 0.0;
+
+                    double val_corr = xs_val/(c_val);
+                    double err_corr = std::sqrt(
+                        std::pow(xs_err / c_val, 2) +
+                        std::pow(xs_val * c_err / (c_val * c_val), 2));
+
+                    if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
+                    if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
+                    //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl;
+
+                    hNew->SetBinContent(b, val_corr);
+                    hNew->SetBinError  (b, err_corr);
+                }
+
+                xsCorr3D[iq][it][ix] = hNew;
+            }
+        }
+    }
+    return xsCorr3D;
+  }
 
   std::vector<std::vector<std::vector<TH1D*>>> UsePi0Correction(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
                                                                 const std::vector<std::vector<std::vector<TH1D*>>>& xsPi03D,
@@ -279,14 +349,17 @@ bool getDoPi0Corr() const { return dopi0corr; }
   std::string predFileName = ".";
   double beam_energy;
   bool dopi0corr = false;
+  bool doacceptcorr = false;
   std::string ttreeName;
   std::vector<ROOT::RDF::RResultPtr<TH1>> kinematicHistos, disHistos;
   std::vector<std::shared_ptr<TH1>> acceptHistos;
   ROOT::RDF::RNode rdf;
   //ROOT::RDF::RNode rdf_dvcs_data;
   std::optional<ROOT::RDF::RNode> rdf_pi0_data;
-  std::optional<ROOT::RDF::RNode> rdf_dvcs_mc;
-  std::optional<ROOT::RDF::RNode> rdf_pi0_mc;
+  std::optional<ROOT::RDF::RNode> rdf_dvcs_pi0mc;
+  std::optional<ROOT::RDF::RNode> rdf_pi0_pi0mc;
+  std::optional<ROOT::RDF::RNode> rdf_gen_dvcsmc;
+  std::optional<ROOT::RDF::RNode> rdf_accept_dvcsmc;
   
 };
 

@@ -127,6 +127,10 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
     }
   }
 
+  if (fAcceptEverything) {
+    allCutsPassed = true;
+  }
+
   if (fCutTwoBodyMotherDecay) {
     for (const auto& [name, cut] : fTwoBodyMotherCuts) {
       for (size_t i = 0; i < pid.size(); ++i) {

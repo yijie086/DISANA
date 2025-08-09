@@ -55,6 +55,10 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   auto cols_track_fid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_fid"});
   auto cols_track_nofid = CombineColumns(RECParticle::All(), std::vector<std::string>{"REC_Track_pass_nofid"});
 
+  if (fAcceptAll) {
+    fEventCuts->AcceptEverything(true);
+  }
+
   dfSelected = dfDefsWithTraj;
   dfSelected = DefineOrRedefine(*dfSelected, "EventCutResult", *fEventCuts, cols_track_nofid);
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
@@ -116,9 +120,9 @@ void DVCSAnalysis::SaveOutput() {
   }
 
   if (!IsReproc) SafeSnapshot(*dfSelected, "dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
+  std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
+  std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
-    std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
-    std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));

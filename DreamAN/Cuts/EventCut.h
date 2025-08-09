@@ -57,6 +57,7 @@ class EventCut {
   void SetDoCutMotherInvMass(bool doCut) { fCutTwoBodyMotherDecay = doCut; }
   void AddParticleCut(const std::string& name, const ParticleCut& cut);
   void AddParticleMotherCut(const std::string& name, const TwoBodyMotherCut& cut);
+  void AcceptEverything(bool accept) { fAcceptEverything = accept; }
 
   const ParticleCut* GetParticleCut(const std::string& name) const;
 
@@ -76,6 +77,7 @@ class EventCut {
 
  private:
   bool fCutTwoBodyMotherDecay = false;
+  bool fAcceptEverything = false;
   std::map<std::string, ParticleCut> fParticleCuts;
   std::map<std::string, TwoBodyMotherCut> fTwoBodyMotherCuts;
 

@@ -6,7 +6,7 @@
 
 void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   bool IsMC = false;              // Set to true if you want to run on MC data
-  bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
+  bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
 
   //std::string dataconfig = "rgasp18_inb";
@@ -56,11 +56,11 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
 
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
-  auto theta_bins = std::vector<std::pair<float, float>>({{5.0 * M_PI / 180, 10.0 * M_PI / 180},
+  /*auto theta_bins = std::vector<std::pair<float, float>>({{5.0 * M_PI / 180, 10.0 * M_PI / 180},
                                                           {10.0 * M_PI / 180, 15.0 * M_PI / 180},
                                                           {15.0 * M_PI / 180, 20.0 * M_PI / 180},
                                                           {20.0 * M_PI / 180, 25.0 * M_PI / 180},
-                                                          {25.0 * M_PI / 180, 30.0 * M_PI / 180}});
+                                                          {25.0 * M_PI / 180, 30.0 * M_PI / 180}});*/
   // defined here the DC edge cuts for electron and proton
   auto edge_regions_e = std::vector<float>{3.0f, 3.0f, 10.0f};
   auto edge_regions_p = std::vector<float>{3.0f, 3.0f, 5.0f};
@@ -234,7 +234,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
 
 
   ParticleCut proton;
-  if (dataconfig == "rgasp18_inb") {
+  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb") {
     proton.pid = 2212;                              // Proton PID
     proton.charge = 1;                              // Proton charge
     proton.minCount = 1;                            // Minimum count of protons
@@ -342,6 +342,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
+  dvcsTask->SetAcceptEverything(false); // Set to true to accept all events, false to apply cuts
 
 
   mgr.AddTask(std::move(dvcsTask));
