@@ -12,9 +12,13 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
   std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
     IsInbending = false;       // Set to false for outbending data
+  }
+  if (dataconfig == "rgkfa18_6535") {
+    IsInbending = false;        // Set to true for inbending data
   }
   if (dataconfig == "rgasp18_inb") {
     IsInbending = true;        // Set to true for inbending data
@@ -257,6 +261,14 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
     proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
     proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
   }
+  if (dataconfig == "rgkfa18_6535") {
+    proton.pid = 2212;                              // Proton PID
+    proton.charge = 1;                              // Proton charge
+    proton.minCount = 1;                            // Minimum count of protons
+    proton.maxCount = 1;                            // Maximum count of protons
+    proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
+    proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
+  }
 
   ParticleCut electron;
   electron.pid = 11;              // Electron PID
@@ -335,7 +347,13 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   if(dataconfig =="rgkfa18_7546") {
     dvcsTask->SetBeamEnergy(7.546);  // Set the beam energy for RGK Fa18 7.546GeV
   }
+  if(dataconfig =="rgkfa18_6535") {
+    dvcsTask->SetBeamEnergy(6.535);  // Set the beam energy for RGK Fa18 6.535GeV
+  }
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
+  if (dataconfig == "rgkfa18_6535") {
+    dvcsTask->SetFTonConfig(false);  // Set to false if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
+  }
   dvcsTask->SetDoFiducialCut(true);
 
   dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
