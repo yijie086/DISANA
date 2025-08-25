@@ -9,10 +9,13 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
 
-  std::string dataconfig = "rgafall18_inb";
- // std::string dataconfig = "rgasp18_inb";
-  //std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
-  //std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgasp18_inb";
+  //std::string dataconfig = "rgasp18_outb";
+  //std::string dataconfig = "rgafall18_inb";
+  //std::string dataconfig = "rgafall18_outb";
+  std::string dataconfig = "rgasp19_inb";
+ 
+  
 
   if (dataconfig == "rgkfa18_7546") {
     IsInbending = false;       // Set to false for outbending data
@@ -24,6 +27,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
   std::cout << "Running DVCS Analysis with configuration: " << dataconfig << std::endl;
 
   std::string inputFileDir = inputDir;
+  std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";
   std::string inputHipoDirTest = " ";
@@ -43,7 +47,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
   }
 
   AnalysisTaskManager mgr;
-  mgr.SetOututDir("./");
+  mgr.SetOututDir(outputFileDir);
   
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
@@ -213,27 +217,74 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
     trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
     trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
   }
-  if (dataconfig == "rgkfa18_7546") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.159315, 0.015965, -0.00109935);  // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.287996, 0.00283719, -0.000576895);  // Electro sector 1
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.15648, 0.0157583, -0.00103337);  // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.278525, 0.00750349, -0.00108372);  // Electronsector 2
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.152111, 0.0209272, -0.00165686);  // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.284485, 0.00625652, -0.000980509);  // Electro sector 3
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.141883, 0.0254727, -0.00239465);   // Electronsector4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.280273, 0.00715782, -0.00116624);   // Electronsector4
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.155942, 0.0155472, -0.00109854);     // Electronsector5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.28612, 0.00209499, -0.000444233); // Electronsector5
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.144573, 0.0237518, -0.00208597);   // Electronsector6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.287206, 0.00271637, -0.000575112); // Electro sector 6
+  //// //rga sp19 in
+    if (dataconfig == "rgasp19_inb") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.135106, 0.0249842, -0.00270237);  // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.331777, -0.0134885, 0.00144937);  // Electronsector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.135934, 0.0294809, -0.00307425);  // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.324863, -0.0116574, 0.00104596);  // Electro sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.145492, 0.0211262, -0.00191841);  // Electronsector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.325025, -0.0139604, 0.00143415);  // Electronsector 4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.158792, 0.0159181, -0.00139627);  // Electronsector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.310616, -0.00565024, 0.000488421);  // Electronsector 5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.154587, 0.0202241, -0.00200259);  // Electronsector 6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.315009, -0.00725113, 0.000452379);  // Electro sector 6
   }
+   ////   //rga sp19 out
+  if (dataconfig == "rgasp19_outb") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.153109, 0.018688, -0.00156815);  // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.27668, 0.00393487, -0.000495404);  // Electro sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.156875, 0.0164895, -0.00139281);  // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.285319, 0.000615206, 7.59911e-06);  // Electronsector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.159718, 0.0176749, -0.00147327);  // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.280747, 0.00494729, -0.00071406);  // Electro sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.158643, 0.0173334, -0.00137467);  // Electronsector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.279673, 0.00510175, -0.00068517);  // Electronsector 4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.155656, 0.0166533, -0.0012774);  // Electronsector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.285419, 1.77522e-05, -8.01094e-05);  // Electronsector 5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
+  }
+  // rga fall18 in
+    if (dataconfig == "rgafall18_inb") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.135106, 0.0249842, -0.00270237);  // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.331777, -0.0134885, 0.00144937);  // Electronsector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.135934, 0.0294809, -0.00307425);  // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.324863, -0.0116574, 0.00104596);  // Electro sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.145492, 0.0211262, -0.00191841);  // Electronsector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.325025, -0.0139604, 0.00143415);  // Electronsector 4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.158792, 0.0159181, -0.00139627);  // Electronsector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.310616, -0.00565024, 0.000488421);  // Electronsector 5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.154587, 0.0202241, -0.00200259);  // Electronsector 6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.315009, -0.00725113, 0.000452379);  // Electro sector 6
+  }
+  //fall18 out
+  if (dataconfig == "rgafall18_outb") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.153109, 0.018688, -0.00156815);  // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.27668, 0.00393487, -0.000495404);  // Electro sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.156875, 0.0164895, -0.00139281);  // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.285319, 0.000615206, 7.59911e-06);  // Electronsector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.159718, 0.0176749, -0.00147327);  // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.280747, 0.00494729, -0.00071406);  // Electro sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.158643, 0.0173334, -0.00137467);  // Electronsector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.279673, 0.00510175, -0.00068517);  // Electronsector 4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.155656, 0.0166533, -0.0012774);  // Electronsector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.285419, 1.77522e-05, -8.01094e-05);  // Electronsector 5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
+  }
+
 
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
 
 
   ParticleCut proton;
-  if (dataconfig == "rgasp18_inb") {
+  if (dataconfig == "rgasp18_inb"|| dataconfig == "rgasp19_inb"|| dataconfig == "rgafall18_inb"|| dataconfig == "rgasp18_outb"|| dataconfig == "rgafall18_outb"|| dataconfig == "rgasp19_outb") {
     proton.pid = 2212;                              // Proton PID
     proton.charge = 1;                              // Proton charge
     proton.minCount = 1;                            // Minimum count of protons
@@ -241,28 +292,12 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
     proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
     if (IsInbending) proton.minFDMomentum = 0.42f;  // Minimum momentum for protons in FD Inbending
     if (!IsInbending) proton.minFDMomentum = 0.5f;  // Minimum momentum for protons in FD Outbending
-    proton.maxCDMomentum = 1.2f;                    // Maximum momentum for protons
-    proton.maxFDMomentum = 1.2f;                    // Maximum momentum for protons
-    proton.minTheta = 0.0f;                         // Minimum theta for protons
-    proton.maxTheta = 64.23 * M_PI / 180.0;         // Maximum theta for protons (approximately 64.23 degrees)
+    //proton.maxCDMomentum = 1.2f;                    // Maximum momentum for protons
+    //proton.maxFDMomentum = 1.2f;                    // Maximum momentum for protons
+    //proton.minTheta = 0.0f;                         // Minimum theta for protons
+    //proton.maxTheta = 64.23 * M_PI / 180.0;         // Maximum theta for protons (approximately 64.23 degrees)
     proton.minPhi = 0.0f;                           // Minimum phi for protons
     proton.maxPhi = 2.0f * M_PI;
-  }
-  if (dataconfig == "rgkfa18_7546") {
-    proton.pid = 2212;                              // Proton PID
-    proton.charge = 1;                              // Proton charge
-    proton.minCount = 1;                            // Minimum count of protons
-    proton.maxCount = 1;                            // Maximum count of protons
-    proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
-    proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
-  }
-    if (dataconfig == "rgafall18_inb") {
-    proton.pid = 2212;                              // Proton PID
-    proton.charge = 1;                              // Proton charge
-    proton.minCount = 1;                            // Minimum count of protons
-    proton.maxCount = 1;                            // Maximum count of protons
-    proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
-    proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
   }
 
   ParticleCut electron;
@@ -284,7 +319,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
   
   // pi0 background studies, similar is valid for exclusive meson production
   TwoBodyMotherCut phi;
-  phi.expectedMotherMass = 1.08f;  // determined from the fit inv mass of two photon
+  phi.expectedMotherMass = 1.019f;  // determined from the fit inv mass of two photon
   phi.massSigma = 0.5f;          // determined from the fit inv mass of two photon
   phi.nSigmaMass = 100;             // choice for nsigma is user dependent
 
@@ -296,40 +331,18 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile) {
 
   auto corr = std::make_shared<MomentumCorrection>();
 
-  if (dataconfig =="rgkfa18_7546"){
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGK 7.546GeV Fa18 out
-      2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
-        theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-        float A_p = 0.000381292 + 2.08512e-05 * theta;
-        float B_p = -0.00428696 + 0.000278655 * theta;
-        float C_p = 0.00455657 - 0.000263458 * theta;
-        return p + (A_p + B_p * p + C_p * p * p);
-      });
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA 7.546GeV Fa18 out
-      2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
-        theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-        float A_p = -0.0174808 + 0.00082825 * theta;
-        float B_p = 0.0455048 - 0.00173231 * theta;
-        float C_p = -0.0252992 + 0.00117479 * theta;
-
-        return p + (A_p + B_p / p + C_p / (p * p));
-      });
-  }
-
   // Task
   auto PhiTask = std::make_unique<PhiAnalysis>(IsMC, IsreprocRootFile);
   PhiTask->SetTrackCuts(trackCuts);
   PhiTask->SetEventCuts(eventCuts);
-  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb") {
+  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb"|| dataconfig == "rgafall18_inb"|| dataconfig == "rgafall18_outb"||dataconfig == "rgasp19_inb"|| dataconfig == "rgasp19_outb") {
     PhiTask->SetBeamEnergy(10.6);
   }
-  if(dataconfig =="rgkfa18_7546") {
-    PhiTask->SetBeamEnergy(7.546);  // Set the beam energy for RGK Fa18 7.546GeV
-  }
+
   PhiTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   PhiTask->SetDoFiducialCut(true);
 
- // PhiTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
+  PhiTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
  // PhiTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   //PhiTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   PhiTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit

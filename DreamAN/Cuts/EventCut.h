@@ -50,6 +50,27 @@ struct EventCutResult {
   std::vector<float> MotherMass; // corresponding
 };
 
+static inline float ParticleMassPDG(int pid) {
+  switch (std::abs(pid)) {
+    case 11:   return 0.000510999f;
+    case 13:   return 0.105658375f;
+    case 22:   return 0.0f;
+    case 111:  return 0.1349768f;
+    case 211:  return 0.13957039f;
+    case 130:  return 0.497611f;
+    case 310:  return 0.497611f;
+    case 321:  return 0.493677f;
+    case 2112: return 0.939565413f;
+    case 2212: return 0.938272081f;
+    case 113:  return 0.77526f;
+    case 213:  return 0.77526f;
+    case 323:  return 0.89166f;
+    case 333:  return 1.019461f;
+    default:   return 0.0f;
+          // add more as needed
+  }
+}
+
 class EventCut {
  public:
   EventCut();

@@ -14,6 +14,8 @@
 constexpr double pi = 3.14159265358979323846;
 const double m_e = 0.000511;  // Electron mass in GeV
 const double m_p = 0.938272;  // Proton mass in GeV
+const double m_kMinus = 0.493677;  // Proton mass in GeV
+const double m_kPlus = 0.493677;  // Proton mass in GeV
 
 // --- Utility Functions (unnamed namespace) ---
 // Converts spherical coordinates (p, θ, φ) to Cartesian 3-vector
@@ -41,20 +43,23 @@ class BinManager {
     q2_bins_ = {1.0, 2.0, 4.0, 6.0};
     t_bins_ = {0.1, 0.3, 0.6, 1.0};
     xb_bins_ = {0.1, 0.2, 0.4, 0.6};
+     W_bins_ = {0.1, 10};
   }
 
   // Getters for bin edges
   const std::vector<double> &GetQ2Bins() const { return q2_bins_; }
   const std::vector<double> &GetTBins() const { return t_bins_; }
   const std::vector<double> &GetXBBins() const { return xb_bins_; }
+  const std::vector<double> &GetWBins() const { return W_bins_; }
 
   // Setters if dynamic binning is needed
   void SetQ2Bins(const std::vector<double> &bins) { q2_bins_ = bins; }
   void SetTBins(const std::vector<double> &bins) { t_bins_ = bins; }
   void SetXBBins(const std::vector<double> &bins) { xb_bins_ = bins; }
+  void SetWBins(const std::vector<double> &bins) { W_bins_ = bins; }
 
  private:
-  std::vector<double> q2_bins_, t_bins_, xb_bins_;
+  std::vector<double> q2_bins_, t_bins_, xb_bins_,W_bins_;
 };
 
 // --- DISANAMath class ---
@@ -66,15 +71,21 @@ class DISANAMath {
   //bool applyCorrection = false;
   //THnSparseD *correctionHist = nullptr;
 
-  // Exclusivity variables
+   // Exclusivity variables
   double mx2_ep_;         // Missing mass² of ep system
   double emiss_;          // Missing energy
   double ptmiss_;         // Transverse missing momentum
   double mx2_epg_;        // Missing mass² of epγ system
+  double mx2_epKpKm_;     // Missing mass² of epK+K- system
   double delta_phi_;      // Coplanarity angle Δφ (proton - q)
   double theta_gg_;       // Angle between γ and missing vector
+  double theta_gphi_;     // Angle between γ and missing vector
   double mx2_egamma_;     // Invariant mass of e + γ
+  double mx2_eKpKm_;      // Invariant mass of e + K+K-
+  double mx2_epKp_;     // Invariant mass of epK+ system
+  double mx2_epKm_;     // Invariant mass of epK- system
   double Theta_e_gamma_;  // Angle between e' and γ
+  double Theta_e_phimeson_; // Angle between e' and φ
   double DeltaE_;         // Energy balance: (initial - final)
 
  public:
@@ -90,8 +101,17 @@ class DISANAMath {
 
     ComputeKinematics(electron_in, electron_out, proton_in, proton_out, photon);
   }
-  //void SetApplyCorrPi0BKG(bool enable) { applyCorrection = enable; }
-  //void SetCorrHist(THnSparseD *hist) { correctionHist = hist; }
+  ///constructor for phi meson
+  DISANAMath(double e_in_E, double e_out_p, double e_out_theta, double e_out_phi, double p_out_p, double p_out_theta, double p_out_phi, double kMinus_p, double kMinus_theta, double kMinus_phi, double kPlus_p, double kPlus_theta, double kPlus_phi) {
+    TLorentzVector electron_in(0, 0, e_in_E, e_in_E);  // beam along z
+    TLorentzVector electron_out = Build4Vector(e_out_p, e_out_theta, e_out_phi, m_e);
+    TLorentzVector proton_in(0, 0, 0, m_p);  // at rest
+    TLorentzVector proton_out = Build4Vector(p_out_p, p_out_theta, p_out_phi, m_p);
+    TLorentzVector kMinus = Build4Vector(kMinus_p, kMinus_theta, kMinus_phi, m_kMinus);
+    TLorentzVector kPlus = Build4Vector(kPlus_p, kPlus_theta, kPlus_phi, m_kPlus);
+
+    ComputeKinematics(electron_in, electron_out, proton_in, proton_out, kPlus, kMinus);
+  }
 
   // Accessor methods for computed values
   double GetQ2() const { return Q2_; }
@@ -105,14 +125,21 @@ class DISANAMath {
   static std::vector<TH1D *> FlattenHists(const std::vector<std::vector<std::vector<TH1D *>>> &h3d);
 
   double GetMx2_ep() const { return mx2_ep_; }
+
   double GetEmiss() const { return emiss_; }
   double GetPTmiss() const { return ptmiss_; }
   double GetMx2_epg() const { return mx2_epg_; }
+  double GetMx2_epKpKm() const { return mx2_epKpKm_; }
   double GetDeltaPhi() const { return delta_phi_; }
 
   double GetTheta_gamma_gamma() const { return theta_gg_; }
   double GetMx2_egamma() const { return mx2_egamma_; }
+  double GetMx2_eKpKm() const { return mx2_eKpKm_; }
+  double GetMx2_epKp() const { return mx2_epKp_; }
+  double GetMx2_epKm() const { return mx2_epKm_; }
   double GetTheta_e_gamma() const { return Theta_e_gamma_; }
+  double GetTheta_g_phimeson() const { return theta_gphi_; }
+  double GetTheta_e_phimeson() const { return Theta_e_phimeson_; }
   double GetDeltaE() const { return DeltaE_; }
 /*
   double GetCorrectionFactor(double Q2, double t, double xB, double phi_deg) const {
@@ -190,6 +217,64 @@ class DISANAMath {
 
     // Energy imbalance (should be 0 for exclusive DVCS)
     DeltaE_ = (electron_in.E() + proton_in.E()) - (electron_out.E() + proton_out.E() + photon.E());
+  }
+
+  // --- Core computation function overloaded ---
+  void ComputeKinematics(const TLorentzVector &electron_in, const TLorentzVector &electron_out, const TLorentzVector &proton_in, const TLorentzVector &proton_out,
+                         const TLorentzVector &kPlus, const TLorentzVector &kMinus) {
+    TLorentzVector q = electron_in - electron_out;  // virtual photon
+    TLorentzVector phimeson = kPlus + kMinus;  // massless
+    Q2_ = -q.Mag2();
+    nu_ = q.E();
+    y_ = nu_ / electron_in.E();
+    W_ = (proton_in + q).Mag();
+    xB_ = Q2_ / (2.0 * proton_in.Dot(q));
+    t_ = std::abs((proton_in - proton_out).Mag2());  // Mandelstam t
+
+    // Azimuthal angle φ between lepton and hadron planes
+    TVector3 n_L = electron_in.Vect().Cross(electron_out.Vect()).Unit();
+    TVector3 n_H = q.Vect().Cross(proton_out.Vect()).Unit();
+    double cos_phi = n_L.Dot(n_H);
+    double sin_phi = (n_L.Cross(n_H)).Dot(q.Vect().Unit());
+    double phi = std::atan2(sin_phi, cos_phi) + pi;  // Ensure φ is in [0, 2π]
+    phi_deg_ = phi * 180.0 / pi;
+
+    // Composite 4-vectors
+    TLorentzVector ep_combined = electron_out + phimeson;
+    TLorentzVector total_initial = electron_in + proton_in;
+    TLorentzVector total_final = electron_out + proton_out + phimeson;
+    TLorentzVector missing = total_initial - total_final;
+
+    // Exclusivity observables
+    mx2_ep_ = (total_initial - electron_out - proton_out).Mag2();
+    emiss_ = missing.E();
+    ptmiss_ = missing.Vect().Perp();
+    mx2_epKpKm_ = missing.Mag2();
+
+    // Coplanarity Δφ between outgoing proton and q-vector in transverse plane
+    TVector3 q_vec = q.Vect();
+    TVector3 electron_vec = electron_in.Vect();
+    TVector3 phimeson_vec = phimeson.Vect();
+    TVector3 p_vec = proton_out.Vect();
+    double phi_q = std::atan2(q_vec.Y(), q_vec.X());
+    double phi_p = std::atan2(p_vec.Y(), p_vec.X());
+    double delta_phi_rad = TVector2::Phi_mpi_pi(phi_p - phi_q);
+    // delta_phi_ = std::abs(delta_phi_rad) * 180.0 / pi;
+    delta_phi_ = abs(ComputePhiH(q_vec, electron_vec, phimeson_vec) - ComputePhiH(q_vec, electron_vec, -p_vec));
+
+    // θ(γ, missing): photon direction vs. missing momentum
+    theta_gphi_ = phimeson_vec.Angle((total_initial - (electron_out + proton_out)).Vect()) * 180.0 / pi;
+
+    // Invariant mass of e + γ
+    // mx2_egamma_ = (proton_in - (electron_out + photon)).Mag2();
+    mx2_eKpKm_ = (electron_in + proton_in - electron_out - phimeson).Mag2();
+    mx2_epKp_ = (electron_in + proton_in - electron_out - kPlus - proton_out).Mag2();
+    mx2_epKm_ = (electron_in + proton_in - electron_out - kMinus - proton_out).Mag2();
+
+    // Angle between proton and photon
+    Theta_e_phimeson_ = electron_out.Angle(phimeson.Vect()) * 180.0 / pi;
+    // Energy imbalance (should be 0 for exclusive DVCS)
+    DeltaE_ = (electron_in.E() + proton_in.E()) - (electron_out.E() + proton_out.E() + phimeson.E());
   }
 
   // Integrated luminosity in cm⁻² (example, you can scale it out if not known)
@@ -429,13 +514,75 @@ class DISANAMath {
     }
     return hCorr;
   }
+  // --- New: Phi Cross-Section (dσ/dt) ---
+  std::vector<TH1D*> ComputePhi_CrossSection(ROOT::RDF::RNode df, const BinManager& bins, double luminosity) {
+    TStopwatch timer;
+    timer.Start();
+
+    const auto& q2_bins = bins.GetQ2Bins();
+    const auto& t_bins  = bins.GetTBins();
+
+    size_t n_q2 = q2_bins.size() - 1;
+    size_t n_t  = t_bins.size() - 1;
+
+    std::vector<TH1D*> histograms(n_q2, nullptr);
+
+    // Create one histogram per Q² bin, spanning all -t bins
+    for (size_t iq = 0; iq < n_q2; ++iq) {
+      const double qmin = q2_bins[iq], qmax = q2_bins[iq + 1];
+
+      std::string hname = Form("phi_cs_q2bin%zu", iq);
+      std::string htitle = Form("d#sigma/dt for Q^{2}=[%.2f, %.2f]", qmin, qmax);
+
+      histograms[iq] = new TH1D(hname.c_str(), htitle.c_str(), n_t, &t_bins[0]);
+      histograms[iq]->SetDirectory(nullptr);
+      histograms[iq]->GetXaxis()->SetTitle("-t [GeV^{2}]");
+      histograms[iq]->GetYaxis()->SetTitle("d#sigma/dt [nb/GeV^{2}]");
+    }
+
+    // Utility to find bin index
+    auto findBin = [](double val, const std::vector<double>& edges) -> int {
+      auto it = std::upper_bound(edges.begin(), edges.end(), val);
+      if (it == edges.begin() || it == edges.end()) return -1;
+      return static_cast<int>(it - edges.begin()) - 1;
+    };
+
+    // Fill histograms
+    auto fill = [&](double Q2, double t) {
+      int iq = findBin(Q2, q2_bins);
+      int it = findBin(t, t_bins);
+      if (iq >= 0 && it >= 0) {
+        histograms[iq]->Fill(t);
+      }
+    };
+
+    df.Foreach(fill, {"Q2", "t"});
+
+    // Normalize: dσ/dt = N / (L × Δt)
+    for (size_t iq = 0; iq < n_q2; ++iq) {
+      TH1D* h = histograms[iq];
+      if (!h) continue;
+
+      for (int b = 1; b <= h->GetNbinsX(); ++b) {
+        double width = h->GetBinWidth(b);
+        double raw = h->GetBinContent(b);
+        double norm = raw / (luminosity * width);
+        double err = std::sqrt(raw) / (luminosity * width);
+
+        h->SetBinContent(b, norm);
+        h->SetBinError(b, err);
+      }
+    }
+
+    timer.Stop();
+    std::cout << "[ComputePhi_CrossSection] Time elapsed: "
+              << timer.RealTime() << " s (real), "
+              << timer.CpuTime() << " s (CPU)\n";
+
+    return histograms;
+  }
 
 
 };
-
-//(df_final_dvcsPi_rejected_inb_MC, df_final_OnlPi0_inb_MC, df_final_dvcsPi_rejected_inb_data, df_final_OnlPi0_inb_data, xBins)
-
-
-
 
 #endif  // DISANAMATH_H

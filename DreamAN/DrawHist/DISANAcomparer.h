@@ -69,6 +69,17 @@ class DISANAcomparer {
     plotters.push_back(std::move(plotter));
   }
 
+  void AddModelPhi(ROOT::RDF::RNode df, const std::string& label, double beamEnergy) {
+    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy);
+    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV without Pi0 Correction" << std::endl;
+    plotter->GenerateKinematicHistos("el");
+    plotter->GenerateKinematicHistos("pro");
+    plotter->GenerateKinematicHistos("kMinus");
+    plotter->GenerateKinematicHistos("kPlus");
+    labels.push_back(label);
+    plotters.push_back(std::move(plotter));
+  }
+
   // Set the output directory for saving plots
   void SetOutputDir(const std::string& outdir) {
     outputDir = outdir;
@@ -85,6 +96,7 @@ class DISANAcomparer {
   void SetDVCSStyle(const DrawStyle& style) { styleDVCS_ = style; }
   void SetCrossSectionStyle(const DrawStyle& style) { styleCrossSection_ = style; }
   void SetBSAStyle(const DrawStyle& style) { styleBSA_ = style; }
+  void UseFittedPhiYields(bool on = true) { useFittedYields_ = on; }
 
   // Enable or disable correctio
   void SetApplyCorrection(bool apply) { applyCorrection = apply; }
@@ -149,6 +161,37 @@ class DISANAcomparer {
   }
 
   // Plot all basic kinematic distributions (p, theta, phi) for all particle types
+  void PlotKinematicComparison_phiAna() {
+    TCanvas* canvas = new TCanvas("KinematicComparison", "Kinematic Comparison", 1800, 1200);
+    canvas->Divide(3, 4);
+
+    std::vector<std::string> types = {"el", "pro", "kPlus", "kMinus"};
+    std::vector<std::string> vars = {"p", "theta", "phi"};
+
+    int pad = 1;
+    for (const auto& type : types) {
+      for (const auto& var : vars) {
+        PlotVariableComparison(type, var, pad++, canvas);
+      }
+    }
+
+    canvas->Update();
+    canvas->SaveAs((outputDir + "KinematicComparison_phiAna.pdf").c_str());
+
+    // Optionally save individual plots
+    if (plotIndividual) {
+      for (const auto& type : types) {
+        for (const auto& var : vars) {
+          PlotSingleVariableComparison(type, var);
+        }
+      }
+    }
+
+    std::cout << "Saved kinematic comparison plots to: " << outputDir + "/KinematicComparison_phiAna.pdf" << std::endl;
+    delete canvas;
+  }
+
+  // Plot all basic kinematic distributions (p, theta, phi) for all particle types
   void PlotKinematicComparison() {
     TCanvas* canvas = new TCanvas("KinematicComparison", "Kinematic Comparison", 1800, 1200);
     canvas->Divide(3, 3);
@@ -208,7 +251,8 @@ class DISANAcomparer {
       }
       NormalizeHistogram(target);
       styleKin_.StyleTH1(target);
-      target->SetLineColor(i + 2);
+      target->SetLineColorAlpha(i + 4, 0.8);
+      target->SetLineWidth(1);
       target->SetTitle(Form("%s;%s;Count", typeToParticle[type].c_str(), VarName[var].c_str()));
 
       if (first) {
@@ -269,6 +313,108 @@ class DISANAcomparer {
     canvas->Update();
     canvas->SaveAs((outputDir + "/compare_" + type + "_" + var + ".pdf").c_str());
     delete canvas;
+  }
+
+  void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
+    // Store current global TGaxis state
+    int oldMaxDigits = TGaxis::GetMaxDigits();
+
+    std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi"};
+    std::map<std::string, std::string> titles = {{"Q2", "Q^{2} [GeV^{2}]"}, {"xB", "x_{B}"}, {"t", "-t [GeV^{2}]"}, {"W", "W [GeV]"}, {"phi", "#phi [deg]"}};
+
+    TCanvas* canvas = new TCanvas("DVCSVars", "DVCS Kinematic Comparison", 1800, 1400);
+    canvas->Divide(3, 2);
+
+    int pad = 1;
+    for (const auto& var : variables) {
+      canvas->cd(pad++);
+      styleDVCS_.StylePad((TPad*)gPad);
+
+      TLegend* legend = new TLegend(0.6, 0.55, 0.88, 0.88);
+      legend->SetBorderSize(0);
+      legend->SetFillStyle(0);
+      legend->SetTextSize(0.04);
+
+      bool first = true;
+      std::vector<TH1D*> histos_to_draw;
+
+      for (size_t i = 0; i < plotters.size(); ++i) {
+        auto rdf = plotters[i]->GetRDF();
+        if (!rdf.HasColumn(var)) {
+          std::cerr << "[ERROR] Column " << var << " not found in RDF for model " << labels[i] << "\n";
+          continue;
+        }
+
+        double min = *(rdf.Min(var));
+        double max = *(rdf.Max(var));
+        if (min == max) {
+          min -= 0.1;
+          max += 0.1;
+        }
+        double margin = std::max(1e-3, 0.05 * (max - min));
+
+        // Get histogram (RResultPtr) and clone it
+        auto htmp = rdf.Histo1D({Form("h_%s_%zu", var.c_str(), i), titles[var].c_str(), 100, min - margin, max + margin}, var);
+        auto h = (TH1D*)htmp->Clone(Form("h_%s_%zu_clone", var.c_str(), i));
+
+        if (!h) continue;  // guard against failed clone
+
+        h->SetDirectory(0);  // prevent ROOT from managing ownership
+        NormalizeHistogram(h);
+        styleDVCS_.StyleTH1(h);
+        h->SetLineColorAlpha(i + 4, 0.8);
+        h->SetLineWidth(1.0);
+        h->GetXaxis()->SetTitle(titles[var].c_str());
+        h->GetYaxis()->SetTitle("Counts");
+
+        histos_to_draw.push_back(h);
+        legend->AddEntry(h, labels[i].c_str(), "l");
+      }
+
+      for (size_t j = 0; j < histos_to_draw.size(); ++j) {
+        histos_to_draw[j]->Draw(j == 0 ? "HIST" : "HIST SAME");
+      }
+
+      if (!histos_to_draw.empty()) {
+        legend->Draw();
+      }
+
+      if (plotIndividual && (var == "xB" || var == "Q2" || var == "t" || var == "W" || var == "phi")) {
+        PlotSingleVariableComparison("el", var);
+      }
+    }
+    canvas->cd(pad);
+    auto rdf = plotters.front()->GetRDF();
+    auto h2d = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 60, 0, 8.0, 60, 0, 10.0}, "t", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d->GetYaxis()->SetNoExponent(true);
+    h2d->SetStats(0);
+    h2d->SetTitle("");
+    h2d->GetYaxis()->SetLabelFont(42);
+    h2d->GetYaxis()->SetLabelSize(0.06);
+    h2d->GetYaxis()->SetTitleOffset(1.0);
+    h2d->GetYaxis()->SetTitleSize(0.06);
+    h2d->GetYaxis()->SetNdivisions(410);
+
+    h2d->GetXaxis()->SetTitleSize(0.065);
+    h2d->GetXaxis()->SetLabelFont(42);
+    h2d->GetXaxis()->SetLabelSize(0.06);
+    h2d->GetXaxis()->SetTitleOffset(0.9);
+    h2d->GetXaxis()->SetNdivisions(205);
+
+    h2d->GetZaxis()->SetNdivisions(410);
+    h2d->GetZaxis()->SetLabelSize(0.06);
+    h2d->GetZaxis()->SetTitleOffset(1.5);
+    h2d->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d->DrawCopy("COLZ");
+    // Final save and cleanup
+    canvas->SaveAs((outputDir + "/PhiAna_Kinematics_Comparison.pdf").c_str());
+    std::cout << "Saved DVCS kinematics comparison to: " << outputDir + "/PhiAna_Kinematics_Comparison.pdf" << std::endl;
+    delete canvas;
+    TGaxis::SetMaxDigits(oldMaxDigits);
   }
 
   void PlotDVCSKinematicsComparison(bool plotIndividual = false) {
@@ -548,6 +694,95 @@ class DISANAcomparer {
       }
 
       std::string outpath = outputDir + "/Exclusivity_" + cleanName + ".pdf";
+      canvas->SaveAs(outpath.c_str());
+      std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
+      delete canvas;
+    }
+  };
+
+  // phi analysis
+  /// For exclusivity cuts, you can use the following function to select one triplet
+  void PlotPhiAnaExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
+    std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
+        {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.0, 2.0},
+        {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.08, 0.08},
+        {"Mx2_eKpKm", "Invariant Mass (eK^{+}K^{-})", "M^{2}(eK^{+}K^{-}) [GeV^{2}]", -0.5, 3},
+        {"Mx2_epKp", "Missing Mass Squared (epK^{+})", "MM^{2}(epK^{+}) [GeV^{2}]", -0.5, 1.5},
+        {"Mx2_epKm", "Missing Mass Squared (epK^{-})", "MM^{2}(epK^{-}) [GeV^{2}]", -0.5, 1.5},
+        {"Emiss", "Missing Energy", "E_{miss} [GeV]", -1.0, 2.0},
+        {"PTmiss", "Transverse Missing Momentum", "P_{T}^{miss} [GeV/c]", -0.1, 0.5},
+        {"DeltaPhi", "Coplanarity Angle", "#Delta#phi [deg]", 0, 20},
+        {"Theta_e_phimeson", "Angle: e-#phi", "#theta(e, #phi) [deg]", 0.0, 60.0}};
+
+    for (const auto& [cutExpr, cutLabel] : detectorCuts) {
+      std::string cleanName = cutLabel;
+      std::replace(cleanName.begin(), cleanName.end(), ' ', '_');
+      std::replace(cleanName.begin(), cleanName.end(), ',', '_');
+
+      TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(), cutLabel.c_str(), 1800, 1200);
+      int cols = 3;
+      int rows = (vars.size() + cols - 1) / cols;
+      canvas->Divide(cols, rows);
+
+      for (size_t i = 0; i < vars.size(); ++i) {
+        canvas->cd(i + 1);
+        const auto& [var, title, xlabel, xmin, xmax] = vars[i];
+        gPad->SetTicks();
+        styleKin_.StylePad((TPad*)gPad);
+
+        TLegend* legend = new TLegend(0.6, 0.55, 0.88, 0.88);
+        legend->SetBorderSize(0);
+        legend->SetFillStyle(0);
+        legend->SetTextSize(0.04);
+
+        bool first = true;
+
+        for (size_t m = 0; m < plotters.size(); ++m) {
+          auto rdf_cut = plotters[m]->GetRDF().Filter(cutExpr, cutLabel);
+          if (!rdf_cut.HasColumn(var)) continue;
+
+          auto h = rdf_cut.Histo1D({Form("h_%s_%s_%zu", var.c_str(), cleanName.c_str(), m), (title + ";" + xlabel + ";Counts").c_str(), 100, xmin, xmax}, var);
+          h.GetValue();
+
+          TH1D* h_clone = (TH1D*)h.GetPtr()->Clone();
+          h_clone->SetDirectory(0);
+          NormalizeHistogram(h_clone);
+
+          styleKin_.StyleTH1(h_clone);
+          h_clone->SetLineColorAlpha(m + 4,0.8);
+          h_clone->SetLineWidth(1);
+
+          double mean = h_clone->GetMean();
+          double sigma = h_clone->GetStdDev();
+          double x1 = mean - 3 * sigma;
+          double x2 = mean + 3 * sigma;
+
+          TLine* line1 = new TLine(x1, 0, x1, h_clone->GetMaximum() * 0.5);
+          TLine* line2 = new TLine(x2, 0, x2, h_clone->GetMaximum() * 0.5);
+          line1->SetLineColorAlpha(m + 4,0.8);
+          line2->SetLineColorAlpha(m + 4,0.8);
+          line1->SetLineStyle(2);  // Dashed
+          line2->SetLineStyle(2);
+
+          if (first) {
+            h_clone->Draw("HIST");
+            first = false;
+          } else {
+            h_clone->Draw("HIST SAME");
+          }
+
+          legend->AddEntry(h_clone, labels[m].c_str(), "l");
+          std::ostringstream stats;
+          stats << "#mu = " << std::fixed << std::setprecision(2) << mean << ", #sigma = " << std::fixed << std::setprecision(2) << sigma;
+          legend->AddEntry((TObject*)0, stats.str().c_str(), "");
+          line1->Draw("SAME");
+          line2->Draw("SAME");
+        }
+
+        legend->Draw();
+      }
+
+      std::string outpath = outputDir + "/Exclusivity_Phi_Ana" + cleanName + ".pdf";
       canvas->SaveAs(outpath.c_str());
       std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
       delete canvas;
@@ -886,9 +1121,135 @@ class DISANAcomparer {
     }
   }
 
+  void PlotPhiDSigmaDt_FromCache(bool logy = true) {
+    if (plotters.empty()) return;
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& t  = fXbins.GetTBins();
+    const auto& w  = fXbins.GetWBins();
+    const bool hasW = !w.empty();
+
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_dsdt_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
+        if (logy) gPad->SetLogy();
+
+        // legend in the same spirit as DVCS cross-section plots
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
+
+        // find a sensible common Y-range across models for this (Q2,W) slice
+        double yMinPos = std::numeric_limits<double>::infinity();
+        double yMaxVal = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
+          if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
+          TH1D* h = xs3D[iq][iw];
+          if (!h) continue;
+          const double I = h->Integral(1, h->GetNbinsX());          // sum of contents
+          if (I > 0)  h->Scale(1.0 / I);
+          for (int b = 1; b <= h->GetNbinsX(); ++b) {
+            const double v = h->GetBinContent(b);
+            if (v > 0.0 && v < yMinPos) yMinPos = v;
+            if (v > yMaxVal) yMaxVal = v;
+          }
+        }
+        if (!std::isfinite(yMinPos)) yMinPos = 1e-4;
+        if (yMaxVal <= 0.0) yMaxVal = 1.0;
+        if (logy) { yMinPos *= 0.5; yMaxVal *= 3.0; }
+
+        // header text (bin labels)
+        const TString head = hasW
+            ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq+1], w[iw], w[iw+1])
+            : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq+1]);
+
+        bool first = true;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
+          if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
+          TH1D* h = xs3D[iq][iw];
+          if (!h) continue;
+
+          // apply cross-section style + consistent palette
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+
+          // axis cosmetics consistent with DVCS cross-section look
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("-t [GeV^{2}]");
+          h->GetYaxis()->SetTitle("d#sigma/dt [nb/GeV^{2}]");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          if (logy) h->GetYaxis()->SetRangeUser(yMinPos, yMaxVal);
+
+          if (first) {
+            h->Draw("E1X0");
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+      
+            h->Draw("E1X0 SAME");
+          }
+
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
+        }
+
+        leg->Draw();
+        c->Update();
+
+        // save inside the configured outputDir
+        TString out = hasW
+            ? Form("%s/phi_dsdt_Q%zu_W%zu.pdf", outputDir.c_str(), iq, iw)
+            : Form("%s/phi_dsdt_Q%zu.pdf", outputDir.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
+      }
+    }
+  }
+  // === Add to DISANAcomparer (public): =========================
+  void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
+                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double luminosity_rga_fall18 = 1.0, double branching = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiInvMassPerBin] no models.\n";
+      return;
+    }
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      std::cout << "→ Fitting/drawing per-bin K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << std::endl;
+      (void)plotters[i]->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, luminosity_rga_fall18,branching);
+    }
+  }
+
+
  private:
   BinManager fXbins;
   bool plotIndividual = false;
+  bool useFittedYields_ = true;
+  bool applyCorrection = false;
 
   DrawStyle style_;              // Default style
   DrawStyle styleKin_;           // Kin plot style
@@ -896,7 +1257,7 @@ class DISANAcomparer {
   DrawStyle styleCrossSection_;  // Cross-section plot style
   DrawStyle styleBSA_;           // BSA plot style
 
-  bool applyCorrection = false;
+
   THnSparseD* correctionHist = nullptr;
 
   std::unique_ptr<ROOT::RDF::RNode> rdf;
@@ -906,7 +1267,7 @@ class DISANAcomparer {
   std::vector<std::string> labels;
 
   std::vector<std::string> particleName = {"e", "p", "#gamma"};
-  std::map<std::string, std::string> typeToParticle = {{"el", "electron"}, {"pro", "proton"}, {"pho", "#gamma"}};
+  std::map<std::string, std::string> typeToParticle = {{"el", "electron"}, {"pro", "proton"}, {"pho", "#gamma"}, {"kMinus", "K^{-}"}, {"kPlus", "K^{+}"}};
   std::map<std::string, std::string> VarName = {{"p", "p (GeV/#it{c})"}, {"theta", "#theta (rad)"}, {"phi", "#phi(rad)"}};
 };
 #endif  // DISANA_COMPARER_H

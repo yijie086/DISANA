@@ -27,6 +27,14 @@ void EventCut::AddParticleCut(const std::string& name, const ParticleCut& userCu
     cut.maxVz = 2;
     cut.minBeta = 0.9;  // Photon beta cut
     cut.maxBeta = 1.1;  // Photon beta cut
+  }else if (name == "Neg Kaon") {
+    cut.pid = -321;
+    cut.minVz = -8;
+    cut.maxVz = 2;
+  } else if (name == "Pos Kaon") {
+    cut.pid = 321;
+    cut.minVz = -8;
+    cut.maxVz = 2;
   }
 
   fParticleCuts[name] = cut;
