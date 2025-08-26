@@ -101,10 +101,6 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   }
 }
 void DVCSAnalysis::SaveOutput() {
-  if (!fOutFile || fOutFile->IsZombie()) {
-    std::cerr << "DVCSAnalysis::SaveOutput: No valid output file!" << std::endl;
-    return;
-  }
    if (IsMC) {
     // snapshot of the MC bank for efficiency and other studies
     dforginal->Snapshot("dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),

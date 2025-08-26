@@ -2,62 +2,55 @@
 
 #include <filesystem>
 #include <iostream>
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
+#include <stdexcept>
 
-#include "ROOT/RDF/RInterface.hxx"
-#include "ROOT/RDataFrame.hxx"
+#include "HipoToRootConverter.h"
+#include "TROOT.h"
 
-// Constructor
-Events::Events(const std::string& directory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName, const int nfiles)
-    : fIsReprocessRootFile(fIsReprocessRootFile), fInputROOTtreeName(fInputROOTtreeName), fInputROOTfileName(fInputROOTfileName), fnfiles(nfiles) {
-  if (fIsReprocessRootFile) {
-    std::string inputfile_Root = directory + fInputROOTfileName;
-    std::cout << "Reprocessing ROOT files is enabled." << std::endl;
+namespace fs = std::filesystem;
 
-    auto rdf = ROOT::RDataFrame(fInputROOTtreeName, inputfile_Root);
-    dfNodePtr = std::make_shared<ROOT::RDF::RNode>(rdf);
-  } else {
-    std::cout << "Reprocessing ROOT files is disabled." << std::endl;
+Events::Events(const std::string& directory, const std::string& outputDirectory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName,
+               const std::string& fOutputROOTfileName, int nfiles, int nthreads)
+    : fOutputDir_(outputDirectory),
+      fIsReprocessRootFile_(fIsReprocessRootFile),
+      fnfiles_(nfiles),
+      fnthreads_(nthreads),
+      fInputROOTtreeName_(fInputROOTtreeName),
+      fOutputROOTfileName_(fOutputROOTfileName) {
+  try {
+    if (!fIsReprocessRootFile_) {
+      ROOT::DisableImplicitMT();
+      ROOT::EnableThreadSafety();
+      HipoToRootConverter converter(directory, fOutputDir_, fnfiles_, fnthreads_);
+      finalInputPath_ = converter.convertAndMerge("converted_hipo_ROOT.root");
+      fileCount_ = converter.lastInputCount();
 
-    inputFiles = GetHipoFilesInPath(directory, nfiles);
-    if (inputFiles.empty()) {
-      std::cerr << "No .hipo files found in directory: " << directory << std::endl;
-      return;
+      if (finalInputPath_.empty()) throw std::runtime_error("No .hipo files found in: " + directory);
+
+      std::cout << "[Events] Converted/merged into: " << finalInputPath_ << "\n";
+
+      ROOT::EnableImplicitMT();
+      auto rdf = ROOT::RDataFrame(std::string(HipoToRootConverter::kSnapshotTreeName), finalInputPath_);
+      dfNode_.emplace(rdf);
+    } else {
+      finalInputPath_ = (fs::path(directory) / fOutputROOTfileName_).string();
+      if (!fs::exists(finalInputPath_)) throw std::runtime_error("Reprocess mode: ROOT file not found: " + finalInputPath_);
+      fileCount_ = 0;
+      std::cout << "[Events] Reprocessing existing ROOT file: " << finalInputPath_ << "\n";
+
+      ROOT::EnableImplicitMT();
+      const std::string treeName = fInputROOTtreeName_.empty() ? std::string(HipoToRootConverter::kSnapshotTreeName) : fInputROOTtreeName_;
+      auto rdf = ROOT::RDataFrame(treeName, finalInputPath_);
+      dfNode_.emplace(rdf);
     }
 
-    std::cout << "Creating RHipoDS from input files..." << std::endl;
-    dataSource = std::make_unique<RHipoDS>(inputFiles);
-
-    auto rdf = ROOT::RDataFrame(std::move(dataSource));
-    dfNodePtr = std::make_shared<ROOT::RDF::RNode>(rdf);
+    std::cout << "[Events] DataFrame initialized on: " << finalInputPath_ << "\n";
+  } catch (const std::exception& e) {
+    std::cerr << "[Events] ERROR: " << e.what() << std::endl;
+    throw;
   }
-
-  dfNode = std::make_optional<ROOT::RDF::RNode>(*dfNodePtr);
-
-  std::cout << "DataFrame initialized with " << inputFiles.size() << " input files." << std::endl;
 }
 
-// Helper to get HIPO files in a path
-std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory, int nfiles) {
-  std::vector<std::string> files;
-  int count = 0;
-  for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
-    if (entry.path().extension() == ".hipo") {
-      files.push_back(entry.path().string());
-      count++;
-    }
-    if (count == nfiles) {
-      break;
-    }
-  }
-  std::cout << "================ " << files.size() << " Files Found ================" << std::endl;
-  return files;
-}
-
-// Accessor methods
-std::optional<ROOT::RDF::RNode> Events::getNode() const { return dfNode; }
-
-size_t Events::getFileCount() const { return inputFiles.size(); }
+std::optional<ROOT::RDF::RNode> Events::getNode() const { return dfNode_; }
+std::size_t Events::getFileCount() const { return fileCount_; }
+std::string Events::getFinalInputPath() const { return finalInputPath_; }

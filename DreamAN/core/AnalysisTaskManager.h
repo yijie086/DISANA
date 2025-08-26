@@ -17,31 +17,15 @@ public:
     AnalysisTaskManager();
     ~AnalysisTaskManager();
 
-    void AddTask(std::unique_ptr<AnalysisTask> task);
+    void AddTask(std::shared_ptr<AnalysisTask> task);
     void UserCreateOutputObjects();
     void Execute(ROOT::RDF::RNode& df);
     void SaveOutput();
-
-    void SetOututDir(const std::string& Outputdir="./",const std::string& filename ="AnalysisResults.root", const std::string& directory = "AnalysisResults");
-
-    void AddHistogram(const std::string& name, TH1* hist);
-    void AddTree(const std::string& name, TTree* tree);
-
-    // New: Notify tasks of output file
-    void SetOutputFileForTasks();
-
-    //Getters
-    std::string GetOutputDir() const { return outputDir; }
-    std::string GetOutputRootDir() const { return outputRootDir; }
-    TFile* GetOutputFile() const { return outputFile.get(); }
-
+    void SetOututDir(const std::string& Outputdir="./");
 private:
-    std::vector<std::unique_ptr<AnalysisTask>> tasks;
-    std::map<std::string, TH1*> histograms;
-    std::map<std::string, TTree*> trees;
-    std::unique_ptr<TFile> outputFile;
+    std::vector<std::shared_ptr<AnalysisTask>> tasks;
     std::string outputDir;
-    std::string outputRootDir;
+
 };
 
 #endif

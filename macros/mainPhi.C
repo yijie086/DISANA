@@ -15,21 +15,19 @@ void show_runtime_bar(double seconds) {
   std::cout << "]" << std::endl;
 }
 
-void RunPhiAnalysis(const std::string& inputFile, int nfile);
+void RunPhiAnalysis(const std::string& inputFile, int nfile, int nthreads);
 int main(int argc, char* argv[]) {
 
   // Check if the correct number of arguments were passed
-  if (argc !=3) {
+  if (argc !=4) {
     std::cerr << "Usage: ./AnalysisDVCS <path_to_hipo_file> <number_of_files>" << std::endl;
     std::cerr << "Example: ./AnalysisDVCS /..pathtohipofiles/ 1 OR CHOOSE LARGE NUMBER TO SELECT ALL THE FILES IN THE DIR" << std::endl;
     return 1;
   }
-  auto start = std::chrono::high_resolution_clock::now();
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  
+  auto start = std::chrono::high_resolution_clock::now();  
   // Pass the command-line argument to FirstDVCSAnalysis
   std::string inputFilePath = argv[1];  // argv[1] is the first argument passed to the program
-  RunPhiAnalysis(inputFilePath, std::stoi(argv[2]));
+  RunPhiAnalysis(inputFilePath, std::stoi(argv[2]), std::stoi(argv[3]));
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;
 

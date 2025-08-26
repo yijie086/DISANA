@@ -4,7 +4,19 @@
 #include "./../DreamAN/core/DVCSAnalysis.h"
 #include "./../DreamAN/core/EventProcessor.h"
 
-void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
+void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
+    if (nthreads <= 0) {
+        const auto hc = std::thread::hardware_concurrency();
+        nthreads = hc ? static_cast<int>(hc) : 2; // sensible default
+    }
+    
+    // Enable implicit multi-threading for ROOT.
+    if (nthreads > 1) {
+        ROOT::EnableImplicitMT();
+        std::cout << "[RunPhiAnalysis] IMT enabled with " << nthreads << " thread(s)\n";
+    } else {
+        std::cout << "[RunPhiAnalysis] IMT disabled (single thread mode).\n";
+  }
   bool IsMC = false;              // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
@@ -53,7 +65,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Outb/");
   //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_sims/test/");
-  mgr.SetOututDir("./");
+   std::string outputFileDir = "./";  // Default output directory
+  mgr.SetOututDir(outputFileDir);
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
 
@@ -366,6 +379,6 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile) {
   mgr.AddTask(std::move(dvcsTask));
 
   // Processor
-  EventProcessor processor(mgr, inputFileDir, IsreprocRootFile, inputRootTreeName, inputRootFileName, nfile);
+  EventProcessor processor(mgr, inputFileDir, outputFileDir, IsreprocRootFile, inputRootTreeName, inputRootFileName, nfile, nthreads);
   processor.ProcessEvents();
 }

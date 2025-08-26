@@ -7,7 +7,7 @@
 
 class EventProcessor {
 public:
-    EventProcessor(AnalysisTaskManager& taskMgr,const std::string& inputDirectory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName, int nfiles);
+    EventProcessor(AnalysisTaskManager& taskMgr,const std::string& inputDirectory, const std::string& OuptpuDirectory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName, const std::string& fInputROOTfileName, int nfiles, const int nthreads);
     void ProcessEvents();
 
 private:

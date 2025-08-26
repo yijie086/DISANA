@@ -1,5 +1,6 @@
 
 #include "EventCut.h"
+#include "./../Math/ParticleMassTable.h"
 
 #include <cmath>
 #include <iostream>
@@ -149,8 +150,11 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
           float minMass = cut.expectedMotherMass - cut.massSigma * cut.nSigmaMass;
           float maxMass = cut.expectedMotherMass + cut.massSigma * cut.nSigmaMass;
 
-          float E1 = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
-          float E2 = std::sqrt(px[j] * px[j] + py[j] * py[j] + pz[j] * pz[j]);
+          float massDaug1 = getParticleMass( pid[i]);
+          float massDaug2 = getParticleMass( pid[j]);
+
+          float E1 = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i] + massDaug1 * massDaug1);
+          float E2 = std::sqrt(px[j] * px[j] + py[j] * py[j] + pz[j] * pz[j] + massDaug2 * massDaug2);
           float px_sum = px[i] + px[j];
           float py_sum = py[i] + py[j];
           float pz_sum = pz[i] + pz[j];

@@ -6,7 +6,7 @@ AnalysisTaskManager::AnalysisTaskManager() {}
 AnalysisTaskManager::~AnalysisTaskManager() {
 }
 
-void AnalysisTaskManager::AddTask(std::unique_ptr<AnalysisTask> task) {
+void AnalysisTaskManager::AddTask(std::shared_ptr<AnalysisTask> task) {
     task->SetTaskManager(this);
     tasks.push_back(std::move(task));
 }
@@ -19,60 +19,15 @@ void AnalysisTaskManager::Execute(ROOT::RDF::RNode& df) {
     for (auto& task : tasks) task->UserExec(df);
 }
 
-void AnalysisTaskManager::SetOututDir(const std::string& Outputdir,const std::string& filename, const std::string& directory) {
-    outputFile = std::make_unique<TFile>(Form("%s/%s", Outputdir.c_str(), filename.c_str()), "RECREATE");
+void AnalysisTaskManager::SetOututDir(const std::string& Outputdir) {
     outputDir = Outputdir;
-    outputRootDir = directory;
-    outputFile->mkdir(outputRootDir.c_str());
-}
-
-void AnalysisTaskManager::AddHistogram(const std::string& name, TH1* hist) {
-    if (!hist) {
-        std::cerr << "[AddHistogram] Warning: NULL histogram for " << name << std::endl;
-        return;
-    }
-    histograms[name] = hist;
-}
-
-void AnalysisTaskManager::AddTree(const std::string& name, TTree* tree) {
-    trees[name] = tree;
-}
-
-void AnalysisTaskManager::SetOutputFileForTasks() {
-    if (!outputFile) return;
-    for (auto& task : tasks) {
-        task->SetOutputDir(outputDir);
-        task->SetOutputFile(outputFile.get());
-    }
 }
 
 void AnalysisTaskManager::SaveOutput() {
-    if (!outputFile) {
-        std::cerr << "[SaveOutput] No output file!" << std::endl;
-        return;
+    if (outputDir =="./") std::cerr << "[SaveOutput] the default output dir is ./!" << std::endl;
+    for (auto& task : tasks) {
+        task->SetOutputDir(outputDir);
+        task->SaveOutput();
     }
-    outputFile->cd(outputRootDir.c_str());
-    SetOutputFileForTasks();
-    for (size_t i = 0; i < tasks.size(); ++i) {
-        tasks[i]->SaveOutput();
-    }
-    for (const auto& [name, hist] : histograms) {
-        if (hist) {
-            hist->Write(name.c_str());
-        } else {
-            std::cerr << "  Null histogram: " << name << std::endl;
-        }
-    }
-
-    for (const auto& [name, tree] : trees) {
-        if (tree) {
-            std::cout << "  Writing tree: " << name << std::endl;
-            tree->Write(name.c_str());
-        } else {
-            std::cerr << "  Null tree: " << name << std::endl;
-        }
-    }
-    outputFile->Close();
-    std::cout << "Outuput file saved: " << outputFile->GetName() << std::endl;
 }
 

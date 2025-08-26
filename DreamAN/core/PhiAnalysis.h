@@ -40,7 +40,6 @@ class PhiAnalysis : public AnalysisTask {
 
   void SetBeamEnergy(float beam_energy) { fbeam_energy = beam_energy; };
 
-  void SetOutputFile(TFile *file) override;
   void SetOutputDir(const std::string &dir) override;
 
   void SetFTonConfig(bool config) { fFTonConfig = config; }
@@ -76,9 +75,6 @@ class PhiAnalysis : public AnalysisTask {
   std::shared_ptr<TrackCut> fTrackCutsWithFid;
 
   std::shared_ptr<MomentumCorrection> fMomCorr = nullptr;  // Pointer to momentum correction object
-  
-
-  TFile *fOutFile = nullptr;  // Output file pointer set by manager
 };
 
 #endif

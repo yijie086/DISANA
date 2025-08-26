@@ -5,7 +5,7 @@
 
 #include "AnalysisTaskManager.h"
 
-PhiAnalysis::PhiAnalysis(bool IsMC, bool IsReproc) : IsMC(IsMC), IsReproc(IsReproc), fHistPhotonP(nullptr), fOutFile(nullptr) {}
+PhiAnalysis::PhiAnalysis(bool IsMC, bool IsReproc) : IsMC(IsMC), IsReproc(IsReproc), fHistPhotonP(nullptr) {}
 PhiAnalysis::~PhiAnalysis() {}
 
 void PhiAnalysis::UserCreateOutputObjects() {}
@@ -99,10 +99,6 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   }
 }
 void PhiAnalysis::SaveOutput() {
-  if (!fOutFile || fOutFile->IsZombie()) {
-    std::cerr << "PhiAnalysis::SaveOutput: No valid output file!" << std::endl;
-    return;
-  }
    if (IsMC) {
     // snapshot of the MC bank for efficiency and other studies
     dforginal->Snapshot("dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
@@ -133,8 +129,6 @@ void PhiAnalysis::SaveOutput() {
     SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
   }
 
-  fOutFile->cd();
-}
 
-void PhiAnalysis::SetOutputFile(TFile* file) { fOutFile = file; }
+}
 void PhiAnalysis::SetOutputDir(const std::string& dir) { fOutputDir = dir; }

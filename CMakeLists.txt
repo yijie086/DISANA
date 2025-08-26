@@ -56,6 +56,7 @@ add_executable(AnalysisDVCS
     DreamAN/core/AnalysisTask.cxx
     DreamAN/core/EventProcessor.cxx
     DreamAN/core/AnalysisTaskManager.cxx
+    DreamAN/core/HipoToRootConverter.cxx
     DreamAN/core/Events.cxx
     DreamAN/ParticleInformation/RECParticle.cxx
     DreamAN/ParticleInformation/RECTraj.cxx
@@ -94,6 +95,7 @@ add_executable(AnalysisPhi
     DreamAN/core/AnalysisTask.cxx
     DreamAN/core/EventProcessor.cxx
     DreamAN/core/AnalysisTaskManager.cxx
+    DreamAN/core/HipoToRootConverter.cxx
     DreamAN/core/Events.cxx
     DreamAN/ParticleInformation/RECParticle.cxx
     DreamAN/ParticleInformation/RECTraj.cxx
@@ -114,13 +116,15 @@ add_executable(AnalysisPhi
 
 # Link against ROOT libraries, CLAS12ROOT libraries, and HIPO4
 target_link_libraries(AnalysisPhi
-    ${ROOT_LIBS}
-    pthread
-    Clas12Root  # Link against the precompiled Clas12Root library
-    Clas12Banks
-    hipo4
-    HipoDataFrame
+    PRIVATE
+        ${ROOT_LIBS}
+        Clas12Root
+        Clas12Banks
+        hipo4
+        HipoDataFrame
+        pthread
 )
+
 
 
 # Debugging info (optional)
