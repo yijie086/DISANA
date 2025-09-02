@@ -20,10 +20,10 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsMC = false;              // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
-
+  bool IsMinimalBook = true; 
   //std::string dataconfig = "rgasp18_inb";
-  //std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
-  std::string dataconfig = "rgkfa18_7546";
+  std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
+  //std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -65,7 +65,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Outb/");
   //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_sims/test/");
-   std::string outputFileDir = "./";  // Default output directory
+  //std::string outputFileDir = "./";  // Default output directory
+  //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/outb/";  // Default output directory
+  std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
   mgr.SetOututDir(outputFileDir);
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
@@ -251,12 +253,12 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
 
   ParticleCut proton;
-  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb") {
+   if (dataconfig == "rgasp18_inb"|| dataconfig == "rgasp19_inb"|| dataconfig == "rgafall18_inb"|| dataconfig == "rgasp18_outb"|| dataconfig == "rgafall18_outb"|| dataconfig == "rgasp19_outb") {
     proton.pid = 2212;                              // Proton PID
     proton.charge = 1;                              // Proton charge
     proton.minCount = 1;                            // Minimum count of protons
-    proton.maxCount = 1;                            // Maximum count of protons
-    proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
+    proton.maxCount = 100;                            // Maximum count of protons
+    /*proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
     if (IsInbending) proton.minFDMomentum = 0.42f;  // Minimum momentum for protons in FD Inbending
     if (!IsInbending) proton.minFDMomentum = 0.5f;  // Minimum momentum for protons in FD Outbending
     proton.maxCDMomentum = 1.2f;                    // Maximum momentum for protons
@@ -264,7 +266,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     proton.minTheta = 0.0f;                         // Minimum theta for protons
     proton.maxTheta = 64.23 * M_PI / 180.0;         // Maximum theta for protons (approximately 64.23 degrees)
     proton.minPhi = 0.0f;                           // Minimum phi for protons
-    proton.maxPhi = 2.0f * M_PI;
+    proton.maxPhi = 2.0f * M_PI;*/
   }
   if (dataconfig == "rgkfa18_7546") {
     proton.pid = 2212;                              // Proton PID
@@ -306,9 +308,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   pi0.nSigmaMass = 3.0;             // choice for nsigma is user dependent
 
   eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
-  eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
-  eventCuts->AddParticleCut("photon", photon);      // Applies defaults automatically
-  eventCuts->AddParticleMotherCut("pi0", pi0);      // Applies defaults automatically
+  //eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
+  //eventCuts->AddParticleCut("photon", photon);      // Applies defaults automatically
+  //eventCuts->AddParticleMotherCut("pi0", pi0);      // Applies defaults automatically
 
   auto corr = std::make_shared<MomentumCorrection>();
   /*
@@ -351,11 +353,11 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
       });
   }
   // Task
-  auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile);
+  auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile, IsMinimalBook);
   dvcsTask->SetTrackCuts(trackCuts);
   dvcsTask->SetEventCuts(eventCuts);
   if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb") {
-    dvcsTask->SetBeamEnergy(10.6);
+    dvcsTask->SetBeamEnergy(10.594);
   }
   if(dataconfig =="rgkfa18_7546") {
     dvcsTask->SetBeamEnergy(7.546);  // Set the beam energy for RGK Fa18 7.546GeV
@@ -369,12 +371,11 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   }
   dvcsTask->SetDoFiducialCut(true);
 
-  dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoInvMassCut(false); // in this case pi0 background for two-photon pairs in the event
+  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false); // Set to true to accept all events, false to apply cuts
-
 
   mgr.AddTask(std::move(dvcsTask));
 

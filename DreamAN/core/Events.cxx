@@ -9,8 +9,9 @@
 
 namespace fs = std::filesystem;
 
-Events::Events(const std::string& directory, const std::string& outputDirectory, bool fIsReprocessRootFile, const std::string& fInputROOTtreeName,
-               const std::string& fOutputROOTfileName, int nfiles, int nthreads)
+Events::Events(const std::string& directory, const std::string& outputDirectory, bool fIsReprocessRootFile,
+               const std::string& fInputROOTtreeName, const std::string& fOutputROOTfileName,
+               int nfiles, int nthreads)
     : fOutputDir_(outputDirectory),
       fIsReprocessRootFile_(fIsReprocessRootFile),
       fnfiles_(nfiles),
@@ -19,35 +20,61 @@ Events::Events(const std::string& directory, const std::string& outputDirectory,
       fOutputROOTfileName_(fOutputROOTfileName) {
   try {
     if (!fIsReprocessRootFile_) {
-      ROOT::DisableImplicitMT();
-      ROOT::EnableThreadSafety();
       HipoToRootConverter converter(directory, fOutputDir_, fnfiles_, fnthreads_);
-      finalInputPath_ = converter.convertAndMerge("converted_hipo_ROOT.root");
+
+      // --- CHANGED: Use the new `convert` method and get a vector of file paths ---
+      fTempRootFiles_ = converter.convert("temp_hipo_conversion_");
       fileCount_ = converter.lastInputCount();
+      finalInputPath_ = ""; // No single input path anymore
 
-      if (finalInputPath_.empty()) throw std::runtime_error("No .hipo files found in: " + directory);
+      if (fTempRootFiles_.empty()) {
+        throw std::runtime_error("No .hipo files were converted from: " + directory);
+      }
+      std::cout << "[Events] Using " << fTempRootFiles_.size()
+                << " temporary ROOT files for analysis.\n";
 
-      std::cout << "[Events] Converted/merged into: " << finalInputPath_ << "\n";
+      if (fnthreads_ > 0) ROOT::EnableImplicitMT(fnthreads_);
 
-      ROOT::EnableImplicitMT();
-      auto rdf = ROOT::RDataFrame(std::string(HipoToRootConverter::kSnapshotTreeName), finalInputPath_);
+      // --- CHANGED: Construct RDataFrame from the vector of file paths ---
+      auto rdf = ROOT::RDataFrame(std::string(HipoToRootConverter::kSnapshotTreeName), fTempRootFiles_);
       dfNode_.emplace(rdf);
+
     } else {
       finalInputPath_ = (fs::path(directory) / fOutputROOTfileName_).string();
-      if (!fs::exists(finalInputPath_)) throw std::runtime_error("Reprocess mode: ROOT file not found: " + finalInputPath_);
-      fileCount_ = 0;
+      if (!fs::exists(finalInputPath_)) {
+        throw std::runtime_error("Reprocess mode: ROOT file not found: " + finalInputPath_);
+      }
+      fileCount_ = 0; // Or determine from the file if needed
       std::cout << "[Events] Reprocessing existing ROOT file: " << finalInputPath_ << "\n";
 
-      ROOT::EnableImplicitMT();
-      const std::string treeName = fInputROOTtreeName_.empty() ? std::string(HipoToRootConverter::kSnapshotTreeName) : fInputROOTtreeName_;
+      if (fnthreads_ > 0) ROOT::EnableImplicitMT(fnthreads_);
+
+      const std::string treeName = fInputROOTtreeName_.empty()
+                                       ? std::string(HipoToRootConverter::kSnapshotTreeName)
+                                       : fInputROOTtreeName_;
       auto rdf = ROOT::RDataFrame(treeName, finalInputPath_);
       dfNode_.emplace(rdf);
     }
 
-    std::cout << "[Events] DataFrame initialized on: " << finalInputPath_ << "\n";
+    std::cout << "[Events] DataFrame initialized successfully.\n";
   } catch (const std::exception& e) {
     std::cerr << "[Events] ERROR: " << e.what() << std::endl;
     throw;
+  }
+}
+
+// --- NEW: Destructor implementation for cleaning up temp files ---
+Events::~Events() {
+  if (!fTempRootFiles_.empty()) {
+    std::cout << "[Events] Cleaning up " << fTempRootFiles_.size() << " temporary files...\n";
+    for (const auto& path : fTempRootFiles_) {
+      std::error_code ec;
+      fs::remove(path, ec);
+      if (ec) {
+        std::cerr << "[Events] Warning: could not remove temporary file: " << path
+                  << " (" << ec.message() << ")\n";
+      }
+    }
   }
 }
 

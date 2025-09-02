@@ -1,31 +1,29 @@
-#ifndef HIPO_TO_ROOT_CONVERTER_H
-#define HIPO_TO_ROOT_CONVERTER_H
-
+#pragma once
 #include <string>
-#include <string_view>
 #include <vector>
+#include <cstddef>
 
 class HipoToRootConverter {
- public:
-  // Tree name written by Snapshot
-  static inline constexpr std::string_view kSnapshotTreeName{"clas12"};
+public:
+  static constexpr const char* kSnapshotTreeName = "dst";
 
-  HipoToRootConverter(const std::string& inputDir, const std::string& outputDir, int nFiles, int nThreads);
+  HipoToRootConverter(const std::string& inputDir,
+                      const std::string& outputDir,
+                      int nFiles,
+                      int nThreads);
 
-  // Convert per-slice using RHipoDS -> Snapshot(), then merge temp files.
-  // Returns the merged ROOT path (empty on failure/no inputs).
-  std::string convertAndMerge(const std::string& outputFileName);
+  // CHANGED: This method now returns a vector of temporary ROOT file paths.
+  std::vector<std::string> convert(const std::string& tempFilePrefix);
 
   std::size_t lastInputCount() const { return lastInputCount_; }
 
- private:
-  std::vector<std::string> getHipoFilesInPath(const std::string& directory, int nfiles) const;
+private:
+  std::vector<std::string>
+  getHipoFilesInPath(const std::string& directory, int nfiles) const;
 
-  const std::string fInputDir_;
-  const std::string fOutputDir_;
-  const int fnFiles_;
-  const int fnThreads_;
+  std::string fInputDir_;
+  std::string fOutputDir_;
+  int fnFiles_{0};
+  int fnThreads_{0};
   std::size_t lastInputCount_{0};
 };
-
-#endif  // HIPO_TO_ROOT_CONVERTER_H

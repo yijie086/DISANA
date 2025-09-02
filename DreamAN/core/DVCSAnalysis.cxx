@@ -5,7 +5,7 @@
 
 #include "AnalysisTaskManager.h"
 
-DVCSAnalysis::DVCSAnalysis(bool IsMC, bool IsReproc) : IsMC(IsMC), IsReproc(IsReproc), fHistPhotonP(nullptr), fOutFile(nullptr) {}
+DVCSAnalysis::DVCSAnalysis(bool IsMC, bool IsReproc,  bool IsMinBook) : IsMC(IsMC), IsReproc(IsReproc), IsMinBooking(IsMinBook), fHistPhotonP(nullptr) {}
 DVCSAnalysis::~DVCSAnalysis() {}
 
 void DVCSAnalysis::UserCreateOutputObjects() {}
@@ -111,28 +111,28 @@ void DVCSAnalysis::SaveOutput() {
 
 
   if (!dfSelected.has_value()) {
-    std::cerr << "DVCSAnalysis::SaveOutput: dfSelected not set!" << std::endl;
+    std::cerr << "PhiAnalysis::SaveOutput: dfSelected not set!" << std::endl;
     return;
   }
 
-  if (!IsReproc) SafeSnapshot(*dfSelected, "dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
-  std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
-  std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
+  if (!IsReproc && !IsMinBooking) SafeSnapshot(*dfSelected, "dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
+    std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
+    std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
+      if(IsMinBooking&&!fDoMomentumCorrection)SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
     }
   }
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
     std::cout << "Events selected after fiducial and momentum correction: " << dfSelected_afterFid_afterCorr->Count().GetValue() << std::endl;
-    SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
+    if(!IsMinBooking)SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
   }
 
-  fOutFile->cd();
 }
 
-void DVCSAnalysis::SetOutputFile(TFile* file) { fOutFile = file; }
+
 void DVCSAnalysis::SetOutputDir(const std::string& dir) { fOutputDir = dir; }
+

@@ -3,18 +3,22 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 #include "ROOT/RDataFrame.hxx"
 #include "ROOT/RDF/RInterface.hxx"
 
 class Events {
 public:
   Events(const std::string& inputDirectory,
-         const std::string& outputDirectory,   // where merged ROOT is written
+         const std::string& outputDirectory,
          bool fIsReprocessRootFile,
          const std::string& fInputROOTtreeName,
          const std::string& fOutputROOTfileName,
          int nfiles,
          int nthreads);
+
+  // NEW: Destructor to clean up temporary files
+  ~Events();
 
   std::optional<ROOT::RDF::RNode> getNode() const;
   std::size_t getFileCount() const;
@@ -32,6 +36,9 @@ private:
   std::optional<ROOT::RDF::RNode> dfNode_;
   std::size_t fileCount_{0};
   std::string finalInputPath_;
+  
+  // NEW: Store paths to temporary files for cleanup
+  std::vector<std::string> fTempRootFiles_;
 };
 
 #endif // EVENTS_H

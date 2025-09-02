@@ -23,7 +23,7 @@
 
 class PhiAnalysis : public AnalysisTask {
  public:
-  PhiAnalysis(bool IsMC = false, bool IsReproc = false);
+  PhiAnalysis(bool IsMC = false, bool IsReproc = false, bool IsMinBook = false);
   virtual ~PhiAnalysis();
 
   void UserCreateOutputObjects() override;
@@ -52,6 +52,7 @@ class PhiAnalysis : public AnalysisTask {
  private:
   bool IsMC = false;
   bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
+  bool IsMinBooking = false;  // reduces the output to minimum only after fiducial 
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;

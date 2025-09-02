@@ -23,7 +23,7 @@
 
 class DVCSAnalysis : public AnalysisTask {
  public:
-  DVCSAnalysis(bool IsMC = false, bool IsReproc = false);
+  DVCSAnalysis(bool IsMC = false, bool IsReproc = false, bool IsMinBook = false);
   virtual ~DVCSAnalysis();
 
   void UserCreateOutputObjects() override;
@@ -40,8 +40,6 @@ class DVCSAnalysis : public AnalysisTask {
   void SetDoFiducialCut(bool cut) { fFiducialCut = cut; };
 
   void SetBeamEnergy(float beam_energy) { fbeam_energy = beam_energy; };
-
-  void SetOutputFile(TFile *file) override;
   void SetOutputDir(const std::string &dir) override;
 
   void SetFTonConfig(bool config) { fFTonConfig = config; }
@@ -55,7 +53,7 @@ class DVCSAnalysis : public AnalysisTask {
   bool IsMC = false;
   bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
   bool fAcceptAll = false;  // Flag to indicate if all events are accepted without cuts
-
+  bool IsMinBooking = false;  // reduces the output to minimum only after fiducial 
   bool IsReproc = false;  // Flag to indicate if fiducial cut is applied
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;

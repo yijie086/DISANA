@@ -761,6 +761,8 @@ void DrawDeltaPByThetaBins(
         f->SetLineWidth(2);
         f->Draw("SAME");
         g->GetYaxis()->SetRangeUser(-0.05, 0.05);
+        if(prefix =="FD")g->GetYaxis()->SetRangeUser(-0.02, 0.02);
+        if(prefix =="CD")g->GetYaxis()->SetRangeUser(-0.3, 0.3);
 
 
         std::string imgPath = fitParamOutDir + "/" + prefix + "_" + pname + "_vs_theta.png";
@@ -777,13 +779,13 @@ void DrawDeltaPByThetaBins(
     };
 
     if (selecteddetector == "FD") {
-        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
-        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
-        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
+        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
+        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
     } else if (selecteddetector == "CD") {
-        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
-        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
-        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
+        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
+        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
     }
 
 
@@ -798,8 +800,9 @@ void DrawDeltaPByThetaBins(
 
 //================ example driver =================
 void analysisMomentumCorrection() {
+     ROOT::EnableImplicitMT(6); 
     //std::string path = "../build/rgk7546dvcsmcAll/";
-    std::string path = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546clasdismc/";
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/inb/";
     std::string filename = path + "dfSelected_afterFid.root";
     std::string filenameCorrected = path + "dfSelected_afterFid_afterCorr.root";
     std::string treename = "dfSelected_afterFid";

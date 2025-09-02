@@ -106,38 +106,44 @@ void Draw2DHistogram(TH2D* hist, const std::string& title, const std::string& ou
 // ------------------------
 // Histogram Fitting & Drawing
 // ------------------------
-void FitAndDrawHistogram(TH1D* hist, const std::string& title, const std::string& outname, TString xtitle = "M(K^{+}K^{-}) [GeV]", TString ytitle = "Counts",
-                         double fit_range_min = 0.9, double fit_range_max = 1.25, bool fit = true, const std::string& tag = "") {
+inline void FitAndDrawHistogram(TH1D* hist, const std::string& title, const std::string& outname,
+                                TString xtitle = "M(K^{+}K^{-}) [GeV]", TString ytitle = "Counts",
+                                double fit_range_min = 0.9, double fit_range_max = 1.25,
+                                bool fit = true, const std::string& tag = "",
+                                double annotate_sigma_for_count = -1.0) { // <— NEW arg (default: off)
   const std::string safe = MakeSafeName(tag);
   TCanvas* c = new TCanvas(("c_" + outname).c_str(), title.c_str(), 1200, 1000);
   StyleCanvas(c);
   ApplyHistStyle(hist, fit_range_min - .02, fit_range_max, xtitle, ytitle);
   hist->Draw("PE");
-  // Legend
+
   TLegend* leg = new TLegend(0.62, 0.70, 0.95, 0.89);
   leg->SetBorderSize(0);
   leg->SetFillStyle(0);
   leg->AddEntry(hist, "K^{+}K^{-} Inv. Mass", "lep");
 
-  if (fit) {
-    // unique TF1 names per dataset
-    TF1* fitTotal = new TF1(("fitTotal_" + safe).c_str(),
-      "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874)) + [3]*TMath::Gaus(x,[4],[5])", fit_range_min, fit_range_max);
+  double mu = std::numeric_limits<double>::quiet_NaN();
+  double sigma = std::numeric_limits<double>::quiet_NaN();
 
-    fitTotal->SetParameters(10, 0.9, 2, 100, 1.0, 0.04);
-    fitTotal->SetParLimits(4, .990, 1.04);
+  if (fit) {
+    TF1* fitTotal = new TF1(("fitTotal_" + safe).c_str(),
+      "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874)) + [3]*TMath::Gaus(x,[4],[5])",
+      fit_range_min, fit_range_max);
+
+    fitTotal->SetParameters(10, 0.9, 2, 100, 1.02, 0.010);
+    fitTotal->SetParLimits(4, .990, 1.050);
     fitTotal->SetParLimits(5, 0.001, 0.03);
     fitTotal->SetLineColor(kRed + 1);
     fitTotal->SetLineWidth(3);
-    hist->Fit(fitTotal, "R0");
+    hist->Fit(fitTotal, "R0Q");
     fitTotal->Draw("SAME C");
 
     double A = fitTotal->GetParameter(0);
     double alpha = fitTotal->GetParameter(1);
     double lambda = fitTotal->GetParameter(2);
     double N = fitTotal->GetParameter(3);
-    double mu = fitTotal->GetParameter(4);
-    double sigma = fitTotal->GetParameter(5);
+    mu = fitTotal->GetParameter(4);
+    sigma = fitTotal->GetParameter(5);
     double chi2 = fitTotal->GetChisquare();
     double ndf = fitTotal->GetNDF();
 
@@ -150,7 +156,9 @@ void FitAndDrawHistogram(TH1D* hist, const std::string& title, const std::string
     fitSignal->SetFillStyle(1001);
     fitSignal->Draw("SAME FC");
 
-    TF1* fitBkg = new TF1(("fitBkg_" + safe).c_str(), "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))", fit_range_min, fit_range_max);
+    TF1* fitBkg = new TF1(("fitBkg_" + safe).c_str(),
+                           "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))",
+                           fit_range_min, fit_range_max);
     fitBkg->SetParameters(A, alpha, lambda);
     fitBkg->SetLineColor(kGreen + 2);
     fitBkg->SetLineStyle(3);
@@ -174,14 +182,25 @@ void FitAndDrawHistogram(TH1D* hist, const std::string& title, const std::string
     latex.SetNDC();
     latex.SetTextSize(0.035);
     latex.DrawLatex(0.15, 0.92, Form("%s", tag.empty() ? "" : tag.c_str()));
-    latex.DrawLatex(0.15, 0.87, Form("#mu = %.3f GeV", mu));
+    latex.DrawLatex(0.15, 0.87, Form("#mu = %.4f GeV", mu));
     latex.DrawLatex(0.15, 0.82, Form("#sigma = %.4f GeV", sigma));
-    latex.DrawLatex(0.15, 0.77, Form("#chi^{2}/ndf = %.2f", chi2 / ndf));
-    latex.DrawLatex(0.15, 0.72, Form("Fit range: %.2f-%.2f GeV", fitTotal->GetXmin(), fitTotal->GetXmax()));
+    latex.DrawLatex(0.15, 0.77, Form("#chi^{2}/ndf = %.2f", chi2 / std::max(1.0, ndf)));
+    latex.DrawLatex(0.15, 0.72, Form("Fit range: %.3f-%.3f GeV", fit_range_min, fit_range_max));
 
-    leg->AddEntry(fitTotal, "Total Fit: Exp + Gauss", "l");
+    // --- NEW: annotate number of candidates inside ±Nσ window (raw counts)
+    if (annotate_sigma_for_count > 0 && std::isfinite(mu) && std::isfinite(sigma) && sigma > 0) {
+      const double lo = mu - annotate_sigma_for_count * sigma;
+      const double hi = mu + annotate_sigma_for_count * sigma;
+      int binLo = hist->GetXaxis()->FindBin(lo);
+      int binHi = hist->GetXaxis()->FindBin(hi);
+      long long nCand = 0;
+      for (int b = binLo; b <= binHi; ++b) nCand += (long long)std::llround(hist->GetBinContent(b));
+      latex.DrawLatex(0.15, 0.67, Form("N_{|M-#mu|<%.0f#sigma} = %lld", annotate_sigma_for_count, nCand));
+    }
+
+    leg->AddEntry(fitTotal, "Total Fit: Thr.Exp + Gauss", "l");
     leg->AddEntry(fitSignal, "Signal (Gauss)", "f");
-    leg->AddEntry(fitBkg, "Background (Exp)", "f");
+    leg->AddEntry(fitBkg, "Background (Thr.Exp)", "f");
     leg->AddEntry(line1, "#pm 3#sigma", "l");
   }
 
@@ -190,6 +209,7 @@ void FitAndDrawHistogram(TH1D* hist, const std::string& title, const std::string
   c->SaveAs((outname + ".pdf").c_str());
   delete c;
 }
+
 
 // ------------------------
 // Main Analysis Routine (single dataset)
@@ -341,13 +361,13 @@ void DrawPhiMass(const std::string& filename, const std::string& treename,
   MakeDir(outputDir);
 
   FitAndDrawHistogram(h_KKmass.GetPtr(), "After InvMass Cut", outputDir + "/KpKm_mass_after",
-                      "M(K^{+}K^{-}) [GeV]", "Counts", fit_range_min, fit_range_max, true, tag);
+                      "M(K^{+}K^{-}) [GeV]", "Counts", fit_range_min, fit_range_max, true, tag,/*annotate_sigma_for_count=*/3.0);
 
   FitAndDrawHistogram(h_PKm.GetPtr(), "After InvMass Cut", outputDir + "/pKm_mass_after",
-                      "M(pK^{-}) [GeV]", "Counts", 1.0, 4.0, false, tag);
+                      "M(pK^{-}) [GeV]", "Counts", 1.0, 4.0, false, tag,/*annotate_sigma_for_count=*/3.0);
 
   FitAndDrawHistogram(h_PKp.GetPtr(), "After InvMass Cut", outputDir + "/pKp_mass_after",
-                      "M(pK^{+}) [GeV]", "Counts", 1.0, 4.0, false, tag);
+                      "M(pK^{+}) [GeV]", "Counts", 1.0, 4.0, false, tag,/*annotate_sigma_for_count=*/3.0);
 
   Draw2DHistogram(h2_PKm_vs_KK.GetPtr(), "M(K^{+}K^{-}) vs M(pK^{-})",
                   outputDir + "/pKm_vs_KK", "M(K^{+}K^{-}) [GeV]","M(pK^{-}) [GeV]", 0.98, 2.2, 1.3, 2.8);
