@@ -139,7 +139,7 @@ inline TF1 *FitGausPlusPoly3(TH1 *h, double mu_guess, double sigma_guess,
   TF1 *f = new TF1(("fGMp3_"+tag).c_str(), "gaus(0)+pol3(3)", xmin, xmax);
   f->SetParNames("A","mu","sigma","p0","p1","p2","p3");
   f->SetParameters(h->GetMaximum(), mu_guess, sigma_guess, 0, 0, 0, 0);
-  f->SetParLimits(2, 0.003, 0.120);
+  f->SetParLimits(2, 0.0003, 0.20);
   h->Fit(f, "RQ0");
   return f;
 }
@@ -269,7 +269,7 @@ WireKaonMMCut_FromMx2(ROOT::RDF::RNode df_in,
   const std::string mx_col = "Mx_abs_forCut__" + safe + "__" + mx2_col; // unique
 
   // Build axis and histogram titles safely (std::string on the left side)
-  const bool kmiss = (kaon_label_for_axes == "K^{-}");
+  const bool kmiss = (kaon_label_for_axes == "K^{+}");
   const std::string parent_close = kmiss ? "K^{+})" : "K^{-})";
   const std::string xTitle = std::string("M_{X}(ep") + parent_close + " [GeV]";
   const std::string legendEntry = kaon_label_for_axes + " missing mass";
@@ -346,8 +346,8 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
                             fit_range_min, fit_range_max);
 
     fitTotal->SetParameters(10, 0.9, 2, 100, 1.02, 0.010);
-    fitTotal->SetParLimits(4, .90, 1.070);
-    fitTotal->SetParLimits(5, 0.001, 0.3);
+    fitTotal->SetParLimits(4, .90, 1.090);
+    fitTotal->SetParLimits(5, 0.001, 0.4);
     fitTotal->SetLineColor(kRed + 1);
     fitTotal->SetLineWidth(3);
     hist->Fit(fitTotal, "R0Q");

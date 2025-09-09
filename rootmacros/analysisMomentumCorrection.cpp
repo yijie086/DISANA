@@ -20,10 +20,274 @@
 #include <vector>
 #include <algorithm>
 #include <fstream>
+#include <TMultiGraph.h>
+#include <TLegend.h>
+#include <array>
+#include <limits>
+
 
 using namespace ROOT::VecOps;
 
+
+
 //================ Utility =================
+// ===== Helpers =====
+static inline std::string DetNorm(const std::string& det) {
+    if (det == "DC") return "CD";   // allow "DC" alias
+    return det;
+}
+static inline std::string ParticleNameSimple(int pid) {
+    if (pid == 11) return "electron";
+    if (pid == 22) return "photon";
+    if (pid == 2212) return "proton";
+    return "pid" + std::to_string(pid);
+}
+
+static inline bool IsProtonFD(int pid, const std::string& det) {
+    return (pid == 2212 && DetNorm(det) == "FD");
+}
+static inline double EvalA(double t, const std::array<double,3>& p){ return p[0] + p[1]*t + p[2]*t*t; }
+static inline double EvalB(double t, const std::array<double,3>& p){ return p[0] + p[1]*t + p[2]*t*t; }
+static inline double EvalC(double t, const std::array<double,3>& p){ return p[0] + p[1]*t + p[2]*t*t; }
+
+// Reads coefficients (p0,p1,p2) from ParamFits text like:
+//
+// # Fit expression: [0] + [1]*x+ [2]*x*x
+// p0 = <val> ± <err>
+// p1 = <val> ± <err>
+// p2 = <val> ± <err>
+//
+static bool ReadQuadParams(const std::string& txtPath, std::array<double,3>& pars) {
+    std::ifstream fin(txtPath);
+    if (!fin) return false;
+    std::string line;
+    int found = 0;
+    while (std::getline(fin, line)) {
+        // tolerate both "±" and "+/-"
+        auto eat = [&](const std::string& key)->bool {
+            size_t k = line.find(key);
+            if (k == std::string::npos) return false;
+            size_t eq = line.find('=', k);
+            if (eq == std::string::npos) return false;
+            std::string rhs = line.substr(eq+1);
+            // strip after ± or +/-
+            size_t pm = rhs.find('\xC2'); // start of UTF-8 ±
+            size_t slash = rhs.find("+/-");
+            if (pm != std::string::npos) rhs = rhs.substr(0, pm);
+            else if (slash != std::string::npos) rhs = rhs.substr(0, slash);
+            try {
+                double val = std::stod(rhs);
+                int idx = (key=="p0")?0:(key=="p1")?1:2;
+                pars[idx] = val;
+                return true;
+            } catch (...) { return false; }
+        };
+        if (eat("p0")) ++found;
+        if (eat("p1")) ++found;
+        if (eat("p2")) ++found;
+        if (found >= 3) break;
+    }
+    return (found >= 3);
+}
+
+// Core evaluator for Δp given p, θ and quadratic-in-θ parameter sets
+static inline double DeltaP_of_p_theta(int pid,
+                                       const std::string& det,
+                                       double p,
+                                       double thetaDeg,
+                                       const std::array<double,3>& Acoef,
+                                       const std::array<double,3>& Bcoef,
+                                       const std::array<double,3>& Ccoef)
+{
+    double A = EvalA(thetaDeg, Acoef);
+    double B = EvalB(thetaDeg, Bcoef);
+    double C = EvalC(thetaDeg, Ccoef);
+
+    if (IsProtonFD(pid, det)) {
+        if (p <= 0) return std::numeric_limits<double>::quiet_NaN();
+        return A + B/p + C/(p*p);
+    } else {
+        return A + B*p + C*p*p;
+    }
+}
+
+// ====== OPTION 1: from ParamFits text files ======
+void PlotMomentumCorrectionVsTheta_FromParamFits(const int selectedPid,
+                                                 const std::string& selecteddetector, // "FD","CD"/"DC","ALL"
+                                                 const std::vector<double>& pValues,  // e.g. {0.3,0.5,1.0,1.5,2.0}
+                                                 double thetaMinDeg,
+                                                 double thetaMaxDeg,
+                                                 int nThetaPoints = 200,
+                                                 const std::string& baseDir = "ParticleDeltaPPlots/ParamFits")
+{
+    // ---- inputs & files -----------------------------------------------------
+    std::string det = DetNorm(selecteddetector);
+    std::string prefix = ParticleNameSimple(selectedPid) + "_" + det;
+
+    std::string fA = baseDir + "/" + prefix + "_A_p_vs_theta.txt";
+    std::string fB = baseDir + "/" + prefix + "_B_p_vs_theta.txt";
+    std::string fC = baseDir + "/" + prefix + "_C_p_vs_theta.txt";
+
+    std::array<double,3> Acoef{}, Bcoef{}, Ccoef{};
+    bool okA = ReadQuadParams(fA, Acoef);
+    bool okB = ReadQuadParams(fB, Bcoef);
+    bool okC = ReadQuadParams(fC, Ccoef);
+
+    if (!(okA && okB && okC)) {
+        std::cerr << "[PlotMomentumCorrectionVsTheta_FromParamFits] Could not read parameter files for "
+                  << prefix << ". Expected:\n  " << fA << "\n  " << fB << "\n  " << fC << "\n";
+        return;
+    }
+
+    if (thetaMaxDeg <= thetaMinDeg) std::swap(thetaMinDeg, thetaMaxDeg);
+    nThetaPoints = std::max(nThetaPoints, 10);
+    if (pValues.empty()) {
+        std::cerr << "[PlotMomentumCorrectionVsTheta_FromParamFits] pValues is empty.\n";
+        return;
+    }
+
+    // ---- canvas & style (local tweaks, no global gStyle upheaval) -----------
+    auto *c = new TCanvas(Form("c_deltaP_vs_theta_%s_%s",
+                               ParticleNameSimple(selectedPid).c_str(), det.c_str()),
+                          "", 1400, 950);
+    c->SetMargin(0.12, 0.04, 0.12, 0.07);  // L, R, B, T
+    c->SetTicks(1,1);
+    c->SetGridx();
+    c->SetGridy();
+
+    auto *mg = new TMultiGraph();
+    mg->SetTitle(Form("#Delta p vs #theta  (%s, %s);#theta [deg];#Delta p [GeV]",
+                      ParticleNameSimple(selectedPid).c_str(), det.c_str()));
+
+    // A pleasant, high-contrast color cycle
+    const std::vector<int> colors = {
+        kAzure+2, kOrange+7, kTeal+3, kMagenta+2, kGreen+2,
+        kRed+1, kViolet+5, kBlue+1, kPink+7, kCyan+2
+    };
+    const int baseMarker = 20;
+
+    // Legend: adapt columns for many lines
+    int ncol = (int)pValues.size() > 8 ? 3 : ((int)pValues.size() > 4 ? 2 : 1);
+    auto *leg = new TLegend(0.62, 0.62, 0.90, 0.88);
+    leg->SetBorderSize(0);
+    leg->SetFillStyle(0);
+    leg->SetTextSize(0.028);
+    leg->SetNColumns(ncol);
+    leg->SetHeader("p (GeV)", "C");
+
+    // ---- build curves; track global y-range --------------------------------
+    double yMin = std::numeric_limits<double>::infinity();
+    double yMax = -std::numeric_limits<double>::infinity();
+
+    std::vector<TGraph*> keepAlive; keepAlive.reserve(pValues.size());
+
+    for (size_t ip = 0; ip < pValues.size(); ++ip) {
+        double p = pValues[ip];
+        std::vector<double> x(nThetaPoints), y(nThetaPoints);
+        for (int i = 0; i < nThetaPoints; ++i) {
+            double t = thetaMinDeg + (thetaMaxDeg - thetaMinDeg) * (double(i) / (nThetaPoints - 1));
+            x[i] = t;
+            y[i] = DeltaP_of_p_theta(selectedPid, det, p, t, Acoef, Bcoef, Ccoef);
+            yMin = std::min(yMin, y[i]);
+            yMax = std::max(yMax, y[i]);
+        }
+
+        auto *gr = new TGraph(nThetaPoints, x.data(), y.data());
+        gr->SetLineWidth(3);
+        gr->SetLineColor(colors[ip % colors.size()]);
+        gr->SetMarkerStyle(baseMarker + int(ip) % 5);
+        gr->SetMarkerSize(0.8);
+        gr->SetMarkerColor(gr->GetLineColor());
+
+        // draw points subtly on top of lines for readability
+        mg->Add(gr, "L");
+        keepAlive.push_back(gr);
+
+        leg->AddEntry(gr, Form("%.3g", p), "l");
+    }
+
+    // ---- draw, format axes, set ranges -------------------------------------
+    mg->Draw("A");
+
+    // Axis cosmetics
+    auto *xax = mg->GetXaxis();
+    auto *yax = mg->GetYaxis();
+    xax->SetTitleOffset(1.2);
+    yax->SetTitleOffset(1.25);
+    xax->SetTitleSize(0.045);
+    yax->SetTitleSize(0.045);
+    xax->SetLabelSize(0.038);
+    yax->SetLabelSize(0.038);
+    xax->SetMoreLogLabels(false);
+    xax->SetNdivisions(510, /*optimize=*/true);
+    yax->SetNdivisions(506, /*optimize=*/true);
+
+    // Sensible default ranges (your original special cases) with fallback to autoscale
+    bool appliedSpecial = false;
+    if (det == "FD" && selectedPid == 2212) {
+        yax->SetRangeUser(-0.02, 0.03);
+        appliedSpecial = true;
+    } else if ((det == "CD" || det == "DC") && selectedPid == 2212) {
+        yax->SetRangeUser(-0.03, 0.03);
+        appliedSpecial = true;
+    } else if (det == "ALL") {
+        yax->SetRangeUser(-0.15, 0.15);
+        appliedSpecial = true;
+    }
+    if (!appliedSpecial) {
+        // Auto-pad the y-range by 15%
+        if (std::isfinite(yMin) && std::isfinite(yMax) && yMax > yMin) {
+            double pad = 0.15 * std::max(std::abs(yMax), std::abs(yMin));
+            yax->SetRangeUser(yMin - pad, yMax + pad);
+        }
+    }
+
+    // Zero line for reference
+    TLine *z = new TLine(thetaMinDeg, 0., thetaMaxDeg, 0.);
+    z->SetLineStyle(2);
+    z->SetLineColor(kGray+2);
+    z->Draw("same");
+
+    // Legend & an unobtrusive subtitle
+    leg->Draw();
+
+    TLatex lat;
+    lat.SetNDC(true);
+    lat.SetTextSize(0.032);
+    lat.SetTextColor(kGray+2);
+    //lat.DrawLatex(0.13, 0.94,
+      //            Form("#font[42]{%s, %s   (%g#circ to %g#circ)}",
+       ///                ParticleNameSimple(selectedPid).c_str(), det.c_str(),
+        //               thetaMinDeg, thetaMaxDeg));
+
+    gPad->Modified();
+    gPad->Update();
+
+    // ---- save outputs -------------------------------------------------------
+    gSystem->Exec(("mkdir -p " + baseDir).c_str());
+    std::string outBase = baseDir + "/" + prefix + "_deltaP_vs_theta_multiP";
+    std::string outPng  = outBase + ".png";
+    std::string outPdf  = outBase + ".pdf";
+
+    c->SaveAs(outPng.c_str());
+    c->SaveAs(outPdf.c_str());
+    std::cout << "Saved: " << outPng << "\nSaved: " << outPdf << std::endl;
+}
+
+void PlotMomentumCorrection_AllDetectors_FromFiles(const int selectedPid,
+                                                   const std::vector<double>& pValues,
+                                                   // theta ranges to sample for each detector panel:
+                                                   double thetaMinFD,  double thetaMaxFD,
+                                                   double thetaMinCD,  double thetaMaxCD,
+                                                   double thetaMinALL, double thetaMaxALL,
+                                                   int nThetaPoints = 200,
+                                                   const std::string& baseDir = "ParticleDeltaPPlots/ParamFits")
+{
+    PlotMomentumCorrectionVsTheta_FromParamFits(selectedPid, "FD",  pValues, thetaMinFD,  thetaMaxFD,  nThetaPoints, baseDir);
+    PlotMomentumCorrectionVsTheta_FromParamFits(selectedPid, "CD",  pValues, thetaMinCD,  thetaMaxCD,  nThetaPoints, baseDir);
+    PlotMomentumCorrectionVsTheta_FromParamFits(selectedPid, "ALL", pValues, thetaMinALL, thetaMaxALL, nThetaPoints, baseDir);
+}
+
 int GetThetaRegionIndex(float thetaDeg, const std::vector<float> &thetaCuts) {
     for (size_t i = 0; i < thetaCuts.size(); ++i)
         if (thetaDeg <= thetaCuts[i]) return i;
@@ -515,7 +779,7 @@ void DrawDeltaPByThetaBins(
     const std::string selecteddetector,
     const std::vector<std::tuple<std::string,std::string,std::string,int,double,double,int,double,double>> &plotVars,
     const std::string &filename,
-    const std::string &treename) {
+    const std::string &treename, const std::string& outDir ="ProtonMomCorr_Fall2018_inb_DeltaPPlots") {
     TStopwatch timer;
     timer.Start();
 
@@ -622,7 +886,7 @@ void DrawDeltaPByThetaBins(
         }
     }, colNames);
 
-    std::string outDir = "ParticleDeltaPPlots";
+    //std::string outDir = "ProtonMomCorr_Fall2018_inb_DeltaPPlots";
     gSystem->Exec(("mkdir -p " + outDir).c_str());
 
     for (auto &v : vars) {
@@ -753,6 +1017,7 @@ void DrawDeltaPByThetaBins(
         g->SetTitle((prefix + ": " + pname + " vs #theta").c_str());
         g->GetXaxis()->SetTitle("#theta [deg]");
         g->GetYaxis()->SetTitle((pname + " value").c_str());
+         g->GetYaxis()->SetTitleOffset(1.1);
         g->SetMarkerStyle(20);
         g->SetMarkerSize(1.2);
         g->Draw("AP");
@@ -761,8 +1026,8 @@ void DrawDeltaPByThetaBins(
         f->SetLineWidth(2);
         f->Draw("SAME");
         g->GetYaxis()->SetRangeUser(-0.05, 0.05);
-        if(prefix =="FD")g->GetYaxis()->SetRangeUser(-0.02, 0.02);
-        if(prefix =="CD")g->GetYaxis()->SetRangeUser(-0.3, 0.3);
+        if(prefix =="proton_FD")g->GetYaxis()->SetRangeUser(-0.02, 0.02);
+        if(prefix =="proton_CD")g->GetYaxis()->SetRangeUser(-0.3, 0.3);
 
 
         std::string imgPath = fitParamOutDir + "/" + prefix + "_" + pname + "_vs_theta.png";
@@ -782,6 +1047,9 @@ void DrawDeltaPByThetaBins(
         PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
         PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
         PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
+        //PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+        //PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+        //PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
     } else if (selecteddetector == "CD") {
         PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
         PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
@@ -802,18 +1070,22 @@ void DrawDeltaPByThetaBins(
 void analysisMomentumCorrection() {
      ROOT::EnableImplicitMT(6); 
     //std::string path = "../build/rgk7546dvcsmcAll/";
-    std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/inb/";
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/outb/";
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/class_dis/";
     std::string filename = path + "dfSelected_afterFid.root";
     std::string filenameCorrected = path + "dfSelected_afterFid_afterCorr.root";
     std::string treename = "dfSelected_afterFid";
     std::string treenameCorrected = "dfSelected_afterFid_afterCorr";
 
+    const std::string& outDir ="ProtonMomCorr_sp2018_inb_DeltaPPlots/";
+
     std::vector<float> thetaCutsFDelectron = {10,15,20,25};
-    std::vector<float> thetaCutsFDproton = {13,14,15,16,17,18,19,20,21,22,23,24,25,
-                                            26,27,28,29,30,31,32,33,34,35,36,37,38,39,40};
+    std::vector<float> thetaCutsFDproton = {5,6.3, 7.6, 8.9, 10.2, 11.5,13,14,15,16,17,18,19,20,21,22,23,24,25,
+                                            26,27,28,29,30,31,32,33,35,42};
     std::vector<float> thetaCutsFDphoton = {10,15,20,25};
 
-    std::vector<float> thetaCutsCDproton = {40,42,44,46,48,50,52,54,56,58,60};
+    std::vector<float> thetaCutsCDproton = {33.0,36.1,39.2,42.3,45.3,48.4,51.5,54.6,57.7,60.7,63.8,66.9,70.0};
 
     std::vector<float> thetaCutsFTelectron = {3,3.5,4};
     std::vector<float> thetaCutsFTphoton = {3,3.5,4};
@@ -917,18 +1189,29 @@ void analysisMomentumCorrection() {
     DrawDeltaPByThetaBins(11,{0},"ALL",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.1,0.1}},filename,treename);
   */
    
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.2,0.2}},filename,treename);
-    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename);
-    //DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filenameCorrected,treenameCorrected);
-    //DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2,100,-0.2,0.2}},filenameCorrected,treenameCorrected);
+    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename,outDir);
+    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.2,0.2}},filename,treename,outDir);
+    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename,outDir);
+    //DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2.5,100,-0.1,0.1}},filenameCorrected,treenameCorrected);
+    //DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2.5,100,-0.2,0.2}},filenameCorrected,treenameCorrected);
 
-    /*
-    DrawDeltaPByThetaBins(22,thetaCutsFDphoton,"FD",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
-    DrawDeltaPByThetaBins(22,thetaCutsFTphoton,"FT",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.2,0.2}},filename,treename);
-    DrawDeltaPByThetaBins(22,{0},"ALL",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
-*/
+    
+    //DrawDeltaPByThetaBins(22,thetaCutsFDphoton,"FD",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
+    //DrawDeltaPByThetaBins(22,thetaCutsFTphoton,"FT",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.2,0.2}},filename,treename);
+    //DrawDeltaPByThetaBins(22,{0},"ALL",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
 
+   
+
+    std::vector<double> pgridP = {0.4, 0.75, 1.10, 1.75, 2.75};
+PlotMomentumCorrection_AllDetectors_FromFiles(
+    /*selectedPid=*/2212,
+    /*pValues=*/pgridP,
+    /*thetaMinFD, thetaMaxFD=*/ 5.0, 40.0,
+    /*thetaMinCD, thetaMaxCD=*/ 20.0, 70.0,
+    /*thetaMinALL,thetaMaxALL=*/5.0, 70.0,
+    /*nThetaPoints=*/300,
+    /*baseDir=*/outDir+"ParamFits"
+);
 
     gApplication->Terminate(0);
 }

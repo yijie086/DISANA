@@ -64,6 +64,22 @@ ROOT::RDF::RNode SelectPhiEvent_MissingKm(ROOT::RDF::RNode df_) {
   );
 }
 
+ROOT::RDF::RNode SelectPhiEvent_MissingKp(ROOT::RDF::RNode df_) {
+  return df_.Filter(
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
+        int e = 0, km = 0, p = 0;
+        for (size_t i = 0; i < pid.size(); ++i) {
+          if (!pass[i]) continue;
+          if (pid[i] == 11) ++e;
+          else if (pid[i] == -321) ++km;
+          else if (pid[i] == 2212) ++p;
+        }
+        return (e == 1 && km >= 1 && p >= 1);
+      },
+      {"REC_Particle_pid", "REC_Particle_pass"},
+      "Cut: 1 e⁻, ≥1 K⁺, 1 p (Missing K+ workflow)"
+  );
+}
 //
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_) {
   return df_.Filter(
@@ -152,7 +168,80 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_,
              .Define("reckPlus_phi", PhiFunc, {"kPlus_px", "kPlus_py"})
              .Define("reckMinus_p", MomentumFunc, {"kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz"})
              .Define("reckMinus_theta", ThetaFunc, {"kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz"})
-             .Define("reckMinus_phi", PhiFunc, {"kMinus_miss_px", "kMinus_miss_py"});
+             .Define("reckMinus_phi", PhiFunc, {"kMinus_miss_px", "kMinus_miss_py"})
+             .Define("kMinus_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == -321 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1; // Unknown/Other
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+             .Define("kPlus_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == 321 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1; // Unknown/Other
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+
+             .Define("pro_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == 2212 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT (probably rare for protons)
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1;
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+             .Define("ele_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == 11 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT (probably rare for protons)
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1;
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"});
              // φ mass built from measured K+ and missing K-
 
 
@@ -234,7 +323,61 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_,
              .Define("reckMinus_phi", PhiFunc, {"kMinus_px", "kMinus_py"})
              .Define("reckPlus_p", MomentumFunc, {"kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz"})
              .Define("reckPlus_theta", ThetaFunc, {"kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz"})
-             .Define("reckPlus_phi", PhiFunc, {"kPlus_miss_px", "kPlus_miss_py"});
+             .Define("reckPlus_phi", PhiFunc, {"kPlus_miss_px", "kPlus_miss_py"})
+             .Define("kMinus_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == -321 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1; // Unknown/Other
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+             .Define("pro_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == 2212 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT (probably rare for protons)
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1;
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+             .Define("ele_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == 11 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0; // FT (probably rare for protons)
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1; // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2; // CD
+                           else
+                             return -1;
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"});
              // φ mass built from missing K+ and measured K-
   // DISANAMath-driven observables
   *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
@@ -256,11 +399,6 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_,
   *df_ = define_DISCAT(*df_, "Theta_g_phimeson", &DISANAMath::GetTheta_g_phimeson, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_e_phimeson", &DISANAMath::GetTheta_e_phimeson, beam_energy);
   *df_ = define_DISCAT(*df_, "DeltaE", &DISANAMath::GetDeltaE, beam_energy);
-
-  // expose ready-to-fit aliases for K⁺-missing case
-  *df_ = df_->Define("Mx2_epKm_forCut", [](double v) -> double { return v; }, {"Mx2_epKm"})
-             .Define("Mx_epKm_forCut", [](double v) -> double { return (v > 0) ? std::sqrt(v) : -999.0; }, {"Mx2_epKm_forCut"});
-
   return *df_;
 }
 

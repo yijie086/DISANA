@@ -26,12 +26,12 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
     bool IsMC = false;              // Set to true if you want to run on MC data
     bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
-    bool IsInbending = true;        // Set to true if you want to run on inbending data
+    bool IsInbending = false;        // Set to true if you want to run on inbending data
     bool IsMinimalBook = true;     // Set to true if you want to run minimal booking (only essential histograms)
     //std::string dataconfig = "rgasp18_inb";
     //std::string dataconfig = "rgasp18_outb";
-    std::string dataconfig = "rgafall18_inb";
-    //std::string dataconfig = "rgafall18_outb";
+    //std::string dataconfig = "rgafall18_inb";
+    std::string dataconfig = "rgafall18_outb";
     //std::string dataconfig = "rgasp19_inb";
     
     if (dataconfig == "rgkfa18_7546") {
@@ -46,7 +46,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     std::string inputFileDir = inputDir;
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output directory
-    std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/nsidis_wagon/missing_Km_output/";  // Default output directory
+    //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/nsidis/missing_Km_output/";  // Default output directory
+    std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/nsidis_wagon/missing_Kp_output/";  // Default output directory
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
     std::string inputRootFileName = " ";
     std::string inputRootTreeName = " ";
@@ -61,7 +62,9 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     if (IsreprocRootFile) {
         //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
         //inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
-        inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/inb/";
+        //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/inb/";
+        //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/sp2018/nsidis_wagon/inb/";
+        inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/outb/";
         inputRootFileName = "dfSelected.root";
         inputRootTreeName = "dfSelected";
     }
@@ -314,10 +317,10 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     electron.maxCount = 1;          // Maximum count of electrons
     electron.minFDMomentum = 2.0f;  // Minimum momentum for electrons
 
-    //ParticleCut kMinus;
-    //kMinus.pid = -321;      // KaonM PID
-    //kMinus.charge = -1;    // charge
-    //kMinus.minCount = 1;  // Minimum count of Negative kaons
+    ParticleCut kMinus;
+    kMinus.pid = -321;      // KaonM PID
+    kMinus.charge = -1;    // charge
+    kMinus.minCount = 1;  // Minimum count of Negative kaons
 
     ParticleCut kPos;
     kPos.pid = 321;      // KaonPos PID
@@ -332,8 +335,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
     eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
     eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
-    //eventCuts->AddParticleCut("Neg Kaon", kMinus);      // Applies defaults automatically
-    eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
+    eventCuts->AddParticleCut("Neg Kaon", kMinus);      // Applies defaults automatically
+    //eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
     //eventCuts->AddParticleMotherCut("phi", phi);      // Applies defaults automatically
 
     auto corr = std::make_shared<MomentumCorrection>();
