@@ -46,12 +46,21 @@ class DISANAcomparer {
   void AddModelwithPi0Corr(ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data, ROOT::RDF::RNode df_dvcs_pi0mc, ROOT::RDF::RNode df_pi0_pi0mc, 
                            ROOT::RDF::RNode df_gen_dvcsmc,
                            ROOT::RDF::RNode df_accept_dvcsmc,
+                           ROOT::RDF::RNode df_dvcsmc_bkg,
+                           ROOT::RDF::RNode df_dvcsmc_nobkg,
+                           ROOT::RDF::RNode df_dvcsmc_rad,
+                           ROOT::RDF::RNode df_dvcsmc_norad,
                            const std::string& label,
-                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false) {
-    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc);
-    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction << ", Acceptance Correction: " << fAcceptanceCorrection << std::endl;
+                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false) {
+    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad);
+    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction 
+              << ", Acceptance Correction: " << fAcceptanceCorrection <<  ", Background Merging efficiency: " << fEfficiencyCorrection
+              << ", Radiative Correction: " << fRadiativeCorrection
+              << std::endl;
     plotter->SetPlotApplyCorrection(fPi0Correction);
     plotter->SetPlotApplyAcceptanceCorrection(fAcceptanceCorrection);
+    plotter->SetPlotApplyEfficiencyCorrection(fEfficiencyCorrection);
+    plotter->SetPlotApplyRadiativeCorrection(fRadiativeCorrection);
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
@@ -789,7 +798,7 @@ class DISANAcomparer {
     }
   };
 
-  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double luminosity, double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false,
+  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double luminosity, double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false,
                                                     bool meanKinVar = false) {
     if (plotters.empty()) {
       std::cerr << "No models loaded to compare.\n";
@@ -799,6 +808,8 @@ class DISANAcomparer {
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allEffCorr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allRadCorr;
     // job for chatgpt
     std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
 
@@ -819,6 +830,14 @@ class DISANAcomparer {
         auto hacc = p->ComputeAccCorr(fXbins);
         allAccCorr.push_back(std::move(hacc));
       }
+      if (plotEffCorr) {
+        auto heff = p->ComputeEffCorr(fXbins);
+        allEffCorr.push_back(std::move(heff));
+      }
+      if (plotRadCorr) {
+        auto hrad = p->ComputeRadCorr(fXbins);
+        allRadCorr.push_back(std::move(hrad));
+      }
       if (meanKinVar) {
         allBSAmeans.push_back(getMeanQ2xBt(fXbins, p));
       }
@@ -828,6 +847,8 @@ class DISANAcomparer {
     if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "png", false, false, true, true, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "png", false, true, false, false, meanKinVar);
     if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.001, 0.2, "png", false, true, true, false, meanKinVar);
+    if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "png", false, true, false, false, meanKinVar);
+    if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.5, 1.5, "png", false, true, false, false, meanKinVar);
   }
 
   bool file_exists(const char* name) {

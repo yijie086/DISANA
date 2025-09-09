@@ -20,10 +20,10 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsMC = false;              // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
-  bool IsMinimalBook = true; 
+  bool IsMinimalBook = false; 
   //std::string dataconfig = "rgasp18_inb";
-  std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
-  //std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
+  std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -65,9 +65,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/CheckWithInclusiveData_electron_photon/Outb/");
   //mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_sims/test/");
-  //std::string outputFileDir = "./";  // Default output directory
+  std::string outputFileDir = "./";  // Default output directory
   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/outb/";  // Default output directory
-  std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
+  //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
   mgr.SetOututDir(outputFileDir);
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
   // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
@@ -308,9 +308,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   pi0.nSigmaMass = 3.0;             // choice for nsigma is user dependent
 
   eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
-  //eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
-  //eventCuts->AddParticleCut("photon", photon);      // Applies defaults automatically
-  //eventCuts->AddParticleMotherCut("pi0", pi0);      // Applies defaults automatically
+  eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
+  eventCuts->AddParticleCut("photon", photon);      // Applies defaults automatically
+  eventCuts->AddParticleMotherCut("pi0", pi0);      // Applies defaults automatically
 
   auto corr = std::make_shared<MomentumCorrection>();
   /*
@@ -371,8 +371,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   }
   dvcsTask->SetDoFiducialCut(true);
 
-  dvcsTask->SetDoInvMassCut(false); // in this case pi0 background for two-photon pairs in the event
-  dvcsTask->SetDoMomentumCorrection(false);  // Set to true if you want to apply momentum correction
+  dvcsTask->SetDoInvMassCut(true); // in this case pi0 background for two-photon pairs in the event
+  dvcsTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false); // Set to true to accept all events, false to apply cuts

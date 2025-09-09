@@ -50,12 +50,18 @@ void DISANA_Xplotter2() {
 
   ROOT::EnableImplicitMT();
  
-  std::string input_path_from_analysisRun_7546_data = "./../build/rgk7546dataCorr/";
+  std::string input_path_from_analysisRun_7546_data = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dataCorr/";
   //std::string input_path_from_analysisRun_7546_data_mc = "./../build/rgk7546mcSFCorr";
-  std::string input_path_from_analysisRun_7546_pi0MC = "../build/rgk7546dvpiomcCorr/";
+  std::string input_path_from_analysisRun_7546_pi0MC = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dvpiomcCorr/";
   
-  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "../build/rgk7546dvcsmcAll2000/";
-  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "../build/rgk7546dvcsmcSel2000/";
+  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dvcsmcAll2000/";
+  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dvcsmcSel2000/";
+
+  std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis501/DISANA/build/rgkdvcs7546bkg/";
+  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis501/DISANA/build/rgkdvcs7546nobkg/";
+
+  std::string input_path_from_analysisRun_7546_dvcsmc_rad = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis501/DISANA/build/radcorr/";
+  std::string input_path_from_analysisRun_7546_dvcsmc_norad = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis501/DISANA/build/radcorr/";
 
   std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data.c_str());
   //std::string filename_afterFid_7546_data_mc = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data_mc.c_str());
@@ -63,6 +69,12 @@ void DISANA_Xplotter2() {
 
   std::string filename_afterFid_7546_dvcsmc_gen = Form("%s/dfSelected.root", input_path_from_analysisRun_7546_dvcsmc_gen.c_str());
   std::string filename_afterFid_7546_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_rec.c_str());
+
+  std::string filename_afterFid_7546_dvcsmc_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg.c_str());
+  std::string filename_afterFid_7546_dvcsmc_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg.c_str());
+
+  std::string filename_afterFid_7546_dvcsmc_rad = Form("%s/rad100M.root", input_path_from_analysisRun_7546_dvcsmc_rad.c_str());
+  std::string filename_afterFid_7546_dvcsmc_norad = Form("%s/norad100M.root", input_path_from_analysisRun_7546_dvcsmc_norad.c_str());
 
   float beam_energy = 7.546;
 
@@ -73,7 +85,11 @@ void DISANA_Xplotter2() {
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen = InitGenKinematics(filename_afterFid_7546_dvcsmc_gen, "dfSelected", beam_energy);
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec = InitKinematics(filename_afterFid_7546_dvcsmc_rec, "dfSelected_afterFid_afterCorr", beam_energy);
 
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg = InitKinematics(filename_afterFid_7546_dvcsmc_bkg, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg = InitKinematics(filename_afterFid_7546_dvcsmc_nobkg, "dfSelected_afterFid_afterCorr", beam_energy);
 
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad = InitGenKinematics(filename_afterFid_7546_dvcsmc_rad, "MC", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad = InitGenKinematics(filename_afterFid_7546_dvcsmc_norad, "MC", beam_energy);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
   // DVCS event selection cuts
@@ -92,6 +108,12 @@ void DISANA_Xplotter2() {
 
   auto df_final_dvcs_7546_dvcsmc_rec = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_rec, true);
   auto df_final_dvcsPi_rejected_7546_dvcsmc_rec = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_rec);
+
+  auto df_final_dvcs_7546_dvcsmc_bkg = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_bkg, true);
+  auto df_final_dvcsPi_rejected_7546_dvcsmc_bkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_bkg);
+
+  auto df_final_dvcs_7546_dvcsmc_nobkg = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_nobkg, true);
+  auto df_final_dvcsPi_rejected_7546_dvcsmc_nobkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_nobkg);
 
 
   DISANAcomparer comparer;
@@ -118,7 +140,8 @@ void DISANA_Xplotter2() {
   //xBins.SetXBBins({0.0, 1.0});
   comparer.SetXBinsRanges(xBins);
 
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_pi0MC,df_final_OnlPi0_7546_pi0MC, df_afterFid_7546_dvcsmc_gen, df_final_dvcsPi_rejected_7546_dvcsmc_rec, "RGK 7.5GeV", beam_energy, true, true);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_pi0MC,df_final_OnlPi0_7546_pi0MC, df_afterFid_7546_dvcsmc_gen, df_final_dvcsPi_rejected_7546_dvcsmc_rec, df_final_dvcsPi_rejected_7546_dvcsmc_bkg, df_final_dvcsPi_rejected_7546_dvcsmc_nobkg, df_afterFid_7546_dvcsmc_rad, df_afterFid_7546_dvcsmc_norad, "RGK 7.5GeV", beam_energy, true, true, true, true);
+
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_pi0MC,df_final_OnlPi0_7546_pi0MC, df_afterFid_7546_dvcsmc_gen, df_final_dvcs_7546_dvcsmc_rec, "RGK 7.5GeV rec", beam_energy, false, false);
   //comparer.AddModelwithPi0Corr(df_afterFid_7546_dvcsmc_gen,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_pi0MC,df_final_OnlPi0_7546_pi0MC, df_afterFid_7546_dvcsmc_gen, df_final_dvcs_7546_dvcsmc_rec, "RGK 7.5GeV gen", beam_energy, false, false);
 
@@ -135,7 +158,7 @@ void DISANA_Xplotter2() {
   //comparer.PlotKinematicComparison();
   //comparer.PlotxBQ2tBin();
   //comparer.PlotDVCSKinematicsComparison();
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true);   
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true, true, true);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
@@ -494,7 +517,7 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
                        }
                        return -1;
                      },
-                     {"REC_Particle_pid"})
+                     {"MC_Particle_pid"})
 
              .Define("pro_det_region",
                      [](const ROOT::VecOps::RVec<int>& pid) {
@@ -505,7 +528,7 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
                        }
                        return -1;
                      },
-                     {"REC_Particle_pid"})
+                     {"MC_Particle_pid"})
              .Define("ele_det_region",
                      [](const ROOT::VecOps::RVec<int>& pid) {
                        for (size_t i = 0; i < pid.size(); ++i) {
@@ -515,7 +538,7 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
                        }
                        return -1;
                      },
-                     {"REC_Particle_pid"});
+                     {"MC_Particle_pid"});
 
   *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
   *df_ = define_DISCAT(*df_, "xB", &DISANAMath::GetxB, beam_energy);

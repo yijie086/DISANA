@@ -6,6 +6,7 @@
 #include <vector>
 #include "ROOT/RDataFrame.hxx"
 #include "ROOT/RDF/RInterface.hxx"
+#include "RHipoDS.hxx"
 
 class Events {
 public:
@@ -25,6 +26,7 @@ public:
   std::string getFinalInputPath() const;
 
 private:
+  std::vector<std::string> GetHipoFilesInPath(const std::string& directory, int nfiles);
   std::string fOutputDir_;
 
   bool        fIsReprocessRootFile_;
@@ -36,6 +38,10 @@ private:
   std::optional<ROOT::RDF::RNode> dfNode_;
   std::size_t fileCount_{0};
   std::string finalInputPath_;
+
+  std::vector<std::string> inputFiles;
+  std::unique_ptr<RHipoDS> dataSource;
+  std::shared_ptr<ROOT::RDF::RNode> dfNodePtr;
   
   // NEW: Store paths to temporary files for cleanup
   std::vector<std::string> fTempRootFiles_;

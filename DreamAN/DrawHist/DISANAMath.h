@@ -514,6 +514,73 @@ class DISANAMath {
     }
     return hCorr;
   }
+
+    std::vector<std::vector<std::vector<TH1D*>>> CalcEfficiencyCorr(ROOT::RDF::RNode df_dvcsmc_bkg,
+                        ROOT::RDF::RNode df_dvcsmc_nobkg,
+                        const BinManager &xBins
+                        ) {
+    const size_t n_t  = xBins.GetTBins().size()  - 1;
+    const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
+    const size_t n_xb = xBins.GetXBBins().size() - 1;
+
+    DISANAMath EffCorr;
+    auto df_dvcsmc_bkg_CrossSection = EffCorr.ComputeDVCS_CrossSection(df_dvcsmc_bkg, xBins, 1);
+    auto df_dvcsmc_nobkg_CrossSection = EffCorr.ComputeDVCS_CrossSection(df_dvcsmc_nobkg, xBins, 1);
+    std::vector<std::vector<std::vector<TH1D*>>> hCorr(n_xb,std::vector<std::vector<TH1D*>>(n_q2,std::vector<TH1D*>(n_t, nullptr)));
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          TH1D* h_dvcsmc_bkg = df_dvcsmc_bkg_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_dvcsmc_nobkg = df_dvcsmc_nobkg_CrossSection[xb_bin][q2_bin][t_bin];
+
+          if (!h_dvcsmc_bkg || !h_dvcsmc_nobkg) {
+            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            continue;
+          }
+          TH1D* hRatio = static_cast<TH1D*>(h_dvcsmc_bkg->Clone(Form("hEffCorr_xb%zu_q2%zu_t%zu",xb_bin, q2_bin, t_bin)));
+          hRatio->Reset();
+          hRatio->Divide(h_dvcsmc_bkg, h_dvcsmc_nobkg);
+          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+          
+        }
+      }
+    }
+    return hCorr;
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> CalcRadiativeCorr(ROOT::RDF::RNode df_dvcs_rad,
+                        ROOT::RDF::RNode df_dvcs_norad,
+                        const BinManager &xBins
+                        ) {
+    const size_t n_t  = xBins.GetTBins().size()  - 1;
+    const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
+    const size_t n_xb = xBins.GetXBBins().size() - 1;
+
+    DISANAMath RadCorr;
+    auto df_dvcs_rad_CrossSection = RadCorr.ComputeDVCS_CrossSection(df_dvcs_rad, xBins, 1);
+    auto df_dvcs_norad_CrossSection = RadCorr.ComputeDVCS_CrossSection(df_dvcs_norad, xBins, 1);
+    std::vector<std::vector<std::vector<TH1D*>>> hCorr(n_xb,std::vector<std::vector<TH1D*>>(n_q2,std::vector<TH1D*>(n_t, nullptr)));
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          TH1D* h_dvcs_rad = df_dvcs_rad_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D* h_dvcs_norad = df_dvcs_norad_CrossSection[xb_bin][q2_bin][t_bin];
+
+          if (!h_dvcs_rad || !h_dvcs_norad) {
+            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            continue;
+          }
+          TH1D* hRatio = static_cast<TH1D*>(h_dvcs_rad->Clone(Form("hRadCorr_xb%zu_q2%zu_t%zu",xb_bin, q2_bin, t_bin)));
+          hRatio->Reset();
+          hRatio->Divide(h_dvcs_rad, h_dvcs_norad);
+          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+
+        }
+      }
+    }
+    return hCorr;
+  }
+
 };
 
 #endif // DISANAMATH_H

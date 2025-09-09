@@ -23,7 +23,11 @@ DISANAplotter(
         std::optional<ROOT::RDF::RNode>  df_dvcs_pi0mc    = std::nullopt,
         std::optional<ROOT::RDF::RNode>  df_pi0_pi0mc     = std::nullopt,
         std::optional<ROOT::RDF::RNode>  df_gen_dvcsmc = std::nullopt,
-        std::optional<ROOT::RDF::RNode>  df_accept_dvcsmc = std::nullopt
+        std::optional<ROOT::RDF::RNode>  df_accept_dvcsmc = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_dvcsmc_bkg = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_dvcsmc_nobkg = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_dvcsmc_rad = std::nullopt,
+        std::optional<ROOT::RDF::RNode>  df_dvcsmc_norad = std::nullopt
         )
         :rdf(std::move(df_dvcs_data)),
         rdf_pi0_data(std::move(df_pi0_data)),
@@ -31,6 +35,10 @@ DISANAplotter(
         rdf_pi0_pi0mc(std::move(df_pi0_pi0mc)),
         rdf_gen_dvcsmc(std::move(df_gen_dvcsmc)),
         rdf_accept_dvcsmc(std::move(df_accept_dvcsmc)),
+        rdf_dvcsmc_bkg(std::move(df_dvcsmc_bkg)),
+        rdf_dvcsmc_nobkg(std::move(df_dvcsmc_nobkg)),
+        rdf_dvcsmc_rad(std::move(df_dvcsmc_rad)),
+        rdf_dvcsmc_norad(std::move(df_dvcsmc_norad)),
         beam_energy(beamEnergy)
     {}
 
@@ -71,6 +79,8 @@ using AccEffProvider = std::function<double(double q2lo, double q2hi, double wlo
 void SetAccEffProvider(AccEffProvider f) { accEffProvider_ = std::move(f); }
 void SetPlotApplyCorrection(bool apply) {dopi0corr = apply;}
 void SetPlotApplyAcceptanceCorrection(bool apply) {doacceptcorr = apply;}
+void SetPlotApplyEfficiencyCorrection(bool apply) {doefficiencycorr = apply;}
+void SetPlotApplyRadiativeCorrection(bool apply) {doradiativecorr = apply;}
 bool getDoPi0Corr() const { return dopi0corr; }
   // --- in public: add a const accessor ---
 const std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() const { return phi_dsdt_QW_; }
@@ -141,6 +151,14 @@ std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() { return phi_dsdt_QW_; } // 
     if (doacceptcorr) {
       auto acc3D = ComputeAccCorr(bins);
       result = UseAccCorrection(result, acc3D);
+    }
+    if (doefficiencycorr) {
+      auto eff3D = ComputeEffCorr(bins);
+      result = UseEffCorrection(result, eff3D);
+    }
+    if (doradiativecorr) {
+      auto rad3D = ComputeRadCorr(bins);
+      result = UseRadCorrection(result, rad3D);
     }
     return result;
   }
@@ -238,6 +256,121 @@ std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() { return phi_dsdt_QW_; } // 
                     hNew->SetBinError  (b, err_corr);
                 }
 
+                xsCorr3D[iq][it][ix] = hNew;
+            }
+        }
+    }
+    return xsCorr3D;
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> ComputeEffCorr(const BinManager& bins) {
+    if (!rdf_dvcsmc_bkg || !rdf_dvcsmc_nobkg) {
+      std::cerr << "[ComputeEffCorr] Missing input RDFs.\n";
+      return {};
+    }
+    return kinCalc.CalcEfficiencyCorr(*rdf_dvcsmc_bkg, *rdf_dvcsmc_nobkg, bins);
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> UseEffCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
+                                                                  const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+    if (xs3D.size() != corr3D.size()) {
+        std::cerr << "[UseEffCorrection] Dimension mismatch (level-0)\n";
+        return {};
+    }
+    std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
+    for (size_t iq = 0; iq < xs3D.size(); ++iq) {
+        if (xs3D[iq].size() != corr3D[iq].size()) {
+            std::cerr << "[UseEffCorrection] Dimension mismatch (level-1)\n";
+            return {};
+        }
+        xsCorr3D[iq].resize(xs3D[iq].size());
+        for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+            if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+                std::cerr << "[UseEffCorrection] Dimension mismatch (level-2)\n";
+                return {};
+            }
+            xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+            for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+                TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+                TH1D* hCorr = corr3D[iq][it][ix];   //     c
+              
+                if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+                
+                TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
+
+                const int nb = hXS->GetNbinsX();
+                for (int b = 1; b <= nb; ++b) {
+                    const double xs_val = hXS->GetBinContent(b);
+                    const double xs_err = hXS->GetBinError  (b);
+                    const double c_val  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinContent(b) : 1.0;
+                    const double c_err  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinError  (b) : 0.0; 
+                    double val_corr = xs_val/(c_val);
+                    double err_corr = std::sqrt(
+                        std::pow(xs_err / c_val, 2) +
+                        std::pow(xs_val * c_err / (c_val * c_val), 2));
+                    if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
+                    if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
+                    //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl; 
+                    hNew->SetBinContent(b, val_corr);
+                    hNew->SetBinError  (b, err_corr);
+                }
+                xsCorr3D[iq][it][ix] = hNew;
+            }
+        }
+    }
+    return xsCorr3D;
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> ComputeRadCorr(const BinManager& bins) {
+    if (!rdf_dvcsmc_rad || !rdf_dvcsmc_norad) {
+      std::cerr << "[ComputeRadCorr] Missing input RDFs.\n";
+      return {};
+    }
+    return kinCalc.CalcRadiativeCorr(*rdf_dvcsmc_rad, *rdf_dvcsmc_norad, bins);
+  }
+  std::vector<std::vector<std::vector<TH1D*>>> UseRadCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
+                                                                  const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+    if (xs3D.size() != corr3D.size()) {
+        std::cerr << "[UseRadCorrection] Dimension mismatch (level-0)\n";
+        return {};
+    }
+    std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
+    for (size_t iq = 0; iq < xs3D.size(); ++iq) {
+        if (xs3D[iq].size() != corr3D[iq].size()) {
+            std::cerr << "[UseRadCorrection] Dimension mismatch (level-1)\n";
+            return {};
+        }
+        xsCorr3D[iq].resize(xs3D[iq].size());
+        for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+            if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+                std::cerr << "[UseRadCorrection] Dimension mismatch (level-2)\n";
+                return {};
+            }
+            xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+            for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+                TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+                TH1D* hCorr = corr3D[iq][it][ix];   //     c
+              
+                if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+                
+                TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
+
+                const int nb = hXS->GetNbinsX();
+                for (int b = 1; b <= nb; ++b) {
+                    const double xs_val = hXS->GetBinContent(b);
+                    const double xs_err = hXS->GetBinError  (b);
+                    const double c_val  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinContent(b) : 1.0;
+                    const double c_err  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinError  (b) : 0.0;
+                    double val_corr = xs_val/(c_val);
+                    double err_corr = std::sqrt(
+                        std::pow(xs_err / c_val, 2) +
+                        std::pow(xs_val * c_err / (c_val * c_val), 2));
+                    if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
+                    if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
+                    //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl;
+                    hNew->SetBinContent(b, val_corr);
+                    hNew->SetBinError  (b, err_corr);
+                }
                 xsCorr3D[iq][it][ix] = hNew;
             }
         }
@@ -759,6 +892,8 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   double beam_energy;
   bool dopi0corr = false;
   bool doacceptcorr = false;
+  bool doefficiencycorr = false;
+  bool doradiativecorr = false;
   std::string ttreeName;
   std::vector<ROOT::RDF::RResultPtr<TH1>> kinematicHistos, disHistos;
   std::vector<std::vector<TH1D*>> phi_dsdt_QW_;
@@ -771,6 +906,10 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   std::optional<ROOT::RDF::RNode> rdf_pi0_pi0mc;
   std::optional<ROOT::RDF::RNode> rdf_gen_dvcsmc;
   std::optional<ROOT::RDF::RNode> rdf_accept_dvcsmc;
+  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_bkg;
+  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_nobkg;
+  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_rad;
+  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_norad;
 
   AccEffProvider accEffProvider_ = [](double, double, double, double, double, double) { return 1.0; };
 };

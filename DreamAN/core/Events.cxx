@@ -20,24 +20,42 @@ Events::Events(const std::string& directory, const std::string& outputDirectory,
       fOutputROOTfileName_(fOutputROOTfileName) {
   try {
     if (!fIsReprocessRootFile_) {
-      HipoToRootConverter converter(directory, fOutputDir_, fnfiles_, fnthreads_);
+      if (nthreads > 1) {
+        HipoToRootConverter converter(directory, fOutputDir_, fnfiles_, fnthreads_);
 
-      // --- CHANGED: Use the new `convert` method and get a vector of file paths ---
-      fTempRootFiles_ = converter.convert("temp_hipo_conversion_");
-      fileCount_ = converter.lastInputCount();
-      finalInputPath_ = ""; // No single input path anymore
+        // --- CHANGED: Use the new `convert` method and get a vector of file paths ---
+        fTempRootFiles_ = converter.convert("temp_hipo_conversion_");
+        fileCount_ = converter.lastInputCount();
+        finalInputPath_ = ""; // No single input path anymore
 
-      if (fTempRootFiles_.empty()) {
-        throw std::runtime_error("No .hipo files were converted from: " + directory);
+        if (fTempRootFiles_.empty()) {
+          throw std::runtime_error("No .hipo files were converted from: " + directory);
+        }
+        std::cout << "[Events] Using " << fTempRootFiles_.size()
+                  << " temporary ROOT files for analysis.\n";
+
+        if (fnthreads_ > 0) ROOT::EnableImplicitMT(fnthreads_);
+
+        // --- CHANGED: Construct RDataFrame from the vector of file paths ---
+        auto rdf = ROOT::RDataFrame(std::string(HipoToRootConverter::kSnapshotTreeName), fTempRootFiles_);
+        dfNode_.emplace(rdf);
       }
-      std::cout << "[Events] Using " << fTempRootFiles_.size()
-                << " temporary ROOT files for analysis.\n";
+      if (nthreads == 1) {
+        //std::cout << "Reprocessing ROOT files is disabled." << std::endl;
+        inputFiles = GetHipoFilesInPath(directory, nfiles);
+        if (inputFiles.empty()) {
+          std::cerr << "No .hipo files found in directory: " << directory << std::endl;
+          return;
+        }
 
-      if (fnthreads_ > 0) ROOT::EnableImplicitMT(fnthreads_);
+        std::cout << "Creating RHipoDS from input files..." << std::endl;
+        dataSource = std::make_unique<RHipoDS>(inputFiles);
 
-      // --- CHANGED: Construct RDataFrame from the vector of file paths ---
-      auto rdf = ROOT::RDataFrame(std::string(HipoToRootConverter::kSnapshotTreeName), fTempRootFiles_);
-      dfNode_.emplace(rdf);
+        auto rdf = ROOT::RDataFrame(std::move(dataSource));
+        dfNodePtr = std::make_shared<ROOT::RDF::RNode>(rdf);
+        dfNode_ = std::make_optional<ROOT::RDF::RNode>(*dfNodePtr);
+        std::cout << "DataFrame initialized with " << inputFiles.size() << " input files." << std::endl;
+      }
 
     } else {
       finalInputPath_ = (fs::path(directory) / fOutputROOTfileName_).string();
@@ -76,6 +94,22 @@ Events::~Events() {
       }
     }
   }
+}
+
+std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory, int nfiles) {
+  std::vector<std::string> files;
+  int count = 0;
+  for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
+    if (entry.path().extension() == ".hipo") {
+      files.push_back(entry.path().string());
+      count++;
+    }
+    if (count == nfiles) {
+      break;
+    }
+  }
+  std::cout << "================ " << files.size() << " Files Found ================" << std::endl;
+  return files;
 }
 
 std::optional<ROOT::RDF::RNode> Events::getNode() const { return dfNode_; }
