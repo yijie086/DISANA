@@ -860,6 +860,12 @@ class DISANAcomparer {
                    double xB,
                    double Q2,
                    double t,
+                   double xBmin,
+                   double xBmax,
+                   double Q2min,
+                   double Q2max,
+                   double tmin,
+                   double tmax,
                    const char* filename="h_data.txt") {
     bool exists = file_exists(filename);
 
@@ -870,7 +876,7 @@ class DISANAcomparer {
     }
 
     if (!exists) {
-        fout << "# xB\tQ2\t-t\tphi\tvalue\terror\n";
+        fout << "# xB\tQ2\t-t\tphi\tvalue\terror\txBmin\txBmax\tQ2min\tQ2max\ttmin\ttmax\n";
     }
     for (int ibin = 1; ibin <= h->GetNbinsX(); ++ibin) {
         double phi   = h->GetBinCenter(ibin);
@@ -881,7 +887,13 @@ class DISANAcomparer {
              << t    << "\t"
              << phi  << "\t"
              << value<< "\t"
-             << err  << "\n";
+             << err  << "\t"
+             << xBmin<< "\t"
+             << xBmax<< "\t"
+             << Q2min<< "\t"
+             << Q2max<< "\t"
+             << tmin << "\t"
+             << tmax << "\n";
     }
 
     fout.close();
@@ -1087,7 +1099,8 @@ class DISANAcomparer {
               meanLatex->SetNDC();
               meanLatex->SetTextFont(42);
               meanLatex->Draw();
-              dumpHistogram(h, mean_xB, mean_Q2, mean_t, Form("data_%s.txt", observableName.c_str()));
+              dumpHistogram(h, mean_xB, mean_Q2, mean_t, xb_edges[xb_bin], xb_edges[xb_bin + 1], q2_edges[q2_bin], q2_edges[q2_bin + 1],
+                              t_edges[t_bin], t_edges[t_bin + 1], Form("data_%s.txt", observableName.c_str()));
             }
           }
           if (!Doplot) {
