@@ -172,10 +172,10 @@ class DISANAcomparer {
   // Plot all basic kinematic distributions (p, theta, phi) for all particle types
   void PlotKinematicComparison_phiAna() {
     TCanvas* canvas = new TCanvas("KinematicComparison", "Kinematic Comparison", 1800, 1200);
-    canvas->Divide(3, 4);
+    canvas->Divide(4, 4);
 
     std::vector<std::string> types = {"el", "pro", "kPlus", "kMinus"};
-    std::vector<std::string> vars = {"p", "theta", "phi"};
+    std::vector<std::string> vars = {"p", "theta", "phi", "vz"};
 
     int pad = 1;
     for (const auto& type : types) {
@@ -1302,6 +1302,6 @@ class DISANAcomparer {
 
   std::vector<std::string> particleName = {"e", "p", "#gamma"};
   std::map<std::string, std::string> typeToParticle = {{"el", "electron"}, {"pro", "proton"}, {"pho", "#gamma"}, {"kMinus", "K^{-}"}, {"kPlus", "K^{+}"}};
-  std::map<std::string, std::string> VarName = {{"p", "p (GeV/#it{c})"}, {"theta", "#theta (rad)"}, {"phi", "#phi(rad)"}};
+  std::map<std::string, std::string> VarName = {{"p", "p (GeV/#it{c})"}, {"theta", "#theta (rad)"}, {"phi", "#phi(rad)"},{"vz", "v_{z}(cm)"}};
 };
 #endif  // DISANA_COMPARER_H

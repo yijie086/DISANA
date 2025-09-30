@@ -87,7 +87,7 @@ static bool ReadQuadParams(const std::string& txtPath, std::array<double,3>& par
         if (eat("p2")) ++found;
         if (found >= 3) break;
     }
-    return (found >= 3);
+    return (found >= 2);
 }
 
 // Core evaluator for Δp given p, θ and quadratic-in-θ parameter sets
@@ -118,7 +118,7 @@ void PlotMomentumCorrectionVsTheta_FromParamFits(const int selectedPid,
                                                  double thetaMinDeg,
                                                  double thetaMaxDeg,
                                                  int nThetaPoints = 200,
-                                                 const std::string& baseDir = "ParticleDeltaPPlots/ParamFits")
+                                                 const std::string& baseDir = "ParticleDeltaPPlots/ParamFits", bool isOutBend = true)
 {
     // ---- inputs & files -----------------------------------------------------
     std::string det = DetNorm(selecteddetector);
@@ -167,13 +167,19 @@ void PlotMomentumCorrectionVsTheta_FromParamFits(const int selectedPid,
     const int baseMarker = 20;
 
     // Legend: adapt columns for many lines
-    int ncol = (int)pValues.size() > 8 ? 3 : ((int)pValues.size() > 4 ? 2 : 1);
+    /*int ncol = (int)pValues.size() > 8 ? 3 : ((int)pValues.size() > 4 ? 2 : 1);
     auto *leg = new TLegend(0.62, 0.62, 0.90, 0.88);
     leg->SetBorderSize(0);
     leg->SetFillStyle(0);
     leg->SetTextSize(0.028);
     leg->SetNColumns(ncol);
     leg->SetHeader("p (GeV)", "C");
+    */
+   TLegend *leg = new TLegend(0.58, 0.68, 0.88, 0.88);
+  leg->SetBorderSize(0);
+  leg->SetFillStyle(0);
+  
+  leg->Draw();
 
     // ---- build curves; track global y-range --------------------------------
     double yMin = std::numeric_limits<double>::infinity();
@@ -203,7 +209,8 @@ void PlotMomentumCorrectionVsTheta_FromParamFits(const int selectedPid,
         mg->Add(gr, "L");
         keepAlive.push_back(gr);
 
-        leg->AddEntry(gr, Form("%.3g", p), "l");
+        //leg->AddEntry(gr, Form("%.3g", p), "l");
+        leg->AddEntry(gr, Form("p = %.2f GeV", pValues[ip]), "l");
     }
 
     // ---- draw, format axes, set ranges -------------------------------------
@@ -225,7 +232,7 @@ void PlotMomentumCorrectionVsTheta_FromParamFits(const int selectedPid,
     // Sensible default ranges (your original special cases) with fallback to autoscale
     bool appliedSpecial = false;
     if (det == "FD" && selectedPid == 2212) {
-        yax->SetRangeUser(-0.02, 0.03);
+        yax->SetRangeUser(0.0, 0.051);
         appliedSpecial = true;
     } else if ((det == "CD" || det == "DC") && selectedPid == 2212) {
         yax->SetRangeUser(-0.03, 0.03);
@@ -779,7 +786,7 @@ void DrawDeltaPByThetaBins(
     const std::string selecteddetector,
     const std::vector<std::tuple<std::string,std::string,std::string,int,double,double,int,double,double>> &plotVars,
     const std::string &filename,
-    const std::string &treename, const std::string& outDir ="ProtonMomCorr_Fall2018_inb_DeltaPPlots") {
+    const std::string &treename, const std::string& outDir ="ProtonMomCorr_Fall2018_inb_DeltaPPlots", bool isOutBend = false) {
     TStopwatch timer;
     timer.Start();
 
@@ -924,7 +931,7 @@ void DrawDeltaPByThetaBins(
 
             if (selectedPid == 2212) { // Proton
                 if (selecteddetector == "FD") {
-                    fitExpr = "[0] + [1]/x + [2]/(x*x)";
+                    fitExpr = "[0] + [1]/x+[2]/(x*x)";
                 } else if (selecteddetector == "CD") {
                     fitExpr = "[0] + [1]*x + [2]*x*x";  // a + bx + cx^2
                 } else {
@@ -939,6 +946,12 @@ void DrawDeltaPByThetaBins(
             }
 
             fitFunc = new TF1("fitFunc", fitExpr.c_str(), v.binHists[ti]->GetXaxis()->GetXmin(), v.binHists[ti]->GetXaxis()->GetXmax());
+             if (selecteddetector == "FD"&& isOutBend) {
+                    fitFunc->FixParameter(2, 0.0); // For outbending FD protons, fix the C constant term to 0
+            }
+            fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
+            //fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
+            //fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
 
 
             if (gPeak2->GetN() > 2) {
@@ -953,7 +966,7 @@ void DrawDeltaPByThetaBins(
                 foutFit.close();
 
                 fitFunc->SetLineColor(kBlue + 2);
-                fitFunc->SetLineWidth(2);
+                fitFunc->SetLineWidth(4);
                 fitFunc->Draw("SAME");
 
                 // === 记录每个 bin 的 theta center 和 拟合参数 ===
@@ -1044,12 +1057,17 @@ void DrawDeltaPByThetaBins(
     };
 
     if (selecteddetector == "FD") {
-        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
-        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
-        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
-        //PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
-        //PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
-        //PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+         if (isOutBend) {
+            PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+            PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+            PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+        }
+        else{
+            PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
+            PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
+            PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
+        }
+   
     } else if (selecteddetector == "CD") {
         PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
         PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
@@ -1071,18 +1089,19 @@ void analysisMomentumCorrection() {
      ROOT::EnableImplicitMT(6); 
     //std::string path = "../build/rgk7546dvcsmcAll/";
     //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/outb/";
-    std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/class_dis/";
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/spring2018/outb/";
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/spring2018/inb/";
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/class_dis/";
     std::string filename = path + "dfSelected_afterFid.root";
     std::string filenameCorrected = path + "dfSelected_afterFid_afterCorr.root";
     std::string treename = "dfSelected_afterFid";
     std::string treenameCorrected = "dfSelected_afterFid_afterCorr";
-
-    const std::string& outDir ="ProtonMomCorr_sp2018_inb_DeltaPPlots/";
+    bool isOutBend = false; // set to true for outbending data, false for inbending data
+    const std::string& outDir ="ProtonMomCorr_sp2018_outb_DeltaPPlots/";
 
     std::vector<float> thetaCutsFDelectron = {10,15,20,25};
-    std::vector<float> thetaCutsFDproton = {5,6.3, 7.6, 8.9, 10.2, 11.5,13,14,15,16,17,18,19,20,21,22,23,24,25,
-                                            26,27,28,29,30,31,32,33,35,42};
+    std::vector<float> thetaCutsFDproton = {5.5,7.0,8.0,9.0,10.0, 11.2,12.2,14,15,16,17,18,19,20,21,22,23,24,25,
+                                            26,27,28,29,30,31,32,33,35,40};
     std::vector<float> thetaCutsFDphoton = {10,15,20,25};
 
     std::vector<float> thetaCutsCDproton = {33.0,36.1,39.2,42.3,45.3,48.4,51.5,54.6,57.7,60.7,63.8,66.9,70.0};
@@ -1188,10 +1207,17 @@ void analysisMomentumCorrection() {
     DrawDeltaPByThetaBins(11,thetaCutsFTelectron,"FT",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-1.0,1.0}},filename,treename);
     DrawDeltaPByThetaBins(11,{0},"ALL",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.1,0.1}},filename,treename);
   */
+
+    //Draw2DParticleKinematicsByThetaBins(2212,{0},"FD",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,60}},filename,treename);
+    //Draw2DParticleKinematicsByThetaBins(2212,{0},"FD",{{"proton_phi_vs_theta","proton phi vs theta","phi:theta",500,0,360,500,0,60}},filename,treename);
+    //Draw2DParticleKinematicsByThetaBins(2212,{0},"CD",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,2,500,20,150}},filename,treename);
+    //Draw2DParticleKinematicsByThetaBins(2212,{0},"CD",{{"proton_phi_vs_theta","proton phi vs theta","phi:theta",500,0,360,500,20,150}},filename,treename);
+    //Draw2DParticleKinematicsByThetaBins(2212,{0},"ALL",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,150}},filename,treename);
+  
    
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename,outDir);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.2,0.2}},filename,treename,outDir);
-    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,2,100,-0.1,0.1}},filename,treename,outDir);
+    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0.2,6,100,-0.05,0.05}},filename,treename,outDir, isOutBend);
+    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0.01,2.5,100,-0.2,0.2}},filename,treename,outDir, isOutBend);
+    DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,8,100,-0.1,0.1}},filename,treename,outDir, isOutBend);
     //DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2.5,100,-0.1,0.1}},filenameCorrected,treenameCorrected);
     //DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2.5,100,-0.2,0.2}},filenameCorrected,treenameCorrected);
 

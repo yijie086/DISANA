@@ -17,13 +17,13 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     } else {
         std::cout << "[RunPhiAnalysis] IMT disabled (single thread mode).\n";
   }
-  bool IsMC = false;              // Set to true if you want to run on MC data
-  bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
+  bool IsMC = true;              // Set to true if you want to run on MC data
+  bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = false; 
   //std::string dataconfig = "rgasp18_inb";
-  //std::string dataconfig = "rgasp18_outb";  // Set to "rgasp18_inb" for inbending data, "rgasp18_outb" for outbending data
-  std::string dataconfig = "rgkfa18_7546";
+  std::string dataconfig = "rgasp18_outb";  
+  //std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -54,7 +54,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // If you are reprocossing the existing output you may want to change the path and ttree name if you are using a different ROOT file
   if (IsreprocRootFile) {
     //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
-    inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
+    /// DVCSGen RGA
+    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/accept_all/"; 
+    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
     // inputFileDir = "./";
     inputRootFileName = "dfSelected.root";
     inputRootTreeName = "dfSelected";
@@ -68,11 +70,25 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   std::string outputFileDir = "./";  // Default output directory
   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/outb/";  // Default output directory
   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
+  // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
+  // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
+
+  if(dataconfig == "rgasp18_inb"){
+    //outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/";//// DVCS data
+    //outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/inb/";//// DVCS aaogen
+    outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/accept_all/";//// DVCSgen accept all
+    //outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/test_nthread/";
+    
+  }else if(dataconfig == "rgasp18_outb"){
+    //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/";// DVCS data
+    //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/test_nthread/";// DVCS data
+    
+    //outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";//// DVCSgen accept all
+    outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/rec/";//// DVCSgen accept all
+
+    //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/outb/";// //// DVCS aaogen
+  }
   mgr.SetOututDir(outputFileDir);
-  // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
-  // mgr.SetOututDir("/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/test/");
-
-
   // fiducial cuts///
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
   /*auto theta_bins = std::vector<std::pair<float, float>>({{5.0 * M_PI / 180, 10.0 * M_PI / 180},
@@ -258,15 +274,15 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     proton.charge = 1;                              // Proton charge
     proton.minCount = 1;                            // Minimum count of protons
     proton.maxCount = 100;                            // Maximum count of protons
-    /*proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
+    proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
     if (IsInbending) proton.minFDMomentum = 0.42f;  // Minimum momentum for protons in FD Inbending
     if (!IsInbending) proton.minFDMomentum = 0.5f;  // Minimum momentum for protons in FD Outbending
-    proton.maxCDMomentum = 1.2f;                    // Maximum momentum for protons
-    proton.maxFDMomentum = 1.2f;                    // Maximum momentum for protons
+    ///proton.maxCDMomentum = 1.2f;                    // Maximum momentum for protons
+    //proton.maxFDMomentum = 1.2f;                    // Maximum momentum for protons
     proton.minTheta = 0.0f;                         // Minimum theta for protons
     proton.maxTheta = 64.23 * M_PI / 180.0;         // Maximum theta for protons (approximately 64.23 degrees)
     proton.minPhi = 0.0f;                           // Minimum phi for protons
-    proton.maxPhi = 2.0f * M_PI;*/
+    proton.maxPhi = 2.0f * M_PI;
   }
   if (dataconfig == "rgkfa18_7546") {
     proton.pid = 2212;                              // Proton PID
@@ -351,6 +367,44 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
         return p + (A_p + B_p / p + C_p / (p * p));
       });
+  } 
+  if (dataconfig == "rgasp18_inb") {
+    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 inb
+        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
+          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+          float A_p = -0.229055 + 0.00924571 * theta - 9.09927e-05 * theta * theta;
+          float B_p = 0.371002 - 0.0146818 * theta + 0.000146548 * theta * theta;
+          float C_p = -0.174565 + 0.00680452 * theta - 6.9e-05 * theta * theta;
+          return p + (A_p + B_p * p + C_p * p * p);
+        });
+    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 inb
+        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
+          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+          float A_p = 0.0146275 - 0.00124929 * theta + 3.64154e-05 * theta * theta;
+          float B_p = -0.00743169 + 0.000458648 * theta - 6.45703e-06 * theta * theta;
+          float C_p = 0.0175282 - 0.00128554 * theta + 3.5249e-05 * theta * theta;
+
+          return p + (A_p + B_p / p + C_p / (p * p));
+        });
+  }
+  if (dataconfig == "rgasp18_outb") {
+    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGK sp18 out
+        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
+          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+          float A_p = -0.204359 + 0.00857339 * theta - 8.79867e-05 * theta * theta;
+          float B_p = 0.402543 - 0.0168624 * theta + 0.000178539 * theta * theta;
+          float C_p = -0.217865 + 0.00908787 * theta - 9.77617e-05 * theta * theta;
+          return p + (A_p + B_p * p + C_p * p * p);
+        });
+    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 out
+        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
+          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+          float A_p = 0.00523188 - 9.43614e-05 * theta;
+          float B_p = -0.00887291 + 0.000759277 * theta;
+          float C_p = 0;
+
+          return p + (A_p + B_p / p + C_p / (p * p));
+        });
   }
   // Task
   auto dvcsTask = std::make_unique<DVCSAnalysis>(IsMC, IsreprocRootFile, IsMinimalBook);

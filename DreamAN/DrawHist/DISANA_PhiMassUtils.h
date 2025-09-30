@@ -323,34 +323,46 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
                                 TString xtitle = "M(K^{+}K^{-}) [GeV]",
                                 TString ytitle = "Counts",
                                 double fit_range_min = 0.9,
-                                double fit_range_max = 1.25,
+                                double fit_range_max = 1.2,
                                 bool fit = true,
                                 const std::string& tag = "",
                                 double annotate_sigma_for_count = 3.0) {
   const std::string safe = MakeSafeName(tag);
   TCanvas* c = new TCanvas(("c_" + outname).c_str(), title.c_str(), 1200, 1000);
   StyleCanvas(c);
-  StyleH1(hist, xtitle, ytitle, fit_range_min - .02, fit_range_max);
+  StyleH1(hist, xtitle, ytitle, 0.97, fit_range_max);
   hist->Draw("PE");
 
-  TLegend* leg = new TLegend(0.62, 0.70, 0.95, 0.89);
+  TLegend* leg = new TLegend(0.54, 0.50, 0.95, 0.68);
   leg->SetBorderSize(0);
   leg->SetFillStyle(0);
   leg->AddEntry(hist, "K^{+}K^{-} Inv. Mass", "lep");
-
+  //gPad->SetGrid();
   PhiMassWindow win;
 
   if (fit) {
-    TF1* fitTotal = new TF1(("fitTotal_" + safe).c_str(),
-                            "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874)) + [3]*TMath::Gaus(x,[4],[5])",
-                            fit_range_min, fit_range_max);
+    const double bw = hist->GetXaxis()->GetBinWidth(1);
+    std::cout << "Bin width: " << bw << std::endl;
 
-    fitTotal->SetParameters(10, 0.9, 2, 100, 1.02, 0.010);
-    fitTotal->SetParLimits(4, .90, 1.090);
-    fitTotal->SetParLimits(5, 0.001, 0.4);
+    std::string name = "fitTotal_" + safe;
+    std::string formula = Form(
+        // Background: [0]*(x-0.9874)^[1] * exp(-[2]*(x-0.9874))
+        "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))"
+        " + "
+        // Signal (counts/bin): [3] (=Nsig) * bw * Gaussian_pdf(x; [4]=mean, [5]=sigma)
+        "[3]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[4])/([5]),2))/TMath::Abs([5])",
+        bw);
+
+    TF1* fitTotal = new TF1(name.c_str(), formula.c_str(), fit_range_min, fit_range_max);
+
+    //[0]*0.398942*bw*TMath::Exp(-0.5*((x-[1])/([2]))*((x-[1])/([2])))/TMath::Abs([2])
+    // params: [0]=Abkg(scale), [1]=alpha, [2]=lambda, [3]=Nsig(yield), [4]=mu, [5]=sigma
+    fitTotal->SetParameters(100, 0.9, 2, 100, 1.02, 0.010);
+    fitTotal->SetParLimits(4, .89, 1.05);
+    fitTotal->SetParLimits(5, 0.0001, 0.06);
     fitTotal->SetLineColor(kRed + 1);
     fitTotal->SetLineWidth(3);
-    hist->Fit(fitTotal, "R0Q");
+    hist->Fit(fitTotal, "R0QL");
     fitTotal->Draw("SAME C");
 
     double A = fitTotal->GetParameter(0);
@@ -362,7 +374,7 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
     double chi2 = fitTotal->GetChisquare();
     double ndf = fitTotal->GetNDF();
 
-    TF1* fitSignal = new TF1(("fitSignal_" + safe).c_str(), "[0]*TMath::Gaus(x,[1],[2])", fit_range_min, fit_range_max);
+    TF1* fitSignal = new TF1(("fitSignal_" + safe).c_str(), Form("[0]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[1])/([2]),2))/TMath::Abs([2])",bw), fit_range_min, fit_range_max);
     fitSignal->SetParameters(N, win.mu, win.sigma);
     fitSignal->SetLineColor(kOrange + 1);
     fitSignal->SetLineStyle(2);
@@ -370,7 +382,7 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
     fitSignal->SetFillColorAlpha(kOrange - 3, 0.3);
     fitSignal->SetFillStyle(1001);
     fitSignal->Draw("SAME FC");
-
+   
     TF1* fitBkg = new TF1(("fitBkg_" + safe).c_str(),
                            "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))",
                            fit_range_min, fit_range_max);
@@ -382,9 +394,9 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
     fitBkg->SetFillStyle(1001);
     fitBkg->Draw("SAME FC");
 
-    const auto lr = FitWindowFromGaussianCore(fitTotal, annotate_sigma_for_count);
-    win.low = lr.first;
-    win.high = lr.second;
+
+    win.low = win.mu - annotate_sigma_for_count * win.sigma;
+    win.high = win.mu + annotate_sigma_for_count * win.sigma;
 
     TLine* line1 = new TLine(win.low, 0, win.low, hist->GetMaximum() * 0.5);
     TLine* line2 = new TLine(win.high, 0, win.high, hist->GetMaximum() * 0.5);
@@ -400,20 +412,14 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
     TLatex latex;
     latex.SetNDC();
     latex.SetTextSize(0.035);
-    latex.DrawLatex(0.15, 0.92, Form("%s", tag.empty() ? "" : tag.c_str()));
-    latex.DrawLatex(0.15, 0.87, Form("#mu = %.4f GeV", win.mu));
-    latex.DrawLatex(0.15, 0.82, Form("#sigma = %.4f GeV", win.sigma));
-    latex.DrawLatex(0.15, 0.77, Form("#chi^{2}/ndf = %.2f", chi2 / std::max(1.0, ndf)));
-    latex.DrawLatex(0.15, 0.72, Form("Fit range: %.3f-%.3f GeV", fit_range_min, fit_range_max));
-
+    latex.DrawLatex(0.55, 0.91, Form("%s", tag.empty() ? "" : tag.c_str()));
+    latex.DrawLatex(0.55, 0.86, Form("#mu = %.3f GeV, #sigma = %.3f GeV", win.mu, win.sigma));
+    latex.DrawLatex(0.55, 0.81, Form("#chi^{2}/ndf = %.2f", chi2 / std::max(1.0, ndf)));
+    latex.DrawLatex(0.55, 0.76, Form("Fit range: %.3f-%.3f GeV", fit_range_min, fit_range_max));
+    const double Nsig = fitTotal->GetParameter(3);
+    const double Nsig_err = fitTotal->GetParError(3);
     if (annotate_sigma_for_count > 0 && std::isfinite(win.mu) && std::isfinite(win.sigma) && win.sigma > 0) {
-      const double lo = win.mu - annotate_sigma_for_count * win.sigma;
-      const double hi = win.mu + annotate_sigma_for_count * win.sigma;
-      int binLo = hist->GetXaxis()->FindBin(lo);
-      int binHi = hist->GetXaxis()->FindBin(hi);
-      long long nCand = 0;
-      for (int b = binLo; b <= binHi; ++b) nCand += (long long)std::llround(hist->GetBinContent(b));
-      latex.DrawLatex(0.15, 0.67, Form("N_{|M-#mu|<%.0f#sigma} = %lld", annotate_sigma_for_count, nCand));
+        latex.DrawLatex(0.55, 0.71, Form("N_{#phi} (total) = %.1f #pm %.1f", Nsig, Nsig_err));
     }
 
     leg->AddEntry(fitTotal, "Total Fit: Thr.Exp + Gauss", "l");
@@ -434,7 +440,7 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
 // -------------------------------------------------------------------------------------
 inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_Measured(ROOT::RDF::RNode df_in,
                                  const std::string &outputDir, const std::string &tag,
-                                 int nBins = 200, double xMin = 0.8, double xMax = 1.6, double fit_range_min = 0.9874, double fit_range_max = 1.12, double nSigma = 3.0) {
+                                 int nBins = 200, double xMin = 0.8, double xMax = 1.6, double fit_range_min = 0.9874, double fit_range_max = 1.2, double nSigma = 3.0) {
   const std::string safe = MakeSafeName(tag);
   auto df = DefineInvMassFromVecs(df_in, "Mphi_meas", "kPlus_px","kPlus_py","kPlus_pz",
                                                  "kMinus_px","kMinus_py","kMinus_pz")
@@ -452,7 +458,7 @@ inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_Measured(ROOT::RD
 
 inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_Kp_plus_KmMissing(ROOT::RDF::RNode df_in,
                                           const std::string &outputDir, const std::string &tag,
-                                          int nBins = 200, double xMin = 0.8, double xMax = 1.6, double fit_range_min = 0.9874, double fit_range_max = 1.12, double nSigma = 3.0) {
+                                          int nBins = 200, double xMin = 0.8, double xMax = 1.6, double fit_range_min = 0.9874, double fit_range_max = 1.2, double nSigma = 3.0) {
   const std::string safe = MakeSafeName(tag);
   auto df = DefineInvMassFromVecs(df_in, "Mphi_Kp_KmMiss",
                                   "kPlus_px","kPlus_py","kPlus_pz",
@@ -471,7 +477,7 @@ inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_Kp_plus_KmMissing
 
 inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_KpMissing_plus_Km(ROOT::RDF::RNode df_in,
                                           const std::string &outputDir, const std::string &tag,
-                                          int nBins = 200, double xMin = 0.8, double xMax = 1.6, double fit_range_min = 0.9874, double fit_range_max = 1.12, double nSigma = 3.0) {
+                                          int nBins = 200, double xMin = 0.8, double xMax = 1.6, double fit_range_min = 0.9874, double fit_range_max = 1.2, double nSigma = 3.0) {
   const std::string safe = MakeSafeName(tag);
   auto df = DefineInvMassFromVecs(df_in, "Mphi_KpMiss_Km",
                                   "kPlus_miss_px","kPlus_miss_py","kPlus_miss_pz",
@@ -556,3 +562,75 @@ inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_FromNode(ROOT::RD
 
 } // namespace PhiMass
 } // namespace DISANA
+void PlotEventOverview(ROOT::RDF::RNode df, const std::string &outdir,
+                       const std::string &tag = "overview") {
+  // book histograms
+  auto hRun        = df.Histo1D({"hRun",   "Run number;Run;Counts",          200, 0, 20000}, "RunNumber");
+  auto hEvent      = df.Histo1D({"hEvent", "Event number;Event;Counts",     1000, 0, 1e7},   "EventNumber");
+  // integer-centered bins: [-0.5, 10.5] so N=0,1,2,... are at bin centers
+  auto hNElec      = df.Histo1D({"hNElec",      "Electron multiplicity (before);N_{e};Counts",  11, -0.5, 10.5}, "nElectrons");
+  auto hNElec_best = df.Histo1D({"hNElec_best", "Electron multiplicity (after best-mask);N_{e};Counts", 11, -0.5, 10.5}, "nElectrons_best");
+  auto hEleP       = df.Histo1D({"hEleP",  "Selected electron momentum;p [GeV/c];Counts",      200, 0, 10}, "recel_p");
+  auto hRunVsEvent = df.Histo2D({"hRunVsEvent", "Run vs Event;Run;Event",    200, 0, 20000, 200, 0, 1e7}, "RunNumber", "EventNumber");
+
+  // canvas layout: 3x2 grid
+  TCanvas *c = new TCanvas(Form("cOverview_%s", tag.c_str()), "Event Overview", 1600, 1000);
+  c->Divide(3,2);
+
+  c->cd(1); hRun->Draw();
+  c->cd(2); hEvent->Draw();
+
+  // (3) overlay before vs after
+  c->cd(3);
+  gPad->SetGrid();
+  hNElec->SetLineColor(kBlue+1);
+  hNElec->SetLineWidth(2);
+  hNElec->Draw("HIST");
+  hNElec_best->SetLineColor(kRed+1);
+  hNElec_best->SetLineWidth(2);
+  hNElec_best->Draw("HIST SAME");
+  auto leg = new TLegend(0.55,0.72,0.88,0.88);
+  leg->AddEntry(hNElec.GetPtr(),      "before (nElectrons)",      "l");
+  leg->AddEntry(hNElec_best.GetPtr(), "after (nElectrons_{best})","l");
+  leg->Draw();
+
+  // (4) selected-electron momentum
+  c->cd(4); hEleP->Draw();
+
+  // (5) run vs event
+  c->cd(5); gPad->SetLogz(); hRunVsEvent->Draw("COLZ");
+
+  // (6) ratio (after/before) with binomial errors
+  c->cd(6);
+  TH1D* hRatio = (TH1D*)hNElec_best->Clone("hNElec_ratio");
+  hRatio->SetTitle("After/Before multiplicity ratio;N_{e};(after)/(before)");
+  hRatio->Divide(hNElec_best.GetPtr(), hNElec.GetPtr(), 1.0, 1.0, "B");
+  hRatio->SetMinimum(0.0);
+  hRatio->SetMaximum(1.2);
+  hRatio->SetLineWidth(2);
+  hRatio->Draw("HIST");
+
+  // annotate counts for N_e=1
+  int bin1 = hNElec->GetXaxis()->FindBin(1.0);
+  double n1_before = hNElec->GetBinContent(bin1);
+  double n1_after  = hNElec_best->GetBinContent(bin1);
+  auto txt = new TPaveText(0.55,0.55,0.88,0.70,"NDC");
+  txt->AddText(Form("N_{e}=1 before: %.0f", n1_before));
+  txt->AddText(Form("N_{e}=1 after : %.0f", n1_after));
+  txt->SetFillColor(0);
+  txt->SetBorderSize(1);
+  c->cd(3); txt->Draw();
+
+  // save
+  TString pdf = Form("%s/EventOverview_%s.pdf", outdir.c_str(), tag.c_str());
+  c->SaveAs(pdf);
+
+  // optional ROOT file
+  TFile fout(Form("%s/EventOverview_%s.root", outdir.c_str(), tag.c_str()), "RECREATE");
+  hRun->Write(); hEvent->Write();
+  hNElec->Write(); hNElec_best->Write(); hRatio->Write();
+  hEleP->Write(); hRunVsEvent->Write();
+  fout.Close();
+
+  std::cout << "[PlotEventOverview] Saved to " << pdf << std::endl;
+}

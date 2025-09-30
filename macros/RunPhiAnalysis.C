@@ -25,13 +25,13 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     }
 
     bool IsMC = false;              // Set to true if you want to run on MC data
-    bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
+    bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
     bool IsInbending = false;        // Set to true if you want to run on inbending data
-    bool IsMinimalBook = true;     // Set to true if you want to run minimal booking (only essential histograms)
+    bool IsMinimalBook = false;     // Set to true if you want to run minimal booking (only essential histograms)
     //std::string dataconfig = "rgasp18_inb";
-    //std::string dataconfig = "rgasp18_outb";
+    std::string dataconfig = "rgasp18_outb";
     //std::string dataconfig = "rgafall18_inb";
-    std::string dataconfig = "rgafall18_outb";
+    //std::string dataconfig = "rgafall18_outb";
     //std::string dataconfig = "rgasp19_inb";
     
     if (dataconfig == "rgkfa18_7546") {
@@ -47,8 +47,16 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output directory
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/nsidis/missing_Km_output/";  // Default output directory
-    std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/nsidis_wagon/missing_Kp_output/";  // Default output directory
+    //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
+    //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output directory
     //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
+    // DVCS wagons
+    //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/";  // Default output directory
+    std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/";  // Default output directory
+    //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/";  // Default output directory
+    //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/";  // Default output directory
+    /*std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
+    *////outputFileDir = "./"; // local output directory
     std::string inputRootFileName = " ";
     std::string inputRootTreeName = " ";
     std::string inputHipoDirTest = " ";
@@ -63,8 +71,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
         //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
         //inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
         //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/inb/";
-        //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/sp2018/nsidis_wagon/inb/";
-        inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/outb/";
+        inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/sp2018/nsidis_wagon/inb/";
+        //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/outb/";
         inputRootFileName = "dfSelected.root";
         inputRootTreeName = "dfSelected";
     }
@@ -117,13 +125,6 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddCVTFiducialRange(2212, 12, "phi", 21.0, 31.0);    // Proton CVT fiducial cuts
     trackCuts->AddCVTFiducialRange(2212, 12, "phi", 148.0, 158.0);  // Proton CVT fiducial cuts
 
-    trackCuts->AddFTCalFiducialRange(22, 1, 0, 0, 0.0, 8.5);           // Photon FTCal fiducial cuts
-    trackCuts->AddFTCalFiducialRange(22, 1, 0, 0, 15.5, 100.0);        // Photon FTCal fiducial cuts
-    trackCuts->AddFTCalFiducialRange(22, 1, -8.42, 9.89, 0.0, 1.6);    // Photon FTCal fiducial cuts
-    trackCuts->AddFTCalFiducialRange(22, 1, -9.89, -5.33, 0.0, 1.6);   // Photon FTCal fiducial cuts
-    trackCuts->AddFTCalFiducialRange(22, 1, -6.15, -13.00, 0.0, 2.3);  // Photon FTCal fiducial cuts
-    trackCuts->AddFTCalFiducialRange(22, 1, 3.7, -6.5, 0.0, 2.0);      // Photon FTCal fiducial cuts
-
     trackCuts->AddFTCalFiducialRange(11, 1, 0, 0, 0.0, 8.5);           // Electron FTCal fiducial cuts
     trackCuts->AddFTCalFiducialRange(11, 1, 0, 0, 15.5, 100.0);        // Electron FTCal fiducial cuts
     trackCuts->AddFTCalFiducialRange(11, 1, -8.42, 9.89, 0.0, 1.6);    // Electron FTCal fiducial cuts
@@ -158,6 +159,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddPCalFiducialRange(11, 3, "lv", 346.5, 378.0);
     // Sector 4, PCal,
     trackCuts->AddPCalFiducialRange(11, 4, "lv", 0.0, 13.5);
+
     trackCuts->AddPCalFiducialRange(11, 4, "lv", 229.5, 243.0);
     // Sector 6, PCal,
     trackCuts->AddPCalFiducialRange(11, 6, "lw", 166.5, 193.5);
@@ -172,29 +174,6 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddECoutFiducialRange(11, 1, "lv", 0.0, 40.5);
     trackCuts->AddECoutFiducialRange(11, 5, "lv", 193.5, 216.0);
 
-    // Cal fiducial cuts for photon, sector, side, min, max
-    /*trackCuts->AddPCalFiducialRange(22, 1, "lw", 72.0, 94.5);
-    trackCuts->AddPCalFiducialRange(22, 1, "lw", 220.5, 234.0);
-    // Sector 2, PCal
-    trackCuts->AddPCalFiducialRange(22, 2, "lv", 99.0, 117.5);
-    // Sector 3, PCal,
-    trackCuts->AddPCalFiducialRange(22, 3, "lv", 346.5, 378.0);
-    // Sector 4, PCal,
-    trackCuts->AddPCalFiducialRange(22, 4, "lv", 0.0, 13.5);
-    trackCuts->AddPCalFiducialRange(22, 4, "lv", 229.5, 243.0);
-    // Sector 6, PCal,
-    trackCuts->AddPCalFiducialRange(22, 6, "lw", 166.5, 193.5);
-
-    // Sector 1, ECin only, sector, side, min, max
-    trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
-    trackCuts->AddECinFiducialRange(22, 4, "lw", 0.0, 23.5);
-    trackCuts->AddECinFiducialRange(22, 5, "lv", 0.0, 23.5);
-    trackCuts->AddECinFiducialRange(22, 6, "lw", 0.0, 23.5);
-
-    // Sctor 5, ECout only, sector, side, min, max
-    trackCuts->AddECoutFiducialRange(22, 1, "lv", 0, 40.5);
-    trackCuts->AddECoutFiducialRange(22, 5, "lv", 193.5, 216.0);
-  */
     /// set sampling fraction for the particle in detector
     trackCuts->SetMinECALEnergyCut(11, 1, 0.06);  // Electron PCal layer 1
     // apply sampling fraction and diagolal cuts tbd!!
@@ -230,7 +209,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
         trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
     }
     //// //rga sp19 in
-    if (dataconfig == "rgasp19_inb") {
+    if (dataconfig == "rgasp19_inb1") {
         trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
         trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
         trackCuts->AddSamplingFractionMinCut(11, 2, 0.135106, 0.0249842, -0.00270237);  // Electronsector 2
@@ -243,21 +222,6 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
         trackCuts->AddSamplingFractionMaxCut(11, 5, 0.310616, -0.00565024, 0.000488421);  // Electronsector 5
         trackCuts->AddSamplingFractionMinCut(11, 6, 0.154587, 0.0202241, -0.00200259);  // Electronsector 6
         trackCuts->AddSamplingFractionMaxCut(11, 6, 0.315009, -0.00725113, 0.000452379);  // Electro sector 6
-    }
-    ////   //rga sp19 out
-    if (dataconfig == "rgasp19_outb") {
-        trackCuts->AddSamplingFractionMinCut(11, 1, 0.153109, 0.018688, -0.00156815);  // Electronsector 1
-        trackCuts->AddSamplingFractionMaxCut(11, 1, 0.27668, 0.00393487, -0.000495404);  // Electro sector 1
-        trackCuts->AddSamplingFractionMinCut(11, 2, 0.156875, 0.0164895, -0.00139281);  // Electronsector 2
-        trackCuts->AddSamplingFractionMaxCut(11, 2, 0.285319, 0.000615206, 7.59911e-06);  // Electronsector 2
-        trackCuts->AddSamplingFractionMinCut(11, 3, 0.159718, 0.0176749, -0.00147327);  // Electronsector 3
-        trackCuts->AddSamplingFractionMaxCut(11, 3, 0.280747, 0.00494729, -0.00071406);  // Electro sector 3
-        trackCuts->AddSamplingFractionMinCut(11, 4, 0.158643, 0.0173334, -0.00137467);  // Electronsector 4
-        trackCuts->AddSamplingFractionMaxCut(11, 4, 0.279673, 0.00510175, -0.00068517);  // Electronsector 4
-        trackCuts->AddSamplingFractionMinCut(11, 5, 0.155656, 0.0166533, -0.0012774);  // Electronsector 5
-        trackCuts->AddSamplingFractionMaxCut(11, 5, 0.285419, 1.77522e-05, -8.01094e-05);  // Electronsector 5
-        trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
-        trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
     }
     // rga fall18 in
     if (dataconfig == "rgafall18_inb") {
@@ -293,19 +257,17 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
     // particles for the reaction DVCS: e, p, and gamma
     EventCut* eventCuts = new EventCut();
-
-
     ParticleCut proton;
     if (dataconfig == "rgasp18_inb"|| dataconfig == "rgasp19_inb"|| dataconfig == "rgafall18_inb"|| dataconfig == "rgasp18_outb"|| dataconfig == "rgafall18_outb"|| dataconfig == "rgasp19_outb") {
         proton.pid = 2212;                              // Proton PID
         proton.charge = 1;                              // Proton charge
         proton.minCount = 1;                            // Minimum count of protons
-        proton.maxCount = 1;                            // Maximum count of protons
-        proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
-        if (IsInbending) proton.minFDMomentum = 0.42f;  // Minimum momentum for protons in FD Inbending
-        if (!IsInbending) proton.minFDMomentum = 0.5f;  // Minimum momentum for protons in FD Outbending
+        //proton.maxCount = 1;                            // Maximum count of protons
+       // proton.minCDMomentum = 0.3f;                    // Minimum momentum for protons
+       // if (IsInbending) proton.minFDMomentum = 0.42f;  // Minimum momentum for protons in FD Inbending
+        //if (!IsInbending) proton.minFDMomentum = 0.5f;  // Minimum momentum for protons in FD Outbending
         proton.minTheta = 0.0f;                         // Minimum theta for protons
-        proton.maxTheta = 64.23 * M_PI / 180.0;         // Maximum theta for protons (approximately 64.23 degrees)
+        //proton.maxTheta = 64.23 * M_PI / 180.0;         // Maximum theta for protons (approximately 64.23 degrees)
         proton.minPhi = 0.0f;                           // Minimum phi for protons
         proton.maxPhi = 2.0f * M_PI;
     }
@@ -314,8 +276,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     electron.pid = 11;              // Electron PID
     electron.charge = -1;           // Electron charge
     electron.minCount = 1;          // Minimum count of electrons
-    electron.maxCount = 1;          // Maximum count of electrons
-    electron.minFDMomentum = 2.0f;  // Minimum momentum for electrons
+    //electron.maxCount = 1;          // Maximum count of electrons
+    electron.minFDMomentum = 1.0f;  // Minimum momentum for electrons
 
     ParticleCut kMinus;
     kMinus.pid = -321;      // KaonM PID
@@ -336,7 +298,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
     eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
     eventCuts->AddParticleCut("Neg Kaon", kMinus);      // Applies defaults automatically
-    //eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
+    eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
     //eventCuts->AddParticleMotherCut("phi", phi);      // Applies defaults automatically
 
     auto corr = std::make_shared<MomentumCorrection>();

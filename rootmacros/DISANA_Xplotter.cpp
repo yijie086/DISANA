@@ -48,65 +48,86 @@ ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, c
 void DISANA_Xplotter() {
   bool ComputeBgk_core = false;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
-
+  float beam_energy = 10.594;
   ROOT::EnableImplicitMT();
-  // std::string input_path_from_analysisRun = "/work/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
-  // test case
-  //std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/DVCS_wagon/inb/";
-  std::string input_path_from_analysisRun_inb_data = "../build/rgasp18inbdatanoSF/";
-  //std::string input_path_from_analysisRun_inb_data = "./../build/rgaspring2018data/";
-  std::string input_path_from_analysisRun_inb_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Inb/";
-  //std::string input_path_from_analysisRun_inb_MC = "./../build/pi0mc/";
-  std::string input_path_from_analysisRun_out_data = "../build/rgasp18outdatanoSF/";
-  //std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Outb/";
-  std::string input_path_from_analysisRun_out_MC = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/pi0Sims/Outb/";
 
-  // std::string input_path_from_analysisRun = "./../build";
-  std::string filename_afterFid_inb_data = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_inb_data.c_str());
-  //std::string filename_afterFid_inb_data_corr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_data.c_str());
-  std::string filename_afterFid_inb_MC = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_inb_MC.c_str());
-  std::string filename_afterFid_outb_data = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_out_data.c_str());
-  std::string filename_afterFid_outb_MC = Form("%s/dfSelected_afterFid.root", input_path_from_analysisRun_out_MC.c_str());
-  // std::string filename_afterFid_afterCorr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun.c_str());
-  float beam_energy = 10.6;
 
-  ROOT::RDF::RNode df_afterFid_inb_data = InitKinematics(filename_afterFid_inb_data, "dfSelected_afterFid", beam_energy);
-  //ROOT::RDF::RNode df_afterFid_inb_data_corr = InitKinematics(filename_afterFid_inb_data_corr, "dfSelected_afterFid_afterCorr", beam_energy);
-  ROOT::RDF::RNode df_afterFid_inb_MC = InitKinematics(filename_afterFid_inb_MC, "dfSelected_afterFid", beam_energy);
+  /// proton momentum correction applied
+  
+  //data path
+  std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/";
+  std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/";
+  
+  //pi-0 MC path
+  std::string input_path_from_analysisRun_inb_pi0MC  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/inb/";
+  std::string input_path_from_analysisRun_outb_pi0MC  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/inb/";
+  
+  //DVCS MC path
+  std::string input_path_from_analysisRun_inb_DVCSMC_rec  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/rec/";
+  std::string input_path_from_analysisRun_outb_DVCSMC_rec  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/rec/";
+  std::string input_path_from_analysisRun_inb_DVCSMC_gen  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
+  std::string input_path_from_analysisRun_outb_DVCSMC_gen  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
+  
+  
+  // File names
+  std::string filename_afterFid_inb_data_corr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_data.c_str());
+  std::string filename_afterFid_outb_data_corr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_out_data.c_str());
+  
+  std::string filename_afterFid_inb_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_pi0MC.c_str());
+  std::string filename_afterFid_outb_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_outb_pi0MC.c_str());
+  
+  std::string filename_afterFid_dvcsmc_inb_gen = Form("%s/dfSelected.root", input_path_from_analysisRun_inb_DVCSMC_gen.c_str());
+  std::string filename_afterFid_dvcsmc_outb_gen = Form("%s/dfSelected.root", input_path_from_analysisRun_outb_DVCSMC_gen.c_str());
+  std::string filename_afterFid_dvcsmc_inb_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_DVCSMC_rec.c_str());
+  std::string filename_afterFid_dvcsmc_outb_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_outb_DVCSMC_rec.c_str());
 
-  ROOT::RDF::RNode df_afterFid_outb_data = InitKinematics(filename_afterFid_outb_data, "dfSelected_afterFid", beam_energy);
-  ROOT::RDF::RNode df_afterFid_outb_MC = InitKinematics(filename_afterFid_outb_MC, "dfSelected_afterFid", beam_energy);
+  
 
-  // ROOT::RDF::RNode df_afterFid_afterCorr = InitKinematics(filename_afterFid_afterCorr, "dfSelected_afterFid_afterCorr");
-  // input files for the data
+  /// Initialize dataframes
+  ROOT::RDF::RNode df_afterFid_inb_data_corr = InitKinematics(filename_afterFid_inb_data_corr, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_outb_data_corr = InitKinematics(filename_afterFid_outb_data_corr, "dfSelected_afterFid_afterCorr", beam_energy);
+  
+  ROOT::RDF::RNode df_afterFid_inb_pi0MC = InitKinematics(filename_afterFid_inb_pi0MC, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_outb_pi0MC = InitKinematics(filename_afterFid_outb_pi0MC, "dfSelected_afterFid_afterCorr", beam_energy);
 
+  ROOT::RDF::RNode df_afterFid_dvcsmc_inb_gen = InitKinematics(filename_afterFid_dvcsmc_inb_gen, "dfSelected", beam_energy);
+  ROOT::RDF::RNode df_afterFid_dvcsmc_outb_gen = InitKinematics(filename_afterFid_dvcsmc_outb_gen, "dfSelected", beam_energy);
+  ROOT::RDF::RNode df_afterFid_dvcsmc_inb_rec = InitKinematics(filename_afterFid_dvcsmc_inb_rec, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_dvcsmc_outb_rec = InitKinematics(filename_afterFid_dvcsmc_outb_rec, "dfSelected_afterFid_afterCorr", beam_energy);
+
+ // input files for the data
   gSystem->Exec("mkdir -p ExclusivityFits");
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
   // DVCS event selection cuts
 
-  // Apply final DVCS cuts
-  // inb
-  auto df_final_dvcs_inb_data = ApplyFinalDVCSSelections(df_afterFid_inb_data, true);
-  //auto df_final_dvcs_inb_data_corr = ApplyFinalDVCSSelections(df_afterFid_inb_data_corr, true);
-  auto df_final_dvcsPi_rejected_inb_data = RejectPi0TwoPhoton(df_final_dvcs_inb_data);
-  //auto df_final_dvcsPi_rejected_inb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_inb_data_corr);
-  auto df_final_dvcs_inb_MC = ApplyFinalDVCSSelections(df_afterFid_inb_MC, true);
-  auto df_final_dvcsPi_rejected_inb_MC = RejectPi0TwoPhoton(df_final_dvcs_inb_MC);
+  // Apply final DVCS cuts---------------  
+  auto df_final_dvcs_inb_data_corr = ApplyFinalDVCSSelections(df_afterFid_inb_data_corr, true);
+  auto df_final_dvcs_outb_data_corr =  ApplyFinalDVCSSelections(df_afterFid_outb_data_corr, false);
+  
+  auto df_final_dvcs_inb_pi0MC = ApplyFinalDVCSSelections(df_afterFid_inb_pi0MC, true);
+  auto df_final_dvcs_outb_pi0MC = ApplyFinalDVCSSelections(df_afterFid_outb_pi0MC, false);
 
-  // outb
-  auto df_final_dvcs_outb_data = ApplyFinalDVCSSelections(df_afterFid_outb_data, false);
-  auto df_final_dvcsPi_rejected_outb_data = RejectPi0TwoPhoton(df_final_dvcs_outb_data);
-  auto df_final_dvcs_outb_MC = ApplyFinalDVCSSelections(df_afterFid_outb_MC, false);
-  auto df_final_dvcsPi_rejected_outb_MC = RejectPi0TwoPhoton(df_final_dvcs_outb_MC);
+  auto df_final_dvcs_inb_DVCSMC_rec = ApplyFinalDVCSSelections(df_afterFid_dvcsmc_inb_rec, true);
+  auto df_final_dvcs_outb_DVCSMC_rec = ApplyFinalDVCSSelections(df_afterFid_dvcsmc_outb_rec, false);
 
-  // pi0 event selection cuts
-  // inb
-  auto df_final_OnlPi0_inb_data = SelectPi0Event(df_final_dvcs_inb_data);
-  auto df_final_OnlPi0_inb_MC = SelectPi0Event(df_final_dvcs_inb_MC);
-  // outb
-  auto df_final_OnlPi0_outb_data = SelectPi0Event(df_final_dvcs_outb_data);
-  auto df_final_OnlPi0_outb_MC = SelectPi0Event(df_final_dvcs_outb_MC);
+  // reject pi0 events from dvcs sample ----------- 
+  auto df_final_dvcsPi_rejected_inb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_inb_data_corr);
+  auto df_final_dvcsPi_rejected_outb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_outb_data_corr);
+  
+  auto df_final_dvcsPi_rejected_inb_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_inb_pi0MC);
+  auto df_final_dvcsPi_rejected_outb_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_outb_pi0MC);
+
+  auto df_final_dvcsPi_rejected_inb_DVCSMC_rec = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_rec);
+  auto df_final_dvcsPi_rejected_outb_DVCSMC_rec = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_rec);
+
+  
+  // pi0 event selection cuts ------------
+  auto df_final_OnlPi0_inb_data_corr = SelectPi0Event(df_final_dvcs_inb_data_corr);
+  auto df_final_OnlPi0_outb_data_corr = SelectPi0Event(df_final_dvcs_outb_data_corr);
+
+  auto df_final_OnlPi0_inb_pi0MC = SelectPi0Event(df_final_dvcs_inb_pi0MC);
+  auto df_final_OnlPi0_outb_pi0MC = SelectPi0Event(df_final_dvcs_outb_pi0MC);
 
   // final single photon from pi0 correction factors here
 
@@ -122,63 +143,32 @@ void DISANA_Xplotter() {
   comparer.PlotIndividual(false);
   /// bins for cross-section plots
   BinManager xBins;
-  // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
-  // xBins.SetTBins({0.0, 1.2});
-  // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  xBins.SetQ2Bins({1.0, 10.0});
-  //xBins.SetTBins({0.0, 1.0});
-  xBins.SetXBBins({0.0, 1.0});
-  //xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
+  xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
   xBins.SetTBins({0.11, 1.0});
-  //xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
-  //xBins.SetQ2Bins({1.0, 5.0});
-  //xBins.SetTBins({0.0, 1.0});
-  //xBins.SetXBBins({0.0, 1.0});
+  xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   comparer.SetXBinsRanges(xBins);
 
-  // comparer.AddModel(df_afterFid_afterCorr, "after Correction", beam_energy);
-  // comparer.AddModel(df_afterFid, "Before Exclusivity cuts", beam_energy);
-/*
-  DISANAMath pi0Corr;
-  //df_final_dvcsPi_rejected_inb_MC, df_final_OnlPi0_inb_MC, df_final_dvcsPi_rejected_inb_data, df_final_OnlPi0_inb_data
-  auto df_final_dvcsPi_rejected_outb_MC_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_final_dvcsPi_rejected_outb_MC, xBins, 1);
-  auto df_final_OnlPi0_outb_MC_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_final_OnlPi0_outb_MC, xBins, 1);
-  auto df_final_dvcsPi_rejected_outb_data_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_final_dvcsPi_rejected_outb_data, xBins, 1);
-  auto df_final_OnlPi0_outb_data_CrossSection = pi0Corr.ComputeDVCS_CrossSection(df_final_OnlPi0_outb_data, xBins, 1);
+  
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC,/*mcdvcs*/df_final_dvcsPi_rejected_inb_MC,/*mcdvcs_acceptance*/df_final_OnlPi0_inb_MC, /*mc dvcsbkg*/df_final_OnlPi0_inb_MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_MC, /*dvscrad*/df_final_OnlPi0_inb_MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_MC, "Sp18 Inb no corr", beam_energy, false, false,false,false);
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_inb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_pi0MC, /*dvscrad*/df_final_OnlPi0_inb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_pi0MC, "Sp18 Inb Before", beam_energy, false, false,false,false);
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_inb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_pi0MC, /*dvscrad*/df_final_OnlPi0_inb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_pi0MC, "Sp18 Inb after", beam_energy, true, true,false,false);
+  
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_outb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_outb_pi0MC, /*dvscrad*/df_final_OnlPi0_outb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_outb_pi0MC, "Sp18 outb Before", beam_energy, false, false,false,false);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_outb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_outb_pi0MC, /*dvscrad*/df_final_OnlPi0_outb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_outb_pi0MC, "Sp18 outb after", beam_energy, true, true,false,false);
+  
+  
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data,df_final_dvcsPi_rejected_outb_MC,df_final_OnlPi0_outb_MC, "Sp18 outb corr", beam_energy, false);
 
-  comparer.PlotPi0Corr_New(df_final_dvcsPi_rejected_outb_MC_CrossSection, df_final_OnlPi0_outb_MC_CrossSection,
-                                 df_final_dvcsPi_rejected_outb_data_CrossSection, df_final_OnlPi0_outb_data_CrossSection,xBins);
-*/
-  /*
-  auto pi0CorrFunc = Pi0Corr(df_final_dvcsPi_rejected_inb_MC, df_final_OnlPi0_inb_MC, df_final_dvcsPi_rejected_inb_data, df_final_OnlPi0_inb_data, xBins);
-  comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb C", beam_energy, DoBkgCorr, pi0CorrFunc);
-  */
-  //auto pi0CorrFunc_inb = CalcPi0Corr_New(df_final_dvcsPi_rejected_inb_MC, df_final_OnlPi0_inb_MC, df_final_dvcsPi_rejected_inb_data, df_final_OnlPi0_inb_data, xBins)
-  
-  
-  
 
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC, "Sp18 Inb C", beam_energy, DoBkgCorr);
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC, "Sp18 Inb", beam_energy, false);
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC, "Sp18 Inb C", beam_energy, false);
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data,df_final_OnlPi0_outb_data,df_final_dvcsPi_rejected_outb_MC,df_final_OnlPi0_outb_MC, "Sp18 Outb", beam_energy, false);
-  //comparer.AddModel(df_final_dvcsPi_rejected_inb_MC, "Sp18 Inb MC", beam_energy);
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data,df_final_OnlPi0_outb_data,df_final_dvcsPi_rejected_outb_MC,df_final_OnlPi0_outb_MC, "Sp18 OutB C", beam_energy, DoBkgCorr);
-  //comparer.AddModel(df_final_dvcsPi_rejected_inb_data, "Sp18 Inb", beam_energy);
-  //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB C", beam_energy, DoBkgCorr, "./../build/correction_factorsOutb.root");
-  //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
-  //comparer.AddModel(df_final_dvcsPi_rejected_outb_data, "Sp18 OutB", beam_energy);
-  //comparer.PlotKinematicComparison();
-  //comparer.PlotDVCSKinematicsComparison();
   double luminosity = 1.0;  // Set your desired luminosity here
   double polarisation = 0.85;  // Set your desired polarisation here
 
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, false, false);
-  //comparer.PlotDIS_Pi0CorrComparison();
-  //comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
-
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true);
+  comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
+  comparer.PlotKinematicComparison();
+  comparer.PlotDVCSKinematicsComparison();
   gApplication->Terminate(0);
 }
 
@@ -365,183 +355,70 @@ ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df_) {
   return df_.Filter(
       [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& daughterPass) {
         int e = 0, g = 0, p = 0;
+        bool hasPi0Daughter = false;
+        bool result = false;
         for (size_t i = 0; i < pid.size(); ++i) {
           if (!pass[i]) continue;
-          if (pid[i] == 11)
+          if (pid[i] == 11){
             e++;
-          else if (pid[i] == 22 && daughterPass[i])
+          }
+          else if (pid[i] == 22 /*&& daughterPass[i]*/){
             g++;  // photon must NOT be from pi0
-          else if (pid[i] == 2212)
+            hasPi0Daughter = hasPi0Daughter || daughterPass[i];  // check if this photon is a daughter of pi0
+            //std::cout << "pid[i] = " << pid[i] << " pass[i] = " << pass[i] << " daughterPass[i] = " << daughterPass[i] << std::endl;
+          }
+          else if (pid[i] == 2212){
             p++;
+          }
         }
-        return (e == 1 && g == 2 && p == 1);
+        //if(g==2) std::cout << "e = " << e << " g = " << g << " p = " << p << std::endl;
+        result = (e == 1 && g >= 1 && p == 1 && hasPi0Daughter);  // at least one photon, no pi0 daughter
+        hasPi0Daughter = false;  // reset for next event
+        return result;  // at least one photon, no pi0 daughter
       },
       {"REC_Particle_pid", "REC_Particle_pass", "REC_DaughterParticle_pass"}, "Cut: one good e, γ (not π⁰-like), p");
 }
 // exclusivity cuts
 ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
-  return df
+   auto df1= df
       // 4. Q2 > 1
       .Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
       .Filter("t < 1.0", "Cut: t > 1 GeV^2")
       //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
-
+      .Filter("recpro_p < 1.2", "Cut: recpro_p < 1.2")
       // 5. W > 2
-      .Filter("W > 2.0", "Cut: W > 1.8 GeV")
-      //.Filter("phi > 100.0 && phi < 300 ", "Cut: phi")
-
-
-  // 6. Electron and photon in different sectors
-  //.Filter("ele_sector != pho_sector", "Cut: e and gamma in different sectors")
-
-  // 7. Proton and photon in different sectors if ECAL hit
-  //.Filter(
-  //    [](int p_sec, int g_sec, bool has_ecal_hit) {
-  //     return (p_sec != g_sec) || !has_ecal_hit;
-  //   },
-  //  {"pro_sector", "pho_sector", "pro_has_ECAL_hit"},
-  //  "Cut: p and gamma different sector if ECAL hit")
-  //
-  // 9. 3σ exclusivity cuts
-  //.Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma")
+      .Filter("W > 2.0", "Cut: W > 2.0 GeV")
+     // 9. 3σ exclusivity cuts intitial loose cuts
   .Filter("Emiss < 1.0", "Cut: Missing energy")
-  .Filter("PTmiss < 0.15", "Cut: Transverse missing momentum")
+  .Filter("PTmiss < 0.2", "Cut: Transverse missing momentum")
   .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
-  .Filter("Theta_gamma_gamma < 0.7", "Cut: photon-missing angle")
-  //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
+  .Filter("Theta_gamma_gamma < 2.0", "Cut: photon-missing angle")
   .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config");
-  //.Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.28)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.46)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.23)", "Cut: PTmiss in 3sigma")
-  //.Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<1.15&&Emiss>-0.95)||(pho_det_region==1&&pro_det_region==1&&Emiss<1.23&&Emiss>-0.99)||(pho_det_region==1&&pro_det_region==2&&Emiss<1.2&&Emiss>-0.96)", "Cut: Emiss in 3sigma")
-  //.Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<3.38&&Mx2_eg>-0.76)||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<2.52&&Mx2_eg>-0.48)||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<2.81&&Mx2_eg>-0.67)", "Cut: Mx2_eg in 3sigma");
 
+  if (inbending){
+  return df1 = df1
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<(0.10+3*0.20)&&Mx2_ep>(0.10-3*0.20))||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<(0.06+3*0.18)&&Mx2_ep>(0.06-3*0.18))||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<(0.08+3*0.18)&&Mx2_ep>(0.08-3*0.18))", "Cut: Mx2_ep in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<(.20+3*0.24)&&Emiss>(.20-3*0.24))||(pho_det_region==1&&pro_det_region==1&&Emiss<(.27+3*0.27)&&Emiss>.27-3*0.27)||(pho_det_region==1&&pro_det_region==2&&Emiss<(0.29+3*0.34)&&Emiss>(0.29-3*0.34))", "Cut: Emiss in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<(.05+3*0.04)&&PTmiss>(.05-3*0.04))||(pho_det_region==1&&pro_det_region==1&&PTmiss<(.09+3*0.05)&&PTmiss>(.09-3*0.05))||(pho_det_region==1&&pro_det_region==2&&PTmiss<(.07+3*0.04)&&PTmiss>(.07-3*0.04))", "Cut: PTmiss in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<(0.41+3*0.33)&&Theta_gamma_gamma>(0.41-3*0.33))||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<(.81+3*0.50)&&Theta_gamma_gamma>(.81-3*0.50))||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<(.63+3*0.47)&&Theta_gamma_gamma>(.63-3*0.47))", "Cut: Theta_gamma_gamma in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<(2.60+3*3.01)&&DeltaPhi>(2.60-3*3.01))||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<(5.55+3*4.70)&&DeltaPhi>(5.55-3*4.70))||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<(3.92+3*3.90)&&DeltaPhi>(3.92-3*3.90))", "Cut: DeltaPhi in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<(0.0+3*0.01)&&Mx2_epg>(0.0-3*0.01))||(pho_det_region==1&&pro_det_region==1&&Mx2_epg<(0.0+3*0.01)&&Mx2_epg>(0.0-3*0.01))||(pho_det_region==1&&pro_det_region==2&&Mx2_epg<(0.0+3*0.01)&&Mx2_epg>(0.0-3*0.01))", "Cut: Mx2_epg in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<(1.17+3*0.35)&&Mx2_eg>(1.17-3*0.35))||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<(1.16+3*0.31)&&Mx2_eg>(1.16-3*0.31))||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<(1.27+3*0.49)&&Mx2_eg>(1.27-3*0.49))", "Cut: Mx2_eg in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<(19.11+3*3.80)&&Theta_e_gamma>(19.11-3*3.80))||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<(33.82+3*3.34)&&Theta_e_gamma>(33.82-3*3.34))||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<(23.82+3*3.50)&&Theta_e_gamma>(23.82-3*3.50))", "Cut: Theta_e_gamma in 3sigma");
+}else{
+   return df1 = df1
+    .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<(0.11+3*0.19)&&Mx2_ep>(0.11-3*0.19))||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<(0.07+3*0.17)&&Mx2_ep>(0.07-3*0.17))||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<(0.07+3*0.16)&&Mx2_ep>(0.07-3*0.16))", "Cut: Mx2_ep in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<(.20+3*0.24)&&Emiss>(.20-3*0.24))||(pho_det_region==1&&pro_det_region==1&&Emiss<(.27+3*0.27)&&Emiss>.27-3*0.27)||(pho_det_region==1&&pro_det_region==2&&Emiss<(0.29+3*0.34)&&Emiss>(0.29-3*0.34))", "Cut: Emiss in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<(.05+3*0.04)&&PTmiss>(.05-3*0.04))||(pho_det_region==1&&pro_det_region==1&&PTmiss<(.09+3*0.05)&&PTmiss>(.09-3*0.05))||(pho_det_region==1&&pro_det_region==2&&PTmiss<(.07+3*0.04)&&PTmiss>(.07-3*0.04))", "Cut: PTmiss in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<(0.49+3*0.40)&&Theta_gamma_gamma>(0.5-3*0.40))||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<(.91+3*0.51)&&Theta_gamma_gamma>(.91-3*0.51))||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<(.71+3*0.50)&&Theta_gamma_gamma>(.71-3*0.50))", "Cut: Theta_gamma_gamma in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<(2.41+3*2.92)&&DeltaPhi>(2.41-3*2.92))||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<(4.35+3*4.02)&&DeltaPhi>(4.35-3*4.02))||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<(3.71+3*3.67)&&DeltaPhi>(3.71-3*3.67))", "Cut: DeltaPhi in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<(0.0+3*0.01)&&Mx2_epg>(0.0-3*0.01))||(pho_det_region==1&&pro_det_region==1&&Mx2_epg<(0.0+3*0.01)&&Mx2_epg>(0.0-3*0.01))||(pho_det_region==1&&pro_det_region==2&&Mx2_epg<(0.0+3*0.01)&&Mx2_epg>(0.0-3*0.01))", "Cut: Mx2_epg in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<(1.19+3*0.37)&&Mx2_eg>(1.19-3*0.37))||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<(1.18+3*0.30)&&Mx2_eg>(1.18-3*0.30))||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<(1.29+3*0.49)&&Mx2_eg>(1.29-3*0.49))", "Cut: Mx2_eg in 3sigma")
+    .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<(15.72+3*4.69)&&Theta_e_gamma>(15.72-3*4.69))||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<(33.56+3*2.85)&&Theta_e_gamma>(33.56-3*2.85))||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<(21.36+3*4.22)&&Theta_e_gamma>(21.36-3*4.22))", "Cut: Theta_e_gamma in 3sigma");
+  }
   // 10. Quality Assurance Cut
   //.Filter("REC_Event_pass == true", "Cut: QA pass");
 }
-/*
-void CreateCorrectionHistogram4D(ROOT::RDF::RNode df_dvcs_mc, ROOT::RDF::RNode df_pi0_mc, ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data,
-                                 const std::string& out_file_name) {
-  std::cout << "⏳ Creating 4D correction histograms...\n";
-
-  // Define binning
-  const int nQ2Bins = 20, nTBins = 20, nXBBins = 20, nPhiBins = 36;
-  std::vector<double> Q2Bins(nQ2Bins + 1), tBins(nTBins + 1), xBBins(nXBBins + 1), phiBins(nPhiBins + 1);
-
-  // Compute min and max from data
-  double Q2_min = df_dvcs_data.Min("Q2").GetValue();
-  double Q2_max = df_dvcs_data.Max("Q2").GetValue();
-
-  double t_min = df_dvcs_data.Min("t").GetValue();
-  double t_max = df_dvcs_data.Max("t").GetValue();
-
-  double xB_min = df_dvcs_data.Min("xB").GetValue();
-  double xB_max = df_dvcs_data.Max("xB").GetValue();
-
-  double phi_min = df_dvcs_data.Min("phi").GetValue();
-  double phi_max = df_dvcs_data.Max("phi").GetValue();
-
-  // Debug print
-  std::cout << "Variable Ranges (from df_dvcs_data):\n";
-  std::cout << "  Q²:  " << Q2_min << " to " << Q2_max << "\n";
-  std::cout << "  t:   " << t_min << " to " << t_max << "\n";
-  std::cout << "  xB:  " << xB_min << " to " << xB_max << "\n";
-  std::cout << "  φ:   " << phi_min << "° to " << phi_max << "°\n";
-
-  // Create bin edges based on these ranges
-  for (int i = 0; i <= nQ2Bins; ++i) Q2Bins[i] = Q2_min + i * (Q2_max - Q2_min) / nQ2Bins;
-
-  for (int i = 0; i <= nTBins; ++i) tBins[i] = t_min + i * (t_max - t_min) / nTBins;
-
-  for (int i = 0; i <= nXBBins; ++i) xBBins[i] = xB_min + i * (xB_max - xB_min) / nXBBins;
-
-  for (int i = 0; i <= nPhiBins; ++i) phiBins[i] = phi_min + i * (phi_max - phi_min) / nPhiBins;
-
-  int nbins[4] = {nQ2Bins, nTBins, nXBBins, nPhiBins};
-  double xmin[4] = {Q2Bins.front(), tBins.front(), xBBins.front(), phiBins.front()};
-  double xmax[4] = {Q2Bins.back(), tBins.back(), xBBins.back(), phiBins.back()};
-
-  auto h_dvcs_data = new THnSparseD("h_dvcs_data", "DVCS Data;Q2;t;xB;phi", 4, nbins, xmin, xmax);
-  auto h_pi0_data = new THnSparseD("h_pi0_data", "Pi0 Data;Q2;t;xB;phi", 4, nbins, xmin, xmax);
-  auto h_dvcs_mc = new THnSparseD("h_dvcs_mc", "DVCS MC;Q2;t;xB;phi", 4, nbins, xmin, xmax);
-  auto h_pi0_mc = new THnSparseD("h_pi0_mc", "Pi0 MC;Q2;t;xB;phi", 4, nbins, xmin, xmax);
-  auto h_corr = new THnSparseD("h_correction", "Correction;Q2;t;xB;phi", 4, nbins, xmin, xmax);
-
-  // Set variable bin edges
-  for (auto* h : {h_dvcs_data, h_pi0_data, h_dvcs_mc, h_pi0_mc, h_corr}) {
-    h->SetBinEdges(0, Q2Bins.data());
-    h->SetBinEdges(1, tBins.data());
-    h->SetBinEdges(2, xBBins.data());
-    h->SetBinEdges(3, phiBins.data());
-  }
-
-  // Fill helper
-  auto fill4D = [](THnSparseD* h, float Q2, float t, float xB, float phi) {
-    double vals[4] = {Q2, t, xB, phi * 180.0 / M_PI};  // Convert phi to degrees
-    h->Fill(vals);
-  };
-
-  auto fillFromRDF = [&](ROOT::RDF::RNode df, THnSparseD* h) {
-    auto Q2 = df.Take<double>("Q2");
-    auto t = df.Take<double>("t");
-    auto xB = df.Take<double>("xB");
-    auto phi = df.Take<double>("phi");
-    for (size_t i = 0; i < Q2->size(); ++i) fill4D(h, (*Q2)[i], (*t)[i], (*xB)[i], (*phi)[i]);
-  };
-
-  fillFromRDF(df_dvcs_data, h_dvcs_data);
-  fillFromRDF(df_pi0_data, h_pi0_data);
-  fillFromRDF(df_dvcs_mc, h_dvcs_mc);
-  fillFromRDF(df_pi0_mc, h_pi0_mc);
-
-  // Correction factor: 1 - (N_pi0_MC / N_dvcs_MC) * (N_pi0_data / N_dvcs_data)
-  int nQ2BinsEff = h_corr->GetAxis(0)->GetNbins();
-  int nTBinsEff = h_corr->GetAxis(1)->GetNbins();
-  int nXBBinsEff = h_corr->GetAxis(2)->GetNbins();
-  int nPhiBinsEff = h_corr->GetAxis(3)->GetNbins();
-
-  std::cout << "Entries in df_dvcs_data: " << df_dvcs_data.Count().GetValue() << std::endl;
-  std::cout << "Entries in df_pi0_data: " << df_pi0_data.Count().GetValue() << std::endl;
-  std::cout << "Entries in df_dvcs_mc:   " << df_dvcs_mc.Count().GetValue() << std::endl;
-  std::cout << "Entries in df_pi0_mc:    " << df_pi0_mc.Count().GetValue() << std::endl;
-
-  for (int iq2 = 1; iq2 <= nQ2BinsEff; ++iq2) {
-    for (int it = 1; it <= nTBinsEff; ++it) {
-      for (int ixb = 1; ixb <= nXBBinsEff; ++ixb) {
-        for (int iphi = 1; iphi <= nPhiBinsEff; ++iphi) {
-          int indices[4] = {iq2, it, ixb, iphi};
-
-          double N_dvcs_data = h_dvcs_data->GetBinContent(indices);
-          double N_pi0_data = h_pi0_data->GetBinContent(indices);
-          double N_dvcs_mc = h_dvcs_mc->GetBinContent(indices);
-          double N_pi0_mc = h_pi0_mc->GetBinContent(indices);
-
-          double factor = 1.0;
-          if (N_dvcs_data > 0 && N_pi0_mc > 0&& N_dvcs_mc > 0 && N_pi0_data > 0) {
-            factor = 1.0 - (N_dvcs_mc / N_pi0_mc) * (N_pi0_data / N_dvcs_data);
-           // std::cout<<"N_dvcs_data: "<<N_dvcs_data<<" N_pi0_data: "<<N_pi0_data<<" N_dvcs_mc: "<<N_dvcs_mc<<" N_pi0_mc: "<<N_pi0_mc<<std::endl;
-            //std::cout << "Q2: " << h_corr->GetAxis(0)->GetBinLowEdge(iq2) << " - " << h_corr->GetAxis(0)->GetBinUpEdge(iq2) << ", t: " << h_corr->GetAxis(1)->GetBinLowEdge(it)
-            ///          << " - " << h_corr->GetAxis(1)->GetBinUpEdge(it) << ", xB: " << h_corr->GetAxis(2)->GetBinLowEdge(ixb) << " - " << h_corr->GetAxis(2)->GetBinUpEdge(ixb)
-             //         << ", phi: " << h_corr->GetAxis(3)->GetBinLowEdge(iphi) << " - " << h_corr->GetAxis(3)->GetBinUpEdge(iphi) << " => Factor: " << factor << "\n";
-          }
-          if (factor < 0) {
-            std::cout << "Warning: Negative correction factor at Q2 bin " << iq2 << ", t bin " << it << ", xB bin " << ixb << ", phi bin " << iphi
-                      << ". Setting to 1.\n";
-            factor = 1.0;
-          }
-          h_corr->SetBinContent(indices, factor);
-        }
-      }
-    }
-  }
-
-  // Save output
-  TFile fout(out_file_name.c_str(), "RECREATE");
-  h_dvcs_mc->Write();
-  h_pi0_mc->Write();
-  h_dvcs_data->Write();
-  h_pi0_data->Write();
-  h_corr->Write();
-  fout.Close();
-
-  std::cout << "✅ Correction histogram written to: " << out_file_name << "\n";
-}
-*/
+/*    {"pho_det_region == 0 && pro_det_region == 2", "FT-CD"},
+    {"pho_det_region == 1 && pro_det_region == 2", "FD-CD"},
+    {"pho_det_region == 1 && pro_det_region == 1", "FD-FD"},*/
