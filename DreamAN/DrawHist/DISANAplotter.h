@@ -567,12 +567,11 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
 
         static std::atomic<unsigned long> uid{0};
         auto hname = Form("hM_%zu_%zu_%zu_%lu", iq, iw, it, uid.fetch_add(1));
-        auto hR = df_bin.Histo1D(ROOT::RDF::TH1DModel(hname, ";M_{K^{+}K^{-}} [GeV];Counts",
-                                                      (unsigned)nMassBins, mMin, mMax),
+        auto hR = df_bin.Histo1D(ROOT::RDF::TH1DModel(hname, ";M_{K^{+}K^{-}} [GeV];Counts", 200, 0.8, 1.8),
                                  "invMass_KpKm");
         hR.GetValue();
         TH1D* h = (TH1D*)hR.GetPtr();
-        if (!h || h->GetEntries() <=10) {
+        if (!h || h->GetEntries() <=20) {
           // still record an empty point in dσ/dt if we're computing it
           if (luminosity_nb_inv > 0.0 && phi_dsdt_QW_[iq][iw]) {
             const int b = static_cast<int>(it + 1);
@@ -595,9 +594,11 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
         hDraw->SetMarkerColor(kBlue + 2);
         hDraw->GetXaxis()->SetTitle("M(K^{+}K^{-}) [GeV]");
         hDraw->GetYaxis()->SetTitle("Counts");
-        hDraw->GetXaxis()->SetRangeUser(mMin - 0.02, mMax);
+        hDraw->GetXaxis()->SetRangeUser(mMin - 0.02, mMax+.020);
 
         const double bw = hDraw->GetXaxis()->GetBinWidth(1);
+        std::cout << Form("[MakePhiMassFitCanvases3D] Fitting %s with %.0f bins, M=[%.4f,%.4f], BW=%.4f GeV",
+                         hDraw->GetName(), (double)hDraw->GetNbinsX(), mMin, mMax, bw) << std::endl;
         
         std::string formula = Form(
             // Background: [0]*(x-0.9874)^[1] * exp(-[2]*(x-0.9874))
@@ -613,8 +614,9 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
         // params: [0]=Abkg(scale), [1]=alpha, [2]=lambda, [3]=Nsig(yield), [4]=mu, [5]=sigma
         fTot->SetParNames("A","alpha","lambda","N","mu","sigma");
         fTot->SetParameters(4, 0.9, 2, 10, 1.02, 0.010);
-        fTot->SetParLimits(4, 1.005, 1.03);
-        fTot->SetParLimits(5, 0.0025, 0.05);
+        fTot->SetParLimits(4, 1.005, 1.022);
+        fTot->SetParLimits(5, 0.0025, 0.025);
+        fTot->SetParLimits(3, 0.000001, 100000.0);
         fTot->SetLineColor(kRed + 1);
         fTot->SetLineWidth(3);
         hDraw->Fit(fTot, "R0QL");
@@ -727,8 +729,8 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
         latex.DrawLatex(0.55, 0.81, Form("#chi^{2}/ndf = %.2f", chi2ndf));
         latex.DrawLatex(0.55, 0.77, Form("N_{#phi} (total) = %.1f #pm %.1f", Nsig, Nsig_err));
 
-        auto tagRaw = hasW ? Form("Q2_%.3f_%.3f__W_%.3f_%.3f__t_%.3f_%.3f", qLo,qHi,wLo,wHi,tLo,tHi)
-                           : Form("Q2_%.3f_%.3f__t_%.3f_%.3f", qLo,qHi,tLo,tHi);
+        auto tagRaw = hasW ? Form("Q2_%.1f_%.1f__W_%.1f_%.2f__t_%.1f_%.1f", qLo,qHi,wLo,wHi,tLo,tHi)
+                           : Form("Q2_%.1f_%.1f__t_%.1f_%.1f", qLo,qHi,tLo,tHi);
         std::string tag = tagRaw; std::replace(tag.begin(), tag.end(), '.', '_');
         c->SaveAs(Form("%s/KKmass_%s.pdf", outDirPerModel.c_str(), tag.c_str()));
 

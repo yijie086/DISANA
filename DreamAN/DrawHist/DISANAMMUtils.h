@@ -721,10 +721,6 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   return *df_;
 }
 
-
-
-
-
 // Thin aliases per your request (semantic names for “exclusive” channels)
 inline ROOT::RDF::RNode InitKinematics_ExclusiveKp(const std::string& f, const std::string& t, float E) {
   return InitKinematics_MissingKm(f, t, E);  // exclusive K⁺ == K⁻ omitted
@@ -1014,4 +1010,178 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
   
   return *df_;
+}
+
+ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df,
+                                    const std::string& outFile,
+                                    const std::string& outTree)
+{
+  // Keep EXACTLY these columns (update this list if you add/remove defs)
+  const std::vector<std::string> keep = {
+    // Original single-particle projections
+    "REC_Particle_pid", "REC_Particle_pass", "REC_DaughterParticle_pass",
+    "ele_px_org","ele_py_org","ele_pz_org","recel_vz_org",
+    "reckMinus_vz","kMinus_px","kMinus_py","kMinus_pz",
+    "reckPlus_vz","kPlus_px","kPlus_py","kPlus_pz",
+    "pro_px","pro_py","pro_pz","recpro_vz",
+
+    // Run/event and counting
+    "RunNumber","EventNumber","nElectrons","bestEle_idx",
+    "REC_pass_bestE","nElectrons_best",
+
+    // Best-e scalar copies
+    "ele_px","ele_py","ele_pz","recel_vz","ele_det_region",
+
+    // Basic kinematics (magnitudes/angles)
+    "recel_p","recel_theta","recel_phi",
+    "reckMinus_p","reckMinus_theta","reckMinus_phi",
+    "reckPlus_p","reckPlus_theta","reckPlus_phi",
+    "recpro_p","recpro_theta","recpro_phi",
+
+    // Det region tags
+    "kMinus_det_region","kPlus_det_region","pro_det_region","ele_det_region_org",
+
+    // Simple composites
+    "invMass_KpKm",
+
+    // DISANAMath-derived
+    "Q2","xB","t","phi","W","nu","y",
+    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
+    "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
+    "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
+    "Coplanarity_had_normals_deg"
+  };
+
+  // Write the slim tree (this triggers the event loop)
+  df.Snapshot(outTree, outFile, keep);
+
+  // Reload a much lighter dataframe
+  ROOT::RDataFrame slim(outTree, outFile);
+  return slim; // implicitly converts to RNode
+}
+
+ROOT::RDF::RNode WriteSlimAndReload_missingKm(ROOT::RDF::RNode df,
+                                    const std::string& outFile,
+                                    const std::string& outTree)
+{
+  // Keep EXACTLY these columns (update this list if you add/remove defs)
+  const std::vector<std::string> keep = {
+    // Original single-particle projections
+    "REC_Particle_pid", "REC_Particle_pass",
+    "ele_px_org","ele_py_org","ele_pz_org","recel_vz_org",
+    "reckMinus_vz","reckPlus_vz","kPlus_px","kPlus_py","kPlus_pz",
+    "pro_px","pro_py","pro_pz","recpro_vz",
+
+    // Run/event and counting
+    "RunNumber","EventNumber","nElectrons","bestEle_idx",
+    "REC_pass_bestE","nElectrons_best",
+
+    // Best-e scalar copies
+    "ele_px","ele_py","ele_pz","recel_vz","ele_det_region",
+
+    // Basic kinematics (magnitudes/angles)
+    "recel_p","recel_theta","recel_phi",
+    "reckMinus_p","reckMinus_theta","reckMinus_phi",
+    "reckPlus_p","reckPlus_theta","reckPlus_phi",
+    "recpro_p","recpro_theta","recpro_phi","kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz",
+
+    // Det region tags
+    "kMinus_det_region","kPlus_det_region","pro_det_region","ele_det_region_org",
+
+    // Simple composites
+    "invMass_KpKm",
+
+    // DISANAMath-derived
+    "Q2","xB","t","phi","W","nu","y",
+    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
+    "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
+    "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
+    "Coplanarity_had_normals_deg"
+  };
+
+  // Write the slim tree (this triggers the event loop)
+  df.Snapshot(outTree, outFile, keep);
+
+  // Reload a much lighter dataframe
+  ROOT::RDataFrame slim(outTree, outFile);
+  return slim; // implicitly converts to RNode
+}
+ROOT::RDF::RNode WriteSlimAndReload_missingKp(ROOT::RDF::RNode df,
+                                    const std::string& outFile,
+                                    const std::string& outTree)
+{
+  // Keep EXACTLY these columns (update this list if you add/remove defs)
+  const std::vector<std::string> keep = {
+    // Original single-particle projections
+    "REC_Particle_pid", "REC_Particle_pass",
+    "ele_px_org","ele_py_org","ele_pz_org","recel_vz_org",
+    "reckMinus_vz","kMinus_px","kMinus_py","kMinus_pz",
+    "reckPlus_vz", "pro_px","pro_py","pro_pz","recpro_vz",
+
+    // Run/event and counting
+    "RunNumber","EventNumber","nElectrons","bestEle_idx",
+    "REC_pass_bestE","nElectrons_best",
+
+    // Best-e scalar copies
+    "ele_px","ele_py","ele_pz","recel_vz","ele_det_region",
+
+    // Basic kinematics (magnitudes/angles)
+    "recel_p","recel_theta","recel_phi",
+    "reckMinus_p","reckMinus_theta","reckMinus_phi",
+    "reckPlus_p","reckPlus_theta","reckPlus_phi",
+    "recpro_p","recpro_theta","recpro_phi","kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz",
+
+    // Det region tags
+    "kMinus_det_region","kPlus_det_region","pro_det_region","ele_det_region_org",
+
+    // Simple composites
+    "invMass_KpKm",
+
+    // DISANAMath-derived
+    "Q2","xB","t","phi","W","nu","y",
+    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
+    "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
+    "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
+    "Coplanarity_had_normals_deg"
+  };
+
+  // Write the slim tree (this triggers the event loop)
+  df.Snapshot(outTree, outFile, keep);
+
+  // Reload a much lighter dataframe
+  ROOT::RDataFrame slim(outTree, outFile);
+  return slim; // implicitly converts to RNode
+}
+ROOT::RDF::RNode GetSlim_missingKm(ROOT::RDF::RNode src, const std::string& f, const std::string& t)
+{
+  const bool fileExists = !gSystem->AccessPathName(f.c_str()); // note the '!' (exists == true)
+  if (fileExists) {
+    std::cout << "Slim file " << f << " exists, loading it." << std::endl;
+    return ROOT::RDataFrame(t, f);
+  } else {
+    std::cout << "Trimming the file " << std::endl;
+    return WriteSlimAndReload_missingKm(src, f, t);
+  }
+}
+ROOT::RDF::RNode GetSlim_missingKp(ROOT::RDF::RNode src, const std::string& f, const std::string& t)
+{
+  const bool fileExists = !gSystem->AccessPathName(f.c_str()); // note the '!' (exists == true)
+  if (fileExists) {
+    std::cout << "Slim file " << f << " exists, loading it." << std::endl;
+    return ROOT::RDataFrame(t, f);
+  } else {
+     std::cout << "Trimming the file " << std::endl;
+    return WriteSlimAndReload_missingKp(src, f, t);
+  }
+}
+ROOT::RDF::RNode GetSlim_exclusive(ROOT::RDF::RNode src, const std::string& f, const std::string& t)
+{
+  const bool fileExists = !gSystem->AccessPathName(f.c_str()); // note the '!' (exists == true)
+  if (fileExists) {
+    std::cout << "Slim file " << f << " exists, loading it." << std::endl;
+    return ROOT::RDataFrame(t, f);
+  } else {
+    std::cout << "Trimming the file " << std::endl;
+    return WriteSlimAndReload_exclusive(src, f, t);
+  }
 }

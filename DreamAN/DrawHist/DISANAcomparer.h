@@ -260,7 +260,11 @@ class DISANAcomparer {
       }
       NormalizeHistogram(target);
       styleKin_.StyleTH1(target);
-      target->SetLineColorAlpha(i + 4, 0.8);
+      auto [cr, cg, cb] = modelShades[i % modelShades.size()];
+      const int colorIdx = 4000 + int(i) * 20;
+      if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+      target->SetMarkerColor(colorIdx);
+      target->SetLineColorAlpha(colorIdx, 0.8);
       target->SetLineWidth(1);
       target->SetTitle(Form("%s;%s;Count", typeToParticle[type].c_str(), VarName[var].c_str()));
 
@@ -371,7 +375,11 @@ class DISANAcomparer {
         h->SetDirectory(0);  // prevent ROOT from managing ownership
         NormalizeHistogram(h);
         styleDVCS_.StyleTH1(h);
-        h->SetLineColorAlpha(i + 4, 0.8);
+        auto [cr, cg, cb] = modelShades[i % modelShades.size()];
+        const int colorIdx = 4000 + int(i) * 20;
+        if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+        h->SetMarkerColor(colorIdx);
+        h->SetLineColorAlpha(colorIdx, 0.8);
         h->SetLineWidth(1.0);
         h->GetXaxis()->SetTitle(titles[var].c_str());
         h->GetYaxis()->SetTitle("Counts");
@@ -713,7 +721,7 @@ class DISANAcomparer {
   /// For exclusivity cuts, you can use the following function to select one triplet
   void PlotPhiAnaExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
     std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
-        {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.0, 2.0},
+        {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.0, 1.3},
         {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.08, 0.08},
         {"Mx2_eKpKm", "Invariant Mass (eK^{+}K^{-})", "M^{2}(eK^{+}K^{-}) [GeV^{2}]", -0.5, 3},
         {"Mx2_epKp", "Missing Mass Squared (epK^{+})", "MM^{2}(epK^{+}) [GeV^{2}]", -0.5, 1.5},
@@ -759,6 +767,11 @@ class DISANAcomparer {
 
           styleKin_.StyleTH1(h_clone);
           h_clone->SetLineColorAlpha(m + 4,0.8);
+          auto [cr, cg, cb] = modelShades[m % modelShades.size()];
+          const int colorIdx = 4000 + int(m) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h_clone->SetMarkerColor(colorIdx);
+          h_clone->SetLineColorAlpha(colorIdx, 0.8);
           h_clone->SetLineWidth(1);
 
           double mean = h_clone->GetMean();
@@ -768,8 +781,8 @@ class DISANAcomparer {
 
           TLine* line1 = new TLine(x1, 0, x1, h_clone->GetMaximum() * 0.5);
           TLine* line2 = new TLine(x2, 0, x2, h_clone->GetMaximum() * 0.5);
-          line1->SetLineColorAlpha(m + 4,0.8);
-          line2->SetLineColorAlpha(m + 4,0.8);
+          line1->SetLineColorAlpha(colorIdx, 0.8);
+          line2->SetLineColorAlpha(colorIdx, 0.8);
           line1->SetLineStyle(2);  // Dashed
           line2->SetLineStyle(2);
 
@@ -846,7 +859,7 @@ class DISANAcomparer {
     if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "png", true, true, false, false, meanKinVar);
     if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "png", false, false, true, true, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "png", false, true, false, false, meanKinVar);
-    if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.001, 0.2, "png", false, true, true, false, meanKinVar);
+    if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "png", false, true, true, false, meanKinVar);
     if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "png", false, true, false, false, meanKinVar);
     if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.5, 1.5, "png", false, true, false, false, meanKinVar);
   }
@@ -1189,7 +1202,7 @@ class DISANAcomparer {
           TH1D* h = xs3D[iq][iw];
           if (!h) continue;
           const double I = h->Integral(1, h->GetNbinsX());          // sum of contents
-          if (I > 0)  h->Scale(1.0 / I);
+          //if (I > 0)  h->Scale(1.0 / I);
           for (int b = 1; b <= h->GetNbinsX(); ++b) {
             const double v = h->GetBinContent(b);
             if (v > 0.0 && v < yMinPos) yMinPos = v;

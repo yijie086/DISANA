@@ -108,13 +108,18 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   ROOT::RDF::RNode df_afterFid_sp18outb_data  = InitKinematics(filename_afterFid_SP18outb_data,  "dfSelected", beam_energy_sp2018);
   ROOT::RDF::RNode df_afterFid_fall18inb_data = InitKinematics(filename_afterFid_Fall18inb_data, "dfSelected", beam_energy_fall2018);
   ROOT::RDF::RNode df_afterFid_fall18outb_data= InitKinematics(filename_afterFid_Fall18outb_data,"dfSelected", beam_energy_fall2018);
-  ROOT::RDF::RNode df_afterFid_sp19inb_data = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected", beam_energy_sp2019);
+  ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected", beam_energy_sp2019);
+  auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive.root", "slim_sp19_exlcusive");
+  
+
 
   // ROOT::RDF::RNode df_afterFid_sp18inb_missingKm_data   = InitKinematics_MissingKm(filename_afterFid_SP18inb_missingKm_data,   "dfSelected_afterFid_reprocessed",
   // beam_energy_sp2018);
   // ROOT::RDF::RNode df_afterFid_fall18inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_Fall18inb_missingKm_data, "dfSelected_afterFid_reprocessed",
   // beam_energy_fall2018);
-   ROOT::RDF::RNode df_afterFid_sp19inb_missingKm_data   = InitKinematics_MissingKm(filename_afterFid_SP19inb_missingKm_data,   "dfSelected",beam_energy_sp2019); 
+   ROOT::RDF::RNode df_afterFid_sp19inb_missingKm_data_init = InitKinematics_MissingKm(filename_afterFid_SP19inb_missingKm_data,   "dfSelected",beam_energy_sp2019); 
+   auto df_afterFid_sp19inb_missingKm_data = GetSlim_missingKm(df_afterFid_sp19inb_missingKm_data_init, "slim_sp19_missingKm_all.root", "slim_sp19_missingKm_all");
+  
   //ROOT::RDF::RNode df_afterFid_sp18outb_missingKp_data  = InitKinematics_MissingKp(filename_afterFid_SP18outb_missingKp_data,
   // "dfSelected_afterFid_reprocessed", beam_energy_sp2018); ROOT::RDF::RNode df_afterFid_fall18outb_missingKp_data=
   // InitKinematics_MissingKp(filename_afterFid_Fall18outb_missingKp_data,"dfSelected_afterFid_reprocessed", beam_energy_fall2018);
@@ -136,14 +141,14 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto df_sp19inb_phi = ApplyFinalDVEPSelections(df_sp19inb_all);
     //PlotEventOverview(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm", "exclusiveKpKm");
 
-   // DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8, /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 3.0);
+   DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8, /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 3.0);
     //DISANA::PhiMass::DrawPhiMass_Measured(df_fall18inb_phi,"PhiMassPlots/fall2018/inb/DVKpKm/exclusiveKpKm/","Fall18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
     //DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi,"PhiMassPlots/spring2018/inb/DVKpKm/exclusiveKpKm/","Sp18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
     //DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi,"PhiMassPlots/spring2018/outb/DVKpKm/exclusiveKpKm/","Sp18 OUTB DVKpKm 1",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
     //DISANA::PhiMass::DrawPhiMass_Measured(df_fall18outb_phi,"PhiMassPlots/fall2018/outb/DVKpKm/exclusiveKpKm/","Fall18 OUTB DVKpKm",/*nBins*/200,/*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
     // Add any datasets you want to compare
   //}
-
+ 
   //if (runMissingMass) {
     auto [df_cut_missing_Km_sp19,  winKm2019]  = DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_sp19inb_missingKm_data,   "Mx2_epKp", "PhiMassPlots/spring2019/inb/nsidis",
     "Sp19 INB",  "K^{+}", 220, 0.25, 0.75, 3.0); 
@@ -184,6 +189,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   // -----------------------------
   // Shared summary plots
   std::cout << "Applying further cuts and plotting…" << std::endl;
+
+
   comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019);
   comparer.AddModelPhi(df_sp19_missingKm_all, "Sp19 inb (Missing K-)", beam_energy_sp2019);
     /*comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018);
@@ -194,7 +201,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   comparer.PlotPhiElectroProKinematicsComparison();
   comparer.PlotKinematicComparison_phiAna();
   comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
-  comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 30, 0.9974, 1.2, true, luminosity_rga_fall18, branching);
+  comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 40, 0.988, 1.15, true, luminosity_rga_fall18, branching);
   comparer.PlotPhiDSigmaDt_FromCache();
 
   gApplication->Terminate(0);
