@@ -126,7 +126,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
   // -----------------------------
   // 1) Exclusive measured K+K- analysis (toggle)
-  //if (runExclusive) {
+  if (runExclusive) {
     // Apply your “final” DVEP selections and then pick exclusive phi events
     auto df_sp18inb_all    = SelectExclusivePhiEvent(df_afterFid_sp18inb_data);
     auto df_sp18outb_all   = SelectExclusivePhiEvent(df_afterFid_sp18outb_data);
@@ -141,15 +141,21 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto df_sp19inb_phi = ApplyFinalDVEPSelections(df_sp19inb_all);
     //PlotEventOverview(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm", "exclusiveKpKm");
 
-   DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8, /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 3.0);
-    //DISANA::PhiMass::DrawPhiMass_Measured(df_fall18inb_phi,"PhiMassPlots/fall2018/inb/DVKpKm/exclusiveKpKm/","Fall18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
-    //DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi,"PhiMassPlots/spring2018/inb/DVKpKm/exclusiveKpKm/","Sp18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
-    //DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi,"PhiMassPlots/spring2018/outb/DVKpKm/exclusiveKpKm/","Sp18 OUTB DVKpKm 1",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
-    //DISANA::PhiMass::DrawPhiMass_Measured(df_fall18outb_phi,"PhiMassPlots/fall2018/outb/DVKpKm/exclusiveKpKm/","Fall18 OUTB DVKpKm",/*nBins*/200,/*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
+    DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8, /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 3.0);
+    DISANA::PhiMass::DrawPhiMass_Measured(df_fall18inb_phi,"PhiMassPlots/fall2018/inb/DVKpKm/exclusiveKpKm/","Fall18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
+    DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi,"PhiMassPlots/spring2018/inb/DVKpKm/exclusiveKpKm/","Sp18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
+    DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi,"PhiMassPlots/spring2018/outb/DVKpKm/exclusiveKpKm/","Sp18 OUTB DVKpKm 1",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
+    DISANA::PhiMass::DrawPhiMass_Measured(df_fall18outb_phi,"PhiMassPlots/fall2018/outb/DVKpKm/exclusiveKpKm/","Fall18 OUTB DVKpKm",/*nBins*/200,/*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
     // Add any datasets you want to compare
-  //}
+
+    comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018);
+    comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018);
+    comparer.AddModelPhi(df_fall18inb_phi,  "Fall18 inb",  beam_energy_fall2018);
+    comparer.AddModelPhi(df_sp18outb_phi,   "Sp18 outb",   beam_energy_sp2018);
+    comparer.AddModelPhi(df_sp18inb_phi,    "Sp18 inb",    beam_energy_sp2018);
+  }
  
-  //if (runMissingMass) {
+  if (runMissingMass) {
     auto [df_cut_missing_Km_sp19,  winKm2019]  = DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_sp19inb_missingKm_data,   "Mx2_epKp", "PhiMassPlots/spring2019/inb/nsidis",
     "Sp19 INB",  "K^{+}", 220, 0.25, 0.75, 3.0); 
     /*auto [df_cut_missing_Km_fall18,winKmFall18]= DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_fall18inb_missingKm_data,
@@ -158,7 +164,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto [df_cut_missing_Kp_sp18,  winKpSp18]   = DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_sp18outb_missingKp_data,  "Mx2_epKm", "PhiMassPlots/spring2018/outb/nsidis",
     "Sp18 OUTB", "K^{-}", 220, 0.30, 0.80, 3.0); auto [df_cut_missing_Kp_fall18,winKpFall18] =
     DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_fall18outb_missingKp_data,"Mx2_epKm", "PhiMassPlots/fall2018/outb/nsidis",   "Fall18 OUTB","K^{-}", 220, 0.25, 0.75, 3.0);
-*/
+
     // Draw phi mass with Km missing
     DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_sp19,  "PhiMassPlots/spring2019/inb/nsidis",  "Sp19 INB",  200, 0.8, 1.8, 0.987, 1.2, 3.0);
     //DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_fall18,"PhiMassPlots/fall2018/inb/nsidis",    "Fall18 INB",200, 0.8, 1.6, 0.9874, 1.12, 3.0);
@@ -184,15 +190,15 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     //comparer.AddModelPhi(df_sp18_missingKm_all, "Sp18 inb (Missing K-)", beam_energy_sp2018);
     //comparer.AddModelPhi(df_sp18_missingKp_all, "Sp18 outb (Missing K+)", beam_energy_sp2018);
     //comparer.AddModelPhi(df_fall18_missingKp_all, "Fall18 outb (Missing K+)", beam_energy_fall2018);*/
-  //}
+  }
 
   // -----------------------------
   // Shared summary plots
   std::cout << "Applying further cuts and plotting…" << std::endl;
 
 
-  comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019);
-  comparer.AddModelPhi(df_sp19_missingKm_all, "Sp19 inb (Missing K-)", beam_energy_sp2019);
+  //comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019);
+  //comparer.AddModelPhi(df_sp19_missingKm_all, "Sp19 inb (Missing K-)", beam_energy_sp2019);
     /*comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018);
     comparer.AddModelPhi(df_fall18inb_phi,  "Fall18 inb",  beam_energy_fall2018);
     comparer.AddModelPhi(df_sp18outb_phi,   "Sp18 outb",   beam_energy_sp2018);

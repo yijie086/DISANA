@@ -46,7 +46,7 @@ TLorentzVector Build4Vector(double p, double theta, double phi, double mass) {
 }  // namespace
 
 // -----------------------------------------------------------------------------
-// Bin manager (unchanged)
+// Bin manager 
 // -----------------------------------------------------------------------------
 class BinManager {
  public:
@@ -477,7 +477,7 @@ class DISANAMath {
           TH1D *h_pi0_data = df_pi0_data_CrossSection[xb_bin][q2_bin][t_bin];
 
           if (!h_dvcs_pi0mc || !h_pi0_pi0mc || !h_dvcs_data || !h_pi0_data) {
-            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            std::cerr << "Pi0 corr: Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
             continue;
           }
           TH1D *hRatio = static_cast<TH1D *>(h_dvcs_pi0mc->Clone(Form("hPi0Corr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
@@ -510,7 +510,7 @@ class DISANAMath {
           TH1D *h_accept_dvcsmc = df_accept_dvcsmc_CrossSection[xb_bin][q2_bin][t_bin];
 
           if (!h_gen_dvcsmc || !h_accept_dvcsmc) {
-            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            std::cerr << "Acceptance Corr: Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
             continue;
           }
           TH1D *hRatio = static_cast<TH1D *>(h_gen_dvcsmc->Clone(Form("hAccCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
@@ -566,15 +566,14 @@ class DISANAMath {
         for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
           TH1D *h_dvcs_rad = df_dvcs_rad_CrossSection[xb_bin][q2_bin][t_bin];
           TH1D *h_dvcs_norad = df_dvcs_norad_CrossSection[xb_bin][q2_bin][t_bin];
-
           if (!h_dvcs_rad || !h_dvcs_norad) {
-            std::cerr << "Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            std::cerr << " Rad Corr: Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
             continue;
           }
-          TH1D *hRatio = static_cast<TH1D *>(h_dvcs_rad->Clone(Form("hRadCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
-          hRatio->Reset();
-          hRatio->Divide(h_dvcs_rad, h_dvcs_norad);
-          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+         TH1D *hRatio = static_cast<TH1D *>(h_dvcs_rad->Clone(Form("hRadCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
+         hRatio->SetDirectory(nullptr); // avoid ROOT ownership surprises
+         hRatio->Divide(h_dvcs_norad); // uses default error propagation
+         hCorr[xb_bin][q2_bin][t_bin] = hRatio;
         }
       }
     }
