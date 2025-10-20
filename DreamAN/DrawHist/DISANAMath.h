@@ -198,7 +198,7 @@ class DISANAMath {
     t_ = std::abs((proton_in - proton_out).Mag2());
 
     TVector3 nL = electron_in.Vect().Cross(electron_out.Vect()).Unit();
-    TVector3 nH = q.Vect().Cross(proton_out.Vect()).Unit();
+    TVector3 nH = photon.Vect().Cross(q.Vect()).Unit();
     const double cos_phi = nL.Dot(nH);
     const double sin_phi = (nL.Cross(nH)).Dot(q.Vect().Unit());
     phi_deg_ = (std::atan2(sin_phi, cos_phi) + pi) * 180. / pi;

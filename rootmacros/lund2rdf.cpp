@@ -9,13 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <glob.h>   // POSIX glob for pattern matching
-#include <unordered_set>
 
-// Return basename without path.
-static std::string basename_of(const std::string& path) {
-    size_t pos = path.find_last_of("/\\");
-    return (pos == std::string::npos) ? path : path.substr(pos + 1);
-}
 // Split a line by whitespace
 static std::vector<std::string> split_ws(const std::string &line) {
     std::istringstream iss(line);
@@ -47,8 +41,8 @@ static std::vector<std::string> glob_files(const char* pattern) {
 }
 
 // Main function: read all files matching pattern, write a single ROOT file
-void lund2rdf(const char* inPattern = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/dvcsgen/script_no_rad/*.dat",
-              const char* outPath   = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/no_rad_gen/no_rad100M.root")
+void lund2rdf(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsgen/norad_gen/*001*.dat",
+              const char* outPath   = "norsmall.root")
 {
     // Prepare output ROOT file
     TFile fout(outPath, "RECREATE");
@@ -57,18 +51,10 @@ void lund2rdf(const char* inPattern = "/w/hallb-scshelf2102/clas12/singh/Softwar
         return;
     }
 
-    // Exact basenames to exclude:
-    const std::unordered_set<std::string> exclude_names = {
-        "nor095M1.dat","nor088M1.dat","nor015M1.dat","nor022M1.dat",
-        "nor028M1.dat","nor033M1.dat","nor036M1.dat","nor037M1.dat","nor040M1.dat",
-        "nor042M1.dat","nor047M1.dat","nor050M1.dat","nor059M1.dat","nor065M1.dat",
-        "nor068M1.dat","nor069M1.dat","nor075M1.dat","nor078M1.dat",
-        "nor080M1.dat","nor092M1.dat"
-    };
-
     // Branch containers
     std::vector<int>   v_pid;
     std::vector<float> v_px, v_py, v_pz;
+    bool hasphoto = false;
 
     TTree tree("MC", "MC particles from LUND (dvcsgen)");
     tree.Branch("MC_Particle_pid", &v_pid);
@@ -87,12 +73,6 @@ void lund2rdf(const char* inPattern = "/w/hallb-scshelf2102/clas12/singh/Softwar
 
     // Loop over files
     for (auto& fname : files) {
-        const std::string base = basename_of(fname);
-        if (exclude_names.count(base)) {
-            std::cout << "Skipping " << fname << " (in exclude list)\n";
-            continue;
-        }
-
         std::ifstream fin(fname);
         if (!fin.is_open()) {
             std::cerr << "WARNING: cannot open file: " << fname << std::endl;
@@ -111,11 +91,16 @@ void lund2rdf(const char* inPattern = "/w/hallb-scshelf2102/clas12/singh/Softwar
             int nPart = -1;
             try {
                 nPart = std::stoi(toks[0]); // Npart
-            } catch (...) { continue; }
+            } catch (...) {
+                continue; // not an event header
+            }
             if (nPart <= 0) continue;
 
             v_pid.clear(); v_px.clear(); v_py.clear(); v_pz.clear();
-            v_pid.reserve(nPart); v_px.reserve(nPart); v_py.reserve(nPart); v_pz.reserve(nPart);
+            v_pid.reserve(nPart);
+            v_px .reserve(nPart);
+            v_py .reserve(nPart);
+            v_pz .reserve(nPart);
 
             for (int i = 0; i < nPart; ++i) {
                 std::string pline;
@@ -131,13 +116,19 @@ void lund2rdf(const char* inPattern = "/w/hallb-scshelf2102/clas12/singh/Softwar
                     float px  = std::stof(ptoks[6]);
                     float py  = std::stof(ptoks[7]);
                     float pz  = std::stof(ptoks[8]);
+                    if (pid == 22 && hasphoto) continue; // only keep first photon
+                    if (pid == 22) hasphoto = true;
+
 
                     v_pid.push_back(pid);
-                    v_px.push_back(px);
-                    v_py.push_back(py);
-                    v_pz.push_back(pz);
-                } catch (...) { /* skip bad line */ }
+                    v_px .push_back(px);
+                    v_py .push_back(py);
+                    v_pz .push_back(pz);
+                } catch (...) {
+                    // skip bad line
+                }
             }
+            hasphoto = false;
             tree.Fill();
             ++evCount;
         }
@@ -145,5 +136,6 @@ void lund2rdf(const char* inPattern = "/w/hallb-scshelf2102/clas12/singh/Softwar
 
     fout.Write();
     fout.Close();
+
     std::cout << "Done. Wrote " << evCount << " events to " << outPath << std::endl;
 }

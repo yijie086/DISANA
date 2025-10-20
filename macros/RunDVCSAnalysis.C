@@ -17,13 +17,13 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     } else {
         std::cout << "[RunPhiAnalysis] IMT disabled (single thread mode).\n";
   }
-  bool IsMC = true;              // Set to true if you want to run on MC data
-  bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
+  bool IsMC = false;              // Set to true if you want to run on MC data
+  bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = false; 
   //std::string dataconfig = "rgasp18_inb";
-  std::string dataconfig = "rgasp18_outb";  
-  //std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgasp18_outb";  
+  std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
