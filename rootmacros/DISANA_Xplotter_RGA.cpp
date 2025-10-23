@@ -56,7 +56,7 @@ void DISANA_Xplotter_RGA() {
   /// proton momentum correction applied
   
   //data path
-  std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/";
+  std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/final_cooking/";
   std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/";
   
   //pi-0 MC path
@@ -69,7 +69,7 @@ void DISANA_Xplotter_RGA() {
   std::string input_path_from_analysisRun_inb_DVCSMC_gen  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/accept_all/";
   std::string input_path_from_analysisRun_outb_DVCSMC_gen  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
 
-  std::string input_path_from_analysisRun_inb_dvcsmc_bkg = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/45na_bkg/reprocessed_from/";
+  std::string input_path_from_analysisRun_inb_dvcsmc_bkg = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/50na_bkg/reprocessed_for_eff/";
   std::string input_path_from_analysisRun_outb_dvcsmc_bkg = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/45na_bkg/";
   std::string input_path_from_analysisRun_inb_dvcsmc_nobkg = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/no_bgk/";
   std::string input_path_from_analysisRun_outb_dvcsmc_nobkg = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/no_bkg/";
@@ -187,7 +187,7 @@ void DISANA_Xplotter_RGA() {
   comparer.SetXBinsRanges(xBins);
 
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb after", beam_energy, true, true,true, true);
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb after", beam_energy, true, true,true,true);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb after", beam_energy, true, true,true,true);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC,/*mcdvcs*/df_final_dvcsPi_rejected_inb_MC,/*mcdvcs_acceptance*/df_final_OnlPi0_inb_MC, /*mc dvcsbkg*/df_final_OnlPi0_inb_MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_MC, /*dvscrad*/df_final_OnlPi0_inb_MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_MC, "Sp18 Inb no corr", beam_energy, false, false,false,false);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_inb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_pi0MC, /*dvscrad*/df_final_OnlPi0_inb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_pi0MC, "Sp18 Inb Before", beam_energy, false, false,false,false);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_inb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_pi0MC, /*dvscrad*/df_final_OnlPi0_inb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_pi0MC, "Sp18 Inb after", beam_energy, true, true,false,false);

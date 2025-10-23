@@ -33,9 +33,9 @@ std::vector<std::pair<std::string, std::string>> detCuts = {
 // Main plotter with toggles
 void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 {
-  bool runExclusive = true;
-  bool runMissingMass = false;
-  ROOT::EnableImplicitMT();
+  bool runExclusive = false;
+  bool runMissingMass = true;
+  ROOT::EnableImplicitMT(8);
 
   // -----------------------------
   // Input locations
@@ -103,30 +103,24 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   double branching = 0.49;
 
   // -----------------------------
-  // Initialize RDataFrames up front (shared by both modes)
-  ROOT::RDF::RNode df_afterFid_sp18inb_data   = InitKinematics(filename_afterFid_SP18inb_data,   "dfSelected", beam_energy_sp2018);
-  ROOT::RDF::RNode df_afterFid_sp18outb_data  = InitKinematics(filename_afterFid_SP18outb_data,  "dfSelected", beam_energy_sp2018);
-  ROOT::RDF::RNode df_afterFid_fall18inb_data = InitKinematics(filename_afterFid_Fall18inb_data, "dfSelected", beam_energy_fall2018);
-  ROOT::RDF::RNode df_afterFid_fall18outb_data= InitKinematics(filename_afterFid_Fall18outb_data,"dfSelected", beam_energy_fall2018);
-  ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected", beam_energy_sp2019);
-  auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive.root", "slim_sp19_exlcusive");
   
-
-
-  // ROOT::RDF::RNode df_afterFid_sp18inb_missingKm_data   = InitKinematics_MissingKm(filename_afterFid_SP18inb_missingKm_data,   "dfSelected_afterFid_reprocessed",
-  // beam_energy_sp2018);
-  // ROOT::RDF::RNode df_afterFid_fall18inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_Fall18inb_missingKm_data, "dfSelected_afterFid_reprocessed",
-  // beam_energy_fall2018);
-   ROOT::RDF::RNode df_afterFid_sp19inb_missingKm_data_init = InitKinematics_MissingKm(filename_afterFid_SP19inb_missingKm_data,   "dfSelected",beam_energy_sp2019); 
-   auto df_afterFid_sp19inb_missingKm_data = GetSlim_missingKm(df_afterFid_sp19inb_missingKm_data_init, "slim_sp19_missingKm_all.root", "slim_sp19_missingKm_all");
-  
-  //ROOT::RDF::RNode df_afterFid_sp18outb_missingKp_data  = InitKinematics_MissingKp(filename_afterFid_SP18outb_missingKp_data,
-  // "dfSelected_afterFid_reprocessed", beam_energy_sp2018); ROOT::RDF::RNode df_afterFid_fall18outb_missingKp_data=
-  // InitKinematics_MissingKp(filename_afterFid_Fall18outb_missingKp_data,"dfSelected_afterFid_reprocessed", beam_energy_fall2018);
 
   // -----------------------------
   // 1) Exclusive measured K+K- analysis (toggle)
   if (runExclusive) {
+    // Initialize RDataFrames up front (shared by both modes)
+  ROOT::RDF::RNode df_afterFid_sp18inb_data_init   = InitKinematics(filename_afterFid_SP18inb_data,   "dfSelected", beam_energy_sp2018);
+  ROOT::RDF::RNode df_afterFid_sp18outb_data_init  = InitKinematics(filename_afterFid_SP18outb_data,  "dfSelected", beam_energy_sp2018);
+  ROOT::RDF::RNode df_afterFid_fall18inb_data_init = InitKinematics(filename_afterFid_Fall18inb_data, "dfSelected", beam_energy_fall2018);
+  ROOT::RDF::RNode df_afterFid_fall18outb_data_init = InitKinematics(filename_afterFid_Fall18outb_data,"dfSelected", beam_energy_fall2018);
+  ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected", beam_energy_sp2019);
+  
+  auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive.root", "slim_sp19_exlcusive");
+  auto df_afterFid_sp18inb_data = GetSlim_exclusive(df_afterFid_sp18inb_data_init, "slim_sp18inb_exlcusive.root", "slim_sp18inb_exlcusive");
+  auto df_afterFid_sp18outb_data = GetSlim_exclusive(df_afterFid_sp18outb_data_init, "slim_sp18outb_exlcusive.root", "slim_sp18outb_exlcusive");
+  auto df_afterFid_fall18inb_data = GetSlim_exclusive(df_afterFid_fall18inb_data_init, "slim_fall18inb_exlcusive.root", "slim_fall18inb_exlcusive");
+  auto df_afterFid_fall18outb_data = GetSlim_exclusive(df_afterFid_fall18outb_data_init, "slim_fall18outb_exlcusive.root", "slim_fall18outb_exlcusive");
+  
     // Apply your “final” DVEP selections and then pick exclusive phi events
     auto df_sp18inb_all    = SelectExclusivePhiEvent(df_afterFid_sp18inb_data);
     auto df_sp18outb_all   = SelectExclusivePhiEvent(df_afterFid_sp18outb_data);
@@ -156,9 +150,22 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   }
  
   if (runMissingMass) {
+  ROOT::RDF::RNode df_afterFid_sp18inb_missingKm_data   = InitKinematics_MissingKm(filename_afterFid_SP18inb_missingKm_data,   "dfSelected",beam_energy_sp2018);
+  ROOT::RDF::RNode df_afterFid_fall18inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_Fall18inb_missingKm_data, "dfSelected",beam_energy_fall2018);
+  ROOT::RDF::RNode df_afterFid_sp19inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_SP19inb_missingKm_data,   "dfSelected",beam_energy_sp2019); 
+  ROOT::RDF::RNode df_afterFid_sp18outb_missingKp_data  = InitKinematics_MissingKp(filename_afterFid_SP18outb_missingKp_data,"dfSelected", beam_energy_sp2018);
+  ROOT::RDF::RNode df_afterFid_fall18outb_missingKp_data = InitKinematics_MissingKp(filename_afterFid_Fall18outb_missingKp_data,"dfSelected", beam_energy_fall2018);
+
+   
+  /*auto df_afterFid_sp19inb_missingKm_data = GetSlim_missingKm(df_afterFid_sp19inb_missingKm_data_init, "slim_sp19_missingKm_all.root", "slim_sp19_missingKm_all");
+  auto df_afterFid_sp18inb_missingKm_data = GetSlim_missingKm(df_afterFid_sp18inb_missingKm_data_init, "slim_sp18_missingKm_all.root", "slim_sp18_missingKm_all");
+  auto df_afterFid_sp18outb_missingKp_data = GetSlim_missingKp(df_afterFid_sp18outb_missingKp_data_init, "slim_sp18_missingKp_all.root", "slim_sp18_missingKp_all");
+  auto df_afterFid_fall18inb_missingKm_data = GetSlim_missingKm(df_afterFid_fall18inb_missingKm_data_init, "slim_fall18_missingKm_all.root", "slim_fall18_missingKm_all");
+  auto df_afterFid_fall18outb_missingKp_data = GetSlim_missingKp(df_afterFid_fall18outb_missingKp_data_init, "slim_fall18_missingKp_all.root", "slim_fall18_missingKp_all");
+   */
     auto [df_cut_missing_Km_sp19,  winKm2019]  = DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_sp19inb_missingKm_data,   "Mx2_epKp", "PhiMassPlots/spring2019/inb/nsidis",
     "Sp19 INB",  "K^{+}", 220, 0.25, 0.75, 3.0); 
-    /*auto [df_cut_missing_Km_fall18,winKmFall18]= DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_fall18inb_missingKm_data,
+    auto [df_cut_missing_Km_fall18,winKmFall18]= DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_fall18inb_missingKm_data,
     "Mx2_epKp", "PhiMassPlots/fall2018/inb/nsidis",   "Fall18 INB","K^{+}", 220, 0.25, 0.75, 3.0); auto [df_cut_missing_Km_sp18,  winKmSp18]  =
     DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_sp18inb_missingKm_data,   "Mx2_epKp", "PhiMassPlots/spring2018/inb/nsidis", "Sp18 INB",  "K^{+}", 220, 0.25, 0.75, 3.0);
     auto [df_cut_missing_Kp_sp18,  winKpSp18]   = DISANA::PhiMass::WireKaonMMCut_FromMx2(df_afterFid_sp18outb_missingKp_data,  "Mx2_epKm", "PhiMassPlots/spring2018/outb/nsidis",
@@ -167,29 +174,29 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
     // Draw phi mass with Km missing
     DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_sp19,  "PhiMassPlots/spring2019/inb/nsidis",  "Sp19 INB",  200, 0.8, 1.8, 0.987, 1.2, 3.0);
-    //DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_fall18,"PhiMassPlots/fall2018/inb/nsidis",    "Fall18 INB",200, 0.8, 1.6, 0.9874, 1.12, 3.0);
-    //DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_sp18,  "PhiMassPlots/spring2018/inb/nsidis",  "Sp18 INB",  200, 0.8, 1.6, 0.9874, 1.12, 3.0);
-    //DISANA::PhiMass::DrawPhiMass_Km_plus_KpMissing(df_cut_missing_Kp_sp18,  "PhiMassPlots/spring2018/outb/nsidis", "Sp18 OUTB", 200, 0.8, 1.6, 0.9874, 1.12, 3.0);
-    //DISANA::PhiMass::DrawPhiMass_KpMissing_plus_Km(df_cut_missing_Kp_fall18,"PhiMassPlots/fall2018/outb/nsidis",   "Fall18 OUTB",200, 0.8, 1.6, 0.9874, 1.12, 3.0);
+    DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_fall18,"PhiMassPlots/fall2018/inb/nsidis",    "Fall18 INB",200, 0.8, 1.6, 0.9874, 1.12, 3.0);
+    DISANA::PhiMass::DrawPhiMass_Kp_plus_KmMissing(df_cut_missing_Km_sp18,  "PhiMassPlots/spring2018/inb/nsidis",  "Sp18 INB",  200, 0.8, 1.6, 0.9874, 1.12, 3.0);
+    DISANA::PhiMass::DrawPhiMass_KpMissing_plus_Km(df_cut_missing_Kp_sp18,  "PhiMassPlots/spring2018/outb/nsidis", "Sp18 OUTB", 200, 0.8, 1.6, 0.9874, 1.12, 3.0);
+    DISANA::PhiMass::DrawPhiMass_KpMissing_plus_Km(df_cut_missing_Kp_fall18,"PhiMassPlots/fall2018/outb/nsidis",   "Fall18 OUTB",200, 0.8, 1.6, 0.9874, 1.12, 3.0);
 
     // Pass through your final DVEP selections & dedicated phi picker for missing-Km streams
     auto df_sp19_missingKm_phi  = SelectPhiEvent_MissingKm(df_cut_missing_Km_sp19);
-   // auto df_fall18_missingKm_phi= SelectPhiEvent_MissingKm(df_cut_missing_Km_fall18);
-    //auto df_sp18_missingKm_phi  = SelectPhiEvent_MissingKm(df_cut_missing_Km_sp18);
-    //auto df_sp18_missingKp_phi  = SelectPhiEvent_MissingKp(df_cut_missing_Kp_sp18);
-   // auto df_fall18_missingKp_phi= SelectPhiEvent_MissingKp(df_cut_missing_Kp_fall18);
+    auto df_fall18_missingKm_phi= SelectPhiEvent_MissingKm(df_cut_missing_Km_fall18);
+    auto df_sp18_missingKm_phi  = SelectPhiEvent_MissingKm(df_cut_missing_Km_sp18);
+    auto df_sp18_missingKp_phi  = SelectPhiEvent_MissingKp(df_cut_missing_Kp_sp18);
+    auto df_fall18_missingKp_phi= SelectPhiEvent_MissingKp(df_cut_missing_Kp_fall18);
 
     auto df_sp19_missingKm_all  = ApplyFinalDVEPSelections(df_sp19_missingKm_phi);
-    //auto df_fall18_missingKm_all= ApplyFinalDVEPSelections(df_fall18_missingKm_phi);
-    //auto df_sp18_missingKm_all  = ApplyFinalDVEPSelections(df_sp18_missingKm_phi);
-    //auto df_sp18_missingKp_all  = ApplyFinalDVEPSelections(df_sp18_missingKp_phi);
-    //auto df_fall18_missingKp_all= ApplyFinalDVEPSelections(df_fall18_missingKp_phi);
+    auto df_fall18_missingKm_all= ApplyFinalDVEPSelections(df_fall18_missingKm_phi);
+    auto df_sp18_missingKm_all  = ApplyFinalDVEPSelections(df_sp18_missingKm_phi);
+    auto df_sp18_missingKp_all  = ApplyFinalDVEPSelections(df_sp18_missingKp_phi);
+    auto df_fall18_missingKp_all= ApplyFinalDVEPSelections(df_fall18_missingKp_phi);
     // Add to comparer
-    //comparer.AddModelPhi(df_sp19_missingKm_all, "Sp19 inb (Missing K-)", beam_energy_sp2019);
-    //comparer.AddModelPhi(df_fall18_missingKm_all, "Fall18 inb (Missing K-)", beam_energy_fall2018);
-    //comparer.AddModelPhi(df_sp18_missingKm_all, "Sp18 inb (Missing K-)", beam_energy_sp2018);
-    //comparer.AddModelPhi(df_sp18_missingKp_all, "Sp18 outb (Missing K+)", beam_energy_sp2018);
-    //comparer.AddModelPhi(df_fall18_missingKp_all, "Fall18 outb (Missing K+)", beam_energy_fall2018);*/
+    comparer.AddModelPhi(df_sp19_missingKm_all, "Sp19 inb (Missing K-)", beam_energy_sp2019);
+    comparer.AddModelPhi(df_fall18_missingKm_all, "Fall18 inb (Missing K-)", beam_energy_fall2018);
+    comparer.AddModelPhi(df_sp18_missingKm_all, "Sp18 inb (Missing K-)", beam_energy_sp2018);
+    comparer.AddModelPhi(df_sp18_missingKp_all, "Sp18 outb (Missing K+)", beam_energy_sp2018);
+    comparer.AddModelPhi(df_fall18_missingKp_all, "Fall18 outb (Missing K+)", beam_energy_fall2018);
   }
 
   // -----------------------------

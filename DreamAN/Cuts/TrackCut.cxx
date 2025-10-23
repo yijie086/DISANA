@@ -499,10 +499,6 @@ TrackCut::RECForwardTaggerPass() const {
   };
 }
 
-
-
-
-
 std::function<std::vector<int>(
     const std::vector<int16_t>& traj_pindex,
     const std::vector<int16_t>& traj_index,

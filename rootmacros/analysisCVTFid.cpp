@@ -247,14 +247,28 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisCVTFid() {
+    ROOT::EnableImplicitMT();
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "./../build/";
+    //std::string path = "./../build/";
+
+        ///==================// phi analysis paths==========================
+    // spring 2019
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2019/sp2019_inb/missing_km_output/";
+    // spring 2018 inb
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/inb/missing_Km_output/";
+    // spring 2018 outb
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/outb/missing_Kp_output/";"
+    // fall 2018 inb
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/inb/missing_Km_output/";
+    // fall 2018 outb
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/outb/missing_Km_output/";  
+
     std::vector<int> layers = {1, 3, 5, 7, 12};
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -5.0};
     std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 25.0};
     std::vector<float> thetaCuts = {55, 85, 115};
-    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    //DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    //DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
     DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
     DrawCVTHitResponse(2212, 5, layers, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);

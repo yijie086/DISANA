@@ -107,7 +107,7 @@ void DrawFTHitResponse(const int &selectedPid, const int &selecteddetector,
 void analysisFTFid() {
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
     //std::string path = "./../build/";
-    std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
+    std::string path = "//w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2019/sp2019_inb/missing_km_output/";
     
     std::vector<int> layers = {1};
     DrawFTHitResponse(22, 10, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);

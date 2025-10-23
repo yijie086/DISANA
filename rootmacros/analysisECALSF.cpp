@@ -239,12 +239,26 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisECALSF() {
+    ROOT::EnableImplicitMT();
     //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    std::string path = "../build/rgk7546dataSFCorr/";
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
+    //std::string path = "../build/rgk7546dataSFCorr/";
+    /// Do not touch this:D
+    ///==================// phi analysis paths==========================
+    // spring 2019
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2019/sp2019_inb/missing_km_output/";
+    // spring 2018 inb
+    std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/inb/missing_Km_output/";
+    // spring 2018 outb
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/outb/missing_Kp_output/";"
+    // fall 2018 inb
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/inb/missing_Km_output/";
+    // fall 2018 outb
+    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/outb/missing_Km_output/";  
+    
+    //==================// DVCS analysis paths==========================
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 5.5);
-    //DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false);
+    //DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 5.5);
+    DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false, 3, 2, 7.5);
     gApplication->Terminate(0);
 }
