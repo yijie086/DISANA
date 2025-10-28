@@ -57,7 +57,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/";  // Default output directory
   // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/";  // Default output directory
   /*std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory*/
-  outputFileDir = "./";  // local output directory
+  std::string outputFileDir = "./";  // local output directory
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";
   std::string inputHipoDirTest = " ";
@@ -247,6 +247,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   }
 
 */
+  auto corr = std::make_shared<MomentumCorrection>();
 
   /// Momentum correction for the proton
   if (dataconfig == "rgasp18_inb") {
@@ -392,8 +393,6 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   eventCuts->AddParticleCut("Neg Kaon", kMinus);    // Applies defaults automatically
   eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
   // eventCuts->AddParticleMotherCut("phi", phi);      // Applies defaults automatically
-
-  auto corr = std::make_shared<MomentumCorrection>();
 
   // Task
   auto PhiTask = std::make_unique<PhiAnalysis>(IsMC, IsreprocRootFile, IsMinimalBook);
