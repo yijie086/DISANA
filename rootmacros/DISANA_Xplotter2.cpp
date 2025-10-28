@@ -51,7 +51,8 @@ void DISANA_Xplotter2() {
 
   ROOT::EnableImplicitMT();
  
-  std::string input_path_from_analysisRun_7546_data = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dataCorr/";
+  //std::string input_path_from_analysisRun_7546_data = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dataCorr/";
+  std::string input_path_from_analysisRun_7546_data = "./../build";
   //std::string input_path_from_analysisRun_7546_data_mc = "./../build/rgk7546mcSFCorr";
   std::string input_path_from_analysisRun_7546_pi0MC = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis401/DISANA/build/rgk7546dvpiomcCorr/";
   
@@ -78,8 +79,8 @@ void DISANA_Xplotter2() {
   std::string filename_afterFid_7546_dvcsmc_norad = Form("%s/norad100M.root", input_path_from_analysisRun_7546_dvcsmc_norad.c_str());
   //filename_afterFid_7546_dvcsmc_rad = "../build/radtest/dfSelected.root";
   //filename_afterFid_7546_dvcsmc_norad = "../build/nortest/dfSelected.root";
-  filename_afterFid_7546_dvcsmc_rad = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis601/DISANA/rootmacros/radsmall.root";
-  filename_afterFid_7546_dvcsmc_norad = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis601/DISANA/rootmacros/norsmall.root";
+  filename_afterFid_7546_dvcsmc_rad = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis701/DISANA/rootmacros/rad.root";
+  filename_afterFid_7546_dvcsmc_norad = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis701/DISANA/rootmacros/nor.root";
   
 
   float beam_energy = 7.546;
@@ -135,16 +136,16 @@ void DISANA_Xplotter2() {
   /// bins for cross-section plots
   BinManager xBins;
   // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
-  // xBins.SetTBins({0.0, 1.2});
+  //xBins.SetTBins({0.0, 10.0});
   // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  xBins.SetQ2Bins({0.0,10.0});
-  xBins.SetTBins({0.0, 10.0});
-  xBins.SetXBBins({0.0,10.0});
-  //xBins.SetQ2Bins({1.0, 1.5, 2.0, 2.5, 3.0});
-  //xBins.SetTBins({0.2, 0.3, 0.4, 0.5});
-  //xBins.SetXBBins({0.15, 0.2, 0.25, 0.3, 0.37});
-  //xBins.SetQ2Bins({1.0, 5.0});
-  //xBins.SetTBins({0.0, 1.0});
+  //xBins.SetQ2Bins({1.0,1.5});
+  //xBins.SetTBins({0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
+  //xBins.SetXBBins({0.0,10.0});
+  xBins.SetQ2Bins({1.0, 1.5, 2.0});
+  xBins.SetTBins({0.2, 0.3, 0.4, 0.5});
+  xBins.SetXBBins({0.15, 0.2, 0.25, 0.3});
+  //xBins.SetQ2Bins({0.0, 10.0});
+  //xBins.SetTBins({0.2, 0.3});
   //xBins.SetXBBins({0.0, 1.0});
   comparer.SetXBinsRanges(xBins);
 
@@ -161,7 +162,7 @@ void DISANA_Xplotter2() {
 
 
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
-                              //df_afterFid_7546_dvcsmc_rad,
+                              //df_afterFid_7546_dvcsmc_gen,
                               df_final_OnlPi0_7546_data,
                               df_final_dvcsPi_rejected_7546_pi0MC,
                               df_final_OnlPi0_7546_pi0MC,
@@ -171,7 +172,7 @@ void DISANA_Xplotter2() {
                               df_final_dvcsPi_rejected_7546_dvcsmc_nobkg,
                               df_afterFid_7546_dvcsmc_rad,
                               df_afterFid_7546_dvcsmc_norad,
-                              "rad", beam_energy, false, false, false, false);
+                              "RGK 7.5GeV", beam_energy, true, true, true, true);
 
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
   //                              //df_afterFid_7546_dvcsmc_norad,
@@ -197,13 +198,13 @@ void DISANA_Xplotter2() {
   
   //double luminosity = 18.8425*pow(10,6);  // Set your desired luminosity here nb^-1
   //double luminosity = (5.516893390230349+2.2356409321666653+2.296226768624658)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
-  double luminosity = (5.516893390230349)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
+  double luminosity = (1.515618+3.039676)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
   double polarisation = 0.85;  // Set your desired polarisation here
 
   //comparer.PlotKinematicComparison();
   //comparer.PlotxBQ2tBin();
   //comparer.PlotDVCSKinematicsComparison();
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, false, false, false, false, false, true, false);   
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true, true, false);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
@@ -450,10 +451,10 @@ ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df, bool inbending
 ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
   return df
       //.Filter("(RUN_config_run >= 5689 && RUN_config_run <=5761)||(RUN_config_run >= 5764 && RUN_config_run <=5799)||(RUN_config_run >= 5801 && RUN_config_run <=5840)||RUN_config_run ==11", "Cut: Golden Run")
-      .Filter("(RUN_config_run >= 5689 && RUN_config_run <=5761)||RUN_config_run ==11", "Cut: Golden Run")
+      .Filter("(RUN_config_run >= 5694 && RUN_config_run <=5705)||(RUN_config_run >= 5707 && RUN_config_run <=5739)||RUN_config_run ==11", "Cut: Golden Run")
       // 4. Q2 > 1
       .Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
-      .Filter("t < 1.0", "Cut: t > 1 GeV^2")
+      .Filter("t < 1.0", "Cut: t < 1 GeV^2")
       //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
 
       // 5. W > 2
@@ -589,6 +590,9 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
              .Define("recpro_p", MomentumFunc, {"pro_px", "pro_py", "pro_pz"})
              .Define("recpro_theta", ThetaFunc, {"pro_px", "pro_py", "pro_pz"})
              .Define("recpro_phi", PhiFunc, {"pro_px", "pro_py"})
+             .Define("recel_vz", [](){ return 0.0; })
+             .Define("recpho_vz", [](){ return 0.0; })
+             .Define("recpro_vz", [](){ return 0.0; })
              .Define("pho_det_region",
                      [](const ROOT::VecOps::RVec<int>& pid) {
                        for (size_t i = 0; i < pid.size(); ++i) {

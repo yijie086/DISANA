@@ -41,8 +41,8 @@ static std::vector<std::string> glob_files(const char* pattern) {
 }
 
 // Main function: read all files matching pattern, write a single ROOT file
-void lund2rdf(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsgen/norad_gen/*001*.dat",
-              const char* outPath   = "norsmall.root")
+void lund2rdf(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsgen/rad_gen/*.dat",
+              const char* outPath   = "rad.root")
 {
     // Prepare output ROOT file
     TFile fout(outPath, "RECREATE");

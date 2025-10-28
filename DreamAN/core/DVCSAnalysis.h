@@ -10,6 +10,7 @@
 
 #include "../Cuts/EventCut.h"
 #include "../Cuts/TrackCut.h"
+#include "../Cuts/QADBCut.h"
 #include "../Correction/MomentumCorrection.h"
 #include "../Math/ParticleMassTable.h"
 #include "../Math/RECParticleKinematic.h"
@@ -47,6 +48,9 @@ class DVCSAnalysis : public AnalysisTask {
   void SetDoMomentumCorrection(bool do_correction) { fDoMomentumCorrection = do_correction; }
   void SetMomentumCorrection(std::shared_ptr<MomentumCorrection> corr) { fMomCorr = std::move(corr); }
 
+  void SetQADBCut(bool do_cut) { fQADBCut = do_cut; }
+  void SetChargeoutpurt(bool charge_output) { fQADBCut = charge_output; }
+
 
 
  private:
@@ -58,6 +62,10 @@ class DVCSAnalysis : public AnalysisTask {
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;
   bool fDoMomentumCorrection = false;  // Flag to indicate if momentum correction is applied
+
+  bool fQADBCut = false;  // Flag to indicate if QADB cut is applied
+  bool fChargeOutput = false; // Flag to indicate if output the accumulated charge from QADB
+
   size_t fMaxEvents{0}; // Maximum number of events to process, 0 means no limit
 
   std::optional<ROOT::RDF::RNode> dforginal;

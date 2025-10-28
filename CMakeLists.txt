@@ -34,6 +34,8 @@ include_directories($ENV{CLAS12ROOT}/Clas12Root)
 include_directories($ENV{CLAS12ROOT}/Clas12Banks)
 include_directories($ENV{ROOTSYS}/include)
 include_directories($ENV{HIPO}/include/hipo4)
+include_directories($ENV{QADB}/srcC/include)
+include_directories($ENV{QADB}/srcC/rapidjson/include)
 
 
 # Include HIPO4 headers
@@ -66,6 +68,7 @@ add_executable(AnalysisDVCS
     DreamAN/core/Columns.cxx
     DreamAN/Cuts/EventCut.cxx
     DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Cuts/QADBCut.cxx
     DreamAN/Correction/MomentumCorrection.cxx
     DreamAN/Math/RECParticleKinematic.cxx
     DreamAN/Math/MathKinematicVariable.cxx

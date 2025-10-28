@@ -430,6 +430,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false); // Set to true to accept all events, false to apply cuts
+  dvcsTask->SetQADBCut(true); // 或 false
 
   mgr.AddTask(std::move(dvcsTask));
 

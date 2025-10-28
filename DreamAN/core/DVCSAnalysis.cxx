@@ -88,6 +88,21 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
     dfSelected_afterFid = dfSelected_afterFid->Filter("REC_Event_pass");
   }
 
+  if (fQADBCut) {
+  std::cout << "Applying QADB cut..." << std::endl;
+  dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid,"REC_QADB_pass",
+      [](int run, int ev){
+        if (qadbcfg::QADBctl::Pass(run, ev)) {
+          qadbcfg::QADBctl::AccumulateCharge();  // accumulate when pass
+          return true;
+        }
+        return false;
+      },
+      {"RUN_config_run", "RUN_config_event"});
+  dfSelected_afterFid = dfSelected_afterFid->Filter("REC_QADB_pass", "QADB pass");
+  }
+
+
   dfSelected_afterFid_afterCorr = dfSelected_afterFid;
 
   if (fMomCorr && fDoMomentumCorrection) {
@@ -129,6 +144,10 @@ void DVCSAnalysis::SaveOutput() {
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
     std::cout << "Events selected after fiducial and momentum correction: " << dfSelected_afterFid_afterCorr->Count().GetValue() << std::endl;
     if(!IsMinBooking)SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
+  }
+  if (fQADBCut) {
+    std::cout << "\n[QADB] total accumulated charge analyzed: "
+          << qadbcfg::QADBctl::GetAccumulatedCharge()/1000000 << " mC (Do NOT use this number if you enable MT)\n";
   }
 
 }
