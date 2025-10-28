@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "AnalysisTaskManager.h"
+#include "PerRunCounter.h"
 
 DVCSAnalysis::DVCSAnalysis(bool IsMC, bool IsReproc,  bool IsMinBook) : IsMC(IsMC), IsReproc(IsReproc), IsMinBooking(IsMinBook), fHistPhotonP(nullptr) {}
 DVCSAnalysis::~DVCSAnalysis() {}
@@ -135,6 +136,9 @@ void DVCSAnalysis::SaveOutput() {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
     std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
+    const std::string csvpath = fOutputDir + "/events_per_run_afterFid.csv";
+    auto items = CountPerRunAndWriteCSV<int>(*dfSelected_afterFid,"RUN_config_run",csvpath);
+    std::cout << "[INFO] Wrote per-run counts to " << csvpath << " (unique runs = " << items.size() << ")\n";
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
