@@ -312,8 +312,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   photon.pid = 22;      // Photon PID
   photon.charge = 0;    // Photon charge
   photon.minCount = 1;  // Minimum count of photons
-  photon.minFDMomentum = 2.0f;
-  photon.minFTMomentum = 2.0f;
+  photon.minFDMomentum = 0.4f;
+  photon.minFTMomentum = 0.4f;
   photon.minBeta = 0.9f;  // Minimum beta for photons
   photon.maxBeta = 1.1f;  // Maximum beta for photons
 
