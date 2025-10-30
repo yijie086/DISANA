@@ -64,6 +64,10 @@ class DISANAcomparer {
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
+    plotter->GeneratePi0KinematicHistos("el");
+    plotter->GeneratePi0KinematicHistos("pro");
+    plotter->GeneratePi0KinematicHistos("pho");
+    plotter->GeneratePi0KinematicHistos("pho2");
     labels.push_back(label);
     plotters.push_back(std::move(plotter));
   }
@@ -235,6 +239,77 @@ class DISANAcomparer {
   void PlotVariableComparison(const std::string& type, const std::string& var, int padIndex, TCanvas* canvas) {
     canvas->cd(padIndex);
     std::string hname_target = "rec" + type + "_" + var;
+
+    TLegend* legend = new TLegend(0.6, 0.7, 0.88, 0.88);
+    legend->SetBorderSize(0);
+    legend->SetFillStyle(0);
+
+    bool first = true;
+    styleKin_.StylePad((TPad*)gPad);
+
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const auto& histograms = plotters[i]->GetAllHistograms();
+      TH1* target = nullptr;
+
+      for (TH1* h : histograms) {
+        if (std::string(h->GetName()) == hname_target) {
+          target = h;
+          break;
+        }
+      }
+
+      if (!target) {
+        std::cerr << "[PlotVariableComparison]: Histogram " << hname_target << " not found for model [" << labels[i] << "]\n";
+        continue;
+      }
+      NormalizeHistogram(target);
+      styleKin_.StyleTH1(target);
+      auto [cr, cg, cb] = modelShades[i % modelShades.size()];
+      const int colorIdx = 4000 + int(i) * 20;
+      if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+      target->SetMarkerColor(colorIdx);
+      target->SetLineColorAlpha(colorIdx, 0.8);
+      target->SetLineWidth(1);
+      target->SetTitle(Form("%s;%s;Count", typeToParticle[type].c_str(), VarName[var].c_str()));
+
+      if (first) {
+        target->Draw("HIST");
+        first = false;
+      } else {
+        target->Draw("HIST SAME");
+      }
+
+      legend->AddEntry(target, labels[i].c_str(), "l");
+    }
+
+    legend->Draw();
+  }
+
+  void PlotPi0KinematicComparison() {
+    TCanvas* canvas = new TCanvas("KinematicComparison", "Kinematic Comparison", 1800, 1200);
+    canvas->Divide(3, 4);
+
+    std::vector<std::string> types = {"el", "pro", "pho", "pho2"};
+    std::vector<std::string> vars = {"p", "theta", "phi"};
+
+    int pad = 1;
+    for (const auto& type : types) {
+      for (const auto& var : vars) {
+        PlotPi0VariableComparison(type, var, pad++, canvas);
+      }
+    }
+
+    canvas->Update();
+    canvas->SaveAs((outputDir + "Pi0KinematicComparison.pdf").c_str());
+
+    std::cout << "Saved pi0 kinematic comparison plots to: " << outputDir + "/Pi0KinematicComparison.pdf" << std::endl;
+    delete canvas;
+  }
+
+  // Plot one specific variable (e.g., p) for a given particle type (e.g., "el")
+  void PlotPi0VariableComparison(const std::string& type, const std::string& var, int padIndex, TCanvas* canvas) {
+    canvas->cd(padIndex);
+    std::string hname_target = "pi0_rec" + type + "_" + var;
 
     TLegend* legend = new TLegend(0.6, 0.7, 0.88, 0.88);
     legend->SetBorderSize(0);
@@ -711,6 +786,220 @@ class DISANAcomparer {
       }
 
       std::string outpath = outputDir + "/Exclusivity_" + cleanName + ".pdf";
+      canvas->SaveAs(outpath.c_str());
+      std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
+      delete canvas;
+    }
+  };
+
+  void PlotPi0ExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
+  std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
+      {"Mass_pi0",     "Pi0 Mass",                         "M_{#pi0} [GeV]",               0.07,  0.2},
+      {"Emiss_pi0",    "Missing Energy",                   "E_{miss} [GeV]",               -1.0,  1.0},
+      {"PTmiss_pi0",   "Transverse Missing Momentum",      "P_{T}^{miss} [GeV/c]",         0.0,  0.3},
+      {"Theta_pi0pi0", "#theta(#pi0, #pi')",               "#theta_{#pi#pi'} [deg]",       0.0,  3.0},
+      {"DeltaPhi_pi0", "Coplanarity Angle",                "#Delta#phi [deg]",             0.0,   15.0},
+      {"Mx2_eppi0",    "Missing Mass Squared (ep#pi)",     "MM^{2}(ep#pi) [GeV^{2}]",      -0.03, 0.03},
+      {"Mx2_ep_pi0",   "Missing Mass Squared (ep#pi)",     "MM^{2}(ep) [GeV^{2}]",         -0.4,  0.6},
+      {"Mx2_epi0",     "Missing Mass Squared (e#pi)",      "MM^{2}(e#pi) [GeV^{2}]",       -0.2,   2.0},
+  };
+
+  for (const auto& [cutExpr, cutLabel] : detectorCuts) {
+    std::string cleanName = cutLabel;
+    std::replace(cleanName.begin(), cleanName.end(), ' ', '_');
+    std::replace(cleanName.begin(), cleanName.end(), ',', '_');
+
+    TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(), cutLabel.c_str(), 1800, 1200);
+    int cols = 4;
+    int rows = (vars.size() + cols - 1) / cols;
+    canvas->Divide(cols, rows);
+
+    for (size_t i = 0; i < vars.size(); ++i) {
+      canvas->cd(i + 1);
+      const auto& [var, title, xlabel, xmin, xmax] = vars[i];
+
+      gPad->SetTicks();
+      styleKin_.StylePad((TPad*)gPad);
+
+      TLegend* legend = new TLegend(0.60, 0.70, 0.88, 0.88);
+      legend->SetBorderSize(0);
+      legend->SetFillStyle(0);
+      legend->SetTextSize(0.040);
+
+      bool first = true;
+
+      for (size_t m = 0; m < plotters.size(); ++m) {
+        auto rdf_data = plotters[m]->GetRDF_Pi0Data().Filter(cutExpr, cutLabel);
+        auto rdf_mc   = plotters[m]->GetRDF_DVCSPi0MC().Filter(cutExpr, cutLabel);
+
+        if (!rdf_data.HasColumn(var)) continue;
+
+        double xlo = xmin, xhi = xmax;
+
+        auto h_data = rdf_data.Histo1D(
+            {Form("h_data_%s_%s_%zu", var.c_str(), cleanName.c_str(), m),
+             (title + ";" + xlabel + ";Counts").c_str(),
+             100, xlo, xhi},
+            var);
+        h_data.GetValue(); // materialize
+        TH1D* hD = (TH1D*)h_data.GetPtr()->Clone();
+        hD->SetDirectory(0);
+        NormalizeHistogram(hD);
+        styleKin_.StyleTH1(hD);
+        hD->SetLineColor(m + 2);
+        hD->SetLineWidth(2);
+        hD->SetLineStyle(1); 
+
+        TH1D* hM = nullptr;
+        if (rdf_mc.HasColumn(var)) {
+          auto h_mc = rdf_mc.Histo1D(
+              {Form("h_mc_%s_%s_%zu", var.c_str(), cleanName.c_str(), m),
+               (title + ";" + xlabel + ";Counts").c_str(),
+               100, xmin, xmax},
+              var);
+          h_mc.GetValue();
+          hM = (TH1D*)h_mc.GetPtr()->Clone();
+          hM->SetDirectory(0);
+          NormalizeHistogram(hM);
+          styleKin_.StyleTH1(hM);
+          hM->SetLineColor(m + 2);
+          hM->SetLineWidth(2);
+          hM->SetLineStyle(2); 
+        }
+
+
+        if (first) {
+          hD->Draw("HIST");
+          if (hM) hM->Draw("HIST SAME");
+          first = false;
+        } else {
+          hD->Draw("HIST SAME");
+          if (hM) hM->Draw("HIST SAME");
+        }
+        double maxY = hD->GetMaximum();
+        if (hM) maxY = std::max(maxY, hM->GetMaximum());
+        hD->SetMaximum(maxY * 1.2);
+        gPad->Modified();
+        gPad->Update();
+
+
+        legend->AddEntry(hD, (labels[m] + " Data").c_str(), "l");
+        if (hM) legend->AddEntry(hM, (labels[m] + " MC").c_str(), "l");
+
+        double mean  = hD->GetMean();
+        double sigma = hD->GetStdDev();
+        double x1 = mean - 3.0 * sigma;
+        double x2 = mean + 3.0 * sigma;
+
+        double ymax = std::max(hD->GetMaximum(), hM ? hM->GetMaximum() : 0.0);
+        TLine* line1 = new TLine(x1, 0.0, x1, ymax * 0.5);
+        TLine* line2 = new TLine(x2, 0.0, x2, ymax * 0.5);
+        line1->SetLineColor(m + 2);
+        line2->SetLineColor(m + 2);
+        line1->SetLineStyle(3);
+        line2->SetLineStyle(3);
+        line1->Draw("SAME");
+        line2->Draw("SAME");
+
+        std::ostringstream stats;
+        stats << "#mu = " << std::fixed << std::setprecision(2) << mean
+              << ", #sigma = " << std::fixed << std::setprecision(2) << sigma;
+        legend->AddEntry((TObject*)nullptr, stats.str().c_str(), "");
+      }
+
+      legend->Draw();
+    }
+
+    std::string outpath = outputDir + "/Pi0Exclusivity_" + cleanName + ".pdf";
+    canvas->SaveAs(outpath.c_str());
+    std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
+    delete canvas;
+  }
+  }
+
+
+  void PlotPi0ExclusivityComparisonByDetectorCases_old(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
+    std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
+        {"Mass_pi0", "Pi0 Mass", "M_{#pi0} [GeV]", -0.6, 0.6},
+        {"Emiss_pi0", "Missing Energy", "E_{miss} [GeV]", -1.0, 2.0},
+        {"PTmiss_pi0", "Transverse Missing Momentum", "P_{T}^{miss} [GeV/c]", -0.1, 0.4},
+        {"Theta_pi0pi0", "#theta(#pi0, #pi')", "#theta_{#pi#pi'} [deg]", -2.0, 4.0},
+        {"DeltaPhi_pi0", "Coplanarity Angle", "#Delta#phi [deg]", 0, 20},
+        {"Mx2_eppi0", "Missing Mass Squared (ep#pi)", "MM^{2}(ep#pi) [GeV^{2}]", -0.05, 0.05},
+        {"Mx2_ep_pi0", "Missing Mass Squared (ep#pi)", "MM^{2}(ep) [GeV^{2}]", -0.5, 1},
+        {"Mx2_epi0", "Missing Mass Squared (e#pi)", "MM^{2}(e#pi) [GeV^{2}]", 0.0, 2.0},
+    };
+
+    for (const auto& [cutExpr, cutLabel] : detectorCuts) {
+      std::string cleanName = cutLabel;
+      std::replace(cleanName.begin(), cleanName.end(), ' ', '_');
+      std::replace(cleanName.begin(), cleanName.end(), ',', '_');
+
+      TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(), cutLabel.c_str(), 1800, 1200);
+      int cols = 4;
+      int rows = (vars.size() + cols - 1) / cols;
+      canvas->Divide(cols, rows);
+
+      for (size_t i = 0; i < vars.size(); ++i) {
+        canvas->cd(i + 1);
+        const auto& [var, title, xlabel, xmin, xmax] = vars[i];
+        gPad->SetTicks();
+        styleKin_.StylePad((TPad*)gPad);
+
+        TLegend* legend = new TLegend(0.6, 0.7, 0.88, 0.88);
+        legend->SetBorderSize(0);
+        legend->SetFillStyle(0);
+        legend->SetTextSize(0.04);
+
+        bool first = true;
+
+        for (size_t m = 0; m < plotters.size(); ++m) {
+          auto rdf_cutdata = plotters[m]->GetRDF_Pi0Data().Filter(cutExpr, cutLabel);
+          auto rdf_cut = plotters[m]->GetRDF_DVCSPi0MC().Filter(cutExpr, cutLabel);
+          if (!rdf_cut.HasColumn(var)) continue;
+
+          auto h = rdf_cut.Histo1D({Form("h_%s_%s_%zu", var.c_str(), cleanName.c_str(), m), (title + ";" + xlabel + ";Counts").c_str(), 100, xmin, xmax}, var);
+          h.GetValue();
+
+          TH1D* h_clone = (TH1D*)h.GetPtr()->Clone();
+          h_clone->SetDirectory(0);
+          NormalizeHistogram(h_clone);
+
+          styleKin_.StyleTH1(h_clone);
+          h_clone->SetLineColor(m + 2);
+          h_clone->SetLineWidth(2);
+
+          double mean = h_clone->GetMean();
+          double sigma = h_clone->GetStdDev();
+          double x1 = mean - 3 * sigma;
+          double x2 = mean + 3 * sigma;
+
+          TLine* line1 = new TLine(x1, 0, x1, h_clone->GetMaximum() * 0.5);
+          TLine* line2 = new TLine(x2, 0, x2, h_clone->GetMaximum() * 0.5);
+          line1->SetLineColor(m + 2);
+          line2->SetLineColor(m + 2);
+          line1->SetLineStyle(2);  // Dashed
+          line2->SetLineStyle(2);
+
+          if (first) {
+            h_clone->Draw("HIST");
+            first = false;
+          } else {
+            h_clone->Draw("HIST SAME");
+          }
+
+          legend->AddEntry(h_clone, labels[m].c_str(), "l");
+          std::ostringstream stats;
+          stats << "#mu = " << std::fixed << std::setprecision(2) << mean << ", #sigma = " << std::fixed << std::setprecision(2) << sigma;
+          legend->AddEntry((TObject*)0, stats.str().c_str(), "");
+          line1->Draw("SAME");
+          line2->Draw("SAME");
+        }
+
+        legend->Draw();
+      }
+
+      std::string outpath = outputDir + "/Pi0Exclusivity_" + cleanName + ".pdf";
       canvas->SaveAs(outpath.c_str());
       std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
       delete canvas;
@@ -1314,7 +1603,7 @@ class DISANAcomparer {
   std::vector<std::string> labels;
 
   std::vector<std::string> particleName = {"e", "p", "#gamma"};
-  std::map<std::string, std::string> typeToParticle = {{"el", "electron"}, {"pro", "proton"}, {"pho", "#gamma"}, {"kMinus", "K^{-}"}, {"kPlus", "K^{+}"}};
+  std::map<std::string, std::string> typeToParticle = {{"el", "electron"}, {"pro", "proton"}, {"pho", "#gamma_{1}"}, {"pho2", "#gamma_{2}"}, {"kMinus", "K^{-}"}, {"kPlus", "K^{+}"}};
   std::map<std::string, std::string> VarName = {{"p", "p (GeV/#it{c})"}, {"theta", "#theta (rad)"}, {"phi", "#phi(rad)"},{"vz", "v_{z}(cm)"}};
 };
 #endif  // DISANA_COMPARER_H

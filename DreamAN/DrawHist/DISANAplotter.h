@@ -54,6 +54,8 @@ DISANAplotter(
   }
    
 ROOT::RDF::RNode GetRDF() { return rdf; }
+ROOT::RDF::RNode GetRDF_Pi0Data() { return rdf_pi0_data.value(); }
+ROOT::RDF::RNode GetRDF_DVCSPi0MC() { return rdf_pi0_pi0mc.value(); }
 // ---------------- NEW: phi mass-fit results & acceptance provider ---------------
   struct PhiMassFitResult {
     double mu{};     // peak position
@@ -128,7 +130,38 @@ void GenerateKinematicHistos(const std::string& type) {
     //h_acceptance->SetTitle(("Acceptance for " + var).c_str());
     //acceptHistos.push_back(std::shared_ptr<TH1>(h_acceptance));
   }
-  }
+}
+
+void GeneratePi0KinematicHistos(const std::string& type) {
+    // std::cout << " type is " <<type << std::endl;
+    std::vector<std::string> vars = {"p", "theta", "phi", "vz"}; //for Phi analysis
+    //std::vector<std::string> vars = {"p", "theta", "phi"}; // for DVCS analysis
+    for (const auto& v : vars) {
+      std::string base = "rec" + type + "_" + v;
+      std::string basename = "pi0_" + base;
+      //std::cout << " base is " << base << std::endl;
+      double histMin, histMax;
+      auto it = kinematicAxisRanges.find(base);
+      if (it != kinematicAxisRanges.end()) {
+        histMin = it->second.first;
+        histMax = it->second.second;
+      } else {
+        auto df_tmp = (v == "p")
+            ? rdf_pi0_data->Filter(base + " > -100")
+            : *rdf_pi0_data;
+        auto lo = *df_tmp.Min(base);
+        auto hi = *df_tmp.Max(base);
+        double margin = std::max(1e-3, 0.05 * (hi - lo));
+        histMin = lo - margin;
+        histMax = hi + margin;
+        kinematicAxisRanges[base] = {histMin, histMax};  // store it
+      }
+    
+       // auto h_all = rdf.Histo1D({(base + "_all").c_str(), "", 100, histMin, histMax}, base);
+    auto h_acc = rdf_pi0_data->Histo1D({(basename).c_str(), "", 100, histMin, histMax}, base);
+    kinematicHistos.push_back(h_acc);
+    }
+}
 
   std::vector<TH1*> GetDISHistograms() {
     std::vector<TH1*> allDIShisto;
@@ -759,7 +792,7 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   std::vector<std::string> disvars = {"Q2", "xB", "t", "W", "phi"};
   std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}}, {"W", {1.0, 10.0}}, {"t", {0.0, 10.0}}, {"phi", {-180.0, 180.0}}};
   std::map<std::string, std::pair<double, double>> kinematicAxisRanges = {
-      {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 1.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 10.0}},
+      {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 1.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 10.0}}, {"recpho2_p", {-0.01, 2.0}},
       {"recpho_theta", {-0.01, 1.0}}, {"recpho_phi", {-0.01, 6.1}},   {"recpro_p", {-0.01, 2.0}},  {"recpro_theta", {-0.01, 2.0}},
       {"recpro_phi", {-0.01, 6.1}}
       // Add more as needed

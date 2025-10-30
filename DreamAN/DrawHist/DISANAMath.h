@@ -72,6 +72,7 @@ class BinManager {
 // -----------------------------------------------------------------------------
 // DISANAMath
 // -----------------------------------------------------------------------------
+struct Pi0Tag {};
 class DISANAMath {
  private:
   // Kinematics
@@ -97,6 +98,15 @@ class DISANAMath {
   double Cone_p_{};
   double coplanarity_had_normals_deg_{};
 
+  double Mass_pi0_{};
+  double Mx2_eppi0_{};
+  double emiss_pi0_{};
+  double Mx2_ep_pi0_{};
+  double Mx2_epi0_{};
+  double ptmiss_pi0_{};
+  double theta_pi0pi0_{};
+  double delta_phi_pi0_{};
+
   double DeltaE_{};
 
  public:
@@ -110,6 +120,18 @@ class DISANAMath {
     TLorentzVector p_out = Build4Vector(p_out_p, p_out_theta, p_out_phi, m_p);
     TLorentzVector photon = Build4Vector(g_p, g_theta, g_phi, 0.0);
     ComputeKinematics(e_in, e_out, p_in, p_out, photon);
+  }
+
+  // DVPi0-style (photon provided as p,theta,phi)
+  DISANAMath(Pi0Tag, double e_in_E, double e_out_p, double e_out_theta, double e_out_phi, double p_out_p, double p_out_theta, double p_out_phi, double g_p, double g_theta, double g_phi,
+             double g2_p, double g2_theta, double g2_phi) {
+    TLorentzVector e_in(0, 0, e_in_E, e_in_E);
+    TLorentzVector e_out = Build4Vector(e_out_p, e_out_theta, e_out_phi, m_e);
+    TLorentzVector p_in(0, 0, 0, m_p);
+    TLorentzVector p_out = Build4Vector(p_out_p, p_out_theta, p_out_phi, m_p);
+    TLorentzVector photon = Build4Vector(g_p, g_theta, g_phi, 0.0);
+    TLorentzVector photon2 = Build4Vector(g2_p, g2_theta, g2_phi, 0.0);
+    ComputePi0Kinematics(e_in, e_out, p_in, p_out, photon, photon2);
   }
 
   // φ→K+K− analysis (both kaons given)
@@ -172,6 +194,17 @@ class DISANAMath {
   double GetCone_Kp() const { return Cone_Kp_; }
   double GetCone_Km() const { return Cone_Km_; }
   double GetCone_p() const { return Cone_p_; }
+  
+
+  double GetMass_pi0() const { return Mass_pi0_; }
+  double GetMx2_eppi0() const { return Mx2_eppi0_; }
+  double GetEmiss_pi0() const { return emiss_pi0_; }
+  double GetMx2_ep_pi0() const { return Mx2_ep_pi0_; }
+  double GetMx2_epi0() const { return Mx2_epi0_; }
+  double GetPTmiss_pi0() const { return ptmiss_pi0_; }
+  double GetTheta_pi0pi0() const { return theta_pi0pi0_; }
+  double GetDeltaPhi_pi0() const { return delta_phi_pi0_; }
+
 
   double GetCoplanarity_had_normals_deg() const { return coplanarity_had_normals_deg_; }
 
@@ -183,6 +216,20 @@ class DISANAMath {
     const double n2 = t2.Mag(), n3 = t3.Mag();
     const double t4 = (t2.Dot(t3)) / (n2 * n3);
     return t1 * std::acos(t4) * 180. / pi + 180.;
+  }
+
+  void ComputePi0Kinematics(const TLorentzVector &electron_in, const TLorentzVector &electron_out, const TLorentzVector &proton_in, const TLorentzVector &proton_out,
+                         const TLorentzVector &photon1, const TLorentzVector &photon2) {
+    TLorentzVector q = electron_in - electron_out;
+    TLorentzVector pi0 = photon1 + photon2;
+    Mass_pi0_ = pi0.Mag();
+    Mx2_eppi0_ = (electron_in + proton_in - electron_out - proton_out - pi0).Mag2();
+    emiss_pi0_ = (electron_in + proton_in - electron_out - proton_out - pi0).E();
+    Mx2_ep_pi0_ = (electron_in + proton_in - electron_out - proton_out).Mag2();
+    Mx2_epi0_ = (electron_in + proton_in - electron_out - pi0).Mag2();
+    ptmiss_pi0_ = (electron_in + proton_in - electron_out - proton_out - pi0).Vect().Perp();
+    theta_pi0pi0_ = pi0.Angle((electron_in + proton_in - (electron_out + proton_out)).Vect()) * 180. / pi;
+    delta_phi_pi0_ = std::abs(ComputePhiH(q.Vect(), electron_in.Vect(), pi0.Vect()) - ComputePhiH(q.Vect(), electron_in.Vect(), -proton_out.Vect()));
   }
 
   // Core (DVCS-like)
