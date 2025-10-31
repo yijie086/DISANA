@@ -312,8 +312,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   photon.pid = 22;      // Photon PID
   photon.charge = 0;    // Photon charge
   photon.minCount = 1;  // Minimum count of photons
-  photon.minFDMomentum = 0.4f;
-  photon.minFTMomentum = 0.4f;
+  photon.minFDMomentum = 0.15f;
+  photon.minFTMomentum = 0.15f;
   photon.minBeta = 0.9f;  // Minimum beta for photons
   photon.maxBeta = 1.1f;  // Maximum beta for photons
 
@@ -430,7 +430,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false); // Set to true to accept all events, false to apply cuts
-  dvcsTask->SetQADBCut(true); // 或 false
+  dvcsTask->SetQADBCut(false); // 或 false
 
   mgr.AddTask(std::move(dvcsTask));
 

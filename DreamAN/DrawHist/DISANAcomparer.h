@@ -802,6 +802,8 @@ class DISANAcomparer {
       {"Mx2_eppi0",    "Missing Mass Squared (ep#pi)",     "MM^{2}(ep#pi) [GeV^{2}]",      -0.03, 0.03},
       {"Mx2_ep_pi0",   "Missing Mass Squared (ep#pi)",     "MM^{2}(ep) [GeV^{2}]",         -0.4,  0.6},
       {"Mx2_epi0",     "Missing Mass Squared (e#pi)",      "MM^{2}(e#pi) [GeV^{2}]",       -0.2,   2.0},
+      {"Theta_epho1",  "Angle: e-#gamma_{1}",              "#theta(e, #gamma_{1}) [deg]",  0.0,   60.0},
+      {"Theta_epho2",  "Angle: e-#gamma_{2}",              "#theta(e, #gamma_{2}) [deg]",  0.0,   60.0}
   };
 
   for (const auto& [cutExpr, cutLabel] : detectorCuts) {
@@ -928,6 +930,8 @@ class DISANAcomparer {
         {"Mx2_eppi0", "Missing Mass Squared (ep#pi)", "MM^{2}(ep#pi) [GeV^{2}]", -0.05, 0.05},
         {"Mx2_ep_pi0", "Missing Mass Squared (ep#pi)", "MM^{2}(ep) [GeV^{2}]", -0.5, 1},
         {"Mx2_epi0", "Missing Mass Squared (e#pi)", "MM^{2}(e#pi) [GeV^{2}]", 0.0, 2.0},
+        {"Theta_epho1", "Angle: e-#gamma_{1}", "#theta(e, #gamma_{1}) [deg]", 0.0, 60.0},
+        {"Theta_epho2", "Angle: e-#gamma_{2}", "#theta(e, #gamma_{2}) [deg]", 0.0, 60.0}
     };
 
     for (const auto& [cutExpr, cutLabel] : detectorCuts) {
@@ -1109,6 +1113,8 @@ class DISANAcomparer {
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffmc;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffexp;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allEffCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allRadCorr;
@@ -1126,7 +1132,11 @@ class DISANAcomparer {
       }
       if (plotPi0Corr) {
         auto hcorr = p->ComputePi0Corr(fXbins);
+        auto hpi0dvcsdiffmc = p->ComputePi0DVCSdiffmc(fXbins);
+        auto hpi0dvcsdiffexp = p->ComputePi0DVCSdiffexp(fXbins);
         allPi0Corr.push_back(std::move(hcorr));
+        allPi0DVCSdiffmc.push_back(std::move(hpi0dvcsdiffmc));
+        allPi0DVCSdiffexp.push_back(std::move(hpi0dvcsdiffexp));
       }
       if (plotAccCorr) {
         auto hacc = p->ComputeAccCorr(fXbins);
@@ -1148,6 +1158,8 @@ class DISANAcomparer {
     if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
     if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
     if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
     if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
     if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.5, 1.5, "pdf", false, true, false, false, meanKinVar);

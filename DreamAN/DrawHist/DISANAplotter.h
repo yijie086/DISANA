@@ -235,6 +235,24 @@ void GeneratePi0KinematicHistos(const std::string& type) {
 
   }
 
+  std::vector<std::vector<std::vector<TH1D*>>> ComputePi0DVCSdiffmc(const BinManager& bins) {
+    if (!rdf_dvcs_pi0mc || !rdf_pi0_pi0mc) {
+      std::cerr << "[ComputePi0DVCSdiffmc] Missing input RDFs.\n";
+      return {};
+    }
+    return kinCalc.CalcAcceptanceCorr(*rdf_pi0_pi0mc, *rdf_dvcs_pi0mc, bins);
+
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> ComputePi0DVCSdiffexp(const BinManager& bins) {
+    if (!rdf_pi0_data) {
+      std::cerr << "[ComputePi0DVCSdiffexp] Missing input RDFs.\n";
+      return {};
+    }
+    return kinCalc.CalcAcceptanceCorr(rdf, *rdf_pi0_data, bins);
+
+  }
+
   std::vector<std::vector<std::vector<TH1D*>>> ComputeAccCorr(const BinManager& bins) {
     if (!rdf_gen_dvcsmc || !rdf_accept_dvcsmc) {
       std::cerr << "[ComputeAccCorr] Missing input RDFs.\n";
