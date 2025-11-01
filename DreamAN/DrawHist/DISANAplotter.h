@@ -810,7 +810,7 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   std::vector<std::string> disvars = {"Q2", "xB", "t", "W", "phi"};
   std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}}, {"W", {1.0, 10.0}}, {"t", {0.0, 10.0}}, {"phi", {-180.0, 180.0}}};
   std::map<std::string, std::pair<double, double>> kinematicAxisRanges = {
-      {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 1.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 10.0}}, {"recpho2_p", {-0.01, 2.0}},
+      {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 1.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 10.0}}, {"recpho2_p", {-0.01, 4.0}},
       {"recpho_theta", {-0.01, 1.0}}, {"recpho_phi", {-0.01, 6.1}},   {"recpro_p", {-0.01, 2.0}},  {"recpro_theta", {-0.01, 2.0}},
       {"recpro_phi", {-0.01, 6.1}}
       // Add more as needed

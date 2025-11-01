@@ -163,27 +163,15 @@ void DISANA_Xplotter2() {
   comparer.PlotIndividual(false);
   /// bins for cross-section plots
   BinManager xBins;
-  // xBins.SetQ2Bins({.11,1.3,1.6,2.1,2.8,3.6,8.0});
-  //xBins.SetTBins({0.0, 10.0});
-  // xBins.SetXBBins({0.0, 0.08,.1,.14,.18,.23,.3,.39,.50});
-  //xBins.SetQ2Bins({1.0,1.5});
-  //xBins.SetTBins({0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
-  //xBins.SetXBBins({0.0,10.0});
+
   //xBins.SetQ2Bins({1.0, 1.5, 2.0});
-  //xBins.SetTBins({0.2, 0.4, 0.6, 0.8, 1.0});
-  //xBins.SetXBBins({0.15, 0.2, 0.25, 0.3});
-  //xBins.SetQ2Bins({1.0, 1.5, 2.0});
-  //xBins.SetTBins({0.2, 0.5});
-  //xBins.SetXBBins({0.15, 0.2, 0.25, 0.3});
-  xBins.SetQ2Bins({1.0, 1.2, 1.5});
-  xBins.SetTBins({0.1, 0.2, 0.4, 0.6});
-  xBins.SetXBBins({0.1, 0.15, 0.2, 0.3});
-  //xBins.SetQ2Bins({1.0, 1.5});
-  //xBins.SetTBins({0.2, 0.3});
-  //xBins.SetXBBins({0.15, 0.2});
-  //xBins.SetQ2Bins({0.0, 10.0});
-  //xBins.SetTBins({0.2, 0.3});
-  //xBins.SetXBBins({0.0, 1.0});
+  //xBins.SetTBins({0.1, 0.2, 0.6});
+  //xBins.SetXBBins({0.15, 0.2, 0.3});
+
+  xBins.SetQ2Bins({1.0, 1.25, 1.5, 1.7, 2.0});
+  xBins.SetTBins({0.1, 0.15, 0.25, 0.4, 0.6, 0.8});
+  xBins.SetXBBins({0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
+
   comparer.SetXBinsRanges(xBins);
 
   df_final_dvcsPi_rejected_7546_data.Count();
@@ -235,7 +223,7 @@ void DISANA_Xplotter2() {
                               df_final_dvcsPi_rejected_7546_dvcsmc_nobkg,
                               df_afterFid_7546_dvcsmc_rad,
                               df_afterFid_7546_dvcsmc_norad,
-                              "RGK 7.5GeV dvcsmc", beam_energy, true, true, true, true);*/
+                              "RGK 7.5GeV mc", beam_energy, true, true, true, true);*/
   
 
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,df_final_OnlPi0_7546_data,df_final_dvcsPi_rejected_7546_pi0MC,df_final_OnlPi0_7546_pi0MC, df_afterFid_7546_dvcsmc_gen, df_final_dvcs_7546_dvcsmc_rec, "RGK 7.5GeV rec", beam_energy, false, false);
@@ -535,7 +523,7 @@ ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy) {
           else if (pid[i] == 2212)
             p++;
         }
-        return (e == 1 && g >= 1 && p == 1);
+        return (e == 1 && g == 1 && p == 1);
       },
       {"REC_Particle_pid", "REC_Particle_pass"}, "Cut: one good e, γ , p");
 }
@@ -594,23 +582,26 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df) {
   .Filter("PTmiss < 0.2", "Cut: Transverse missing momentum")
   .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
   .Filter("Theta_gamma_gamma < 2.0", "Cut: photon-missing angle")
+  //.Filter("phi>100.0 && phi<250.0", "Cut: phi between 100 and 250")
   //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
-  .Filter("(pho_det_region==0&&pro_det_region==2)||(pho_det_region==1&&pro_det_region==1)||(pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)||(pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.35&&Mx2_ep>-0.31)||(pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.25&&Mx2_ep>-0.23)", "Cut: Mx2_ep in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.37&&Emiss>-0.29)||(pho_det_region==1&&pro_det_region==1&&Emiss<0.62&&Emiss>-0.58)||(pho_det_region==1&&pro_det_region==2&&Emiss<0.72&&Emiss>-0.6)", "Cut: Emiss in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.08&&PTmiss>-0.04)||(pho_det_region==1&&pro_det_region==1&&PTmiss<0.18&&PTmiss>-0.06)||(pho_det_region==1&&pro_det_region==2&&PTmiss<0.13&&PTmiss>-0.05)", "Cut: PTmiss in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.16&&Theta_gamma_gamma>-0.58)||(pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.73&&Theta_gamma_gamma>-0.79)||(pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.26&&Theta_gamma_gamma>-0.6)", "Cut: Theta_gamma_gamma in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<3.93&&DeltaPhi>-2.55)||(pho_det_region==1&&pro_det_region==1&&DeltaPhi<11.87&&DeltaPhi>-6.85)||(pho_det_region==1&&pro_det_region==2&&DeltaPhi<7.42&&DeltaPhi>-4.76)", "Cut: DeltaPhi in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.03&&Mx2_epg>-0.03)||(pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)", "Cut: Mx2_epg in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.55&&Mx2_eg>0.35)||(pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.68&&Mx2_eg>0.12)||(pho_det_region==1&&pro_det_region==2&&Mx2_eg<1.99&&Mx2_eg>-0.05)", "Cut: Mx2_eg in 3sigma")
-  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)||(pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.71&&Theta_e_gamma>29.17)||(pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
+  .Filter("(pho_det_region==0&&pro_det_region==2)                                                  ||   (pho_det_region==1&&pro_det_region==1)                                                    ||   (pho_det_region==1&&pro_det_region==2)", "Cut: three config")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.20&&Mx2_ep>-0.20)                       ||   (pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.20&&Mx2_ep>-0.20)                         ||   (pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.20&&Mx2_ep>-0.20)", "Cut: Mx2_ep in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.37&&Emiss>-0.29)                         ||   (pho_det_region==1&&pro_det_region==1&&Emiss<0.50&&Emiss>-0.50)                           ||   (pho_det_region==1&&pro_det_region==2&&Emiss<0.50&&Emiss>-0.50)", "Cut: Emiss in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.07&&PTmiss>-0.00)                       ||   (pho_det_region==1&&pro_det_region==1&&PTmiss<0.20&&PTmiss>-0.00)                         ||   (pho_det_region==1&&pro_det_region==2&&PTmiss<0.10&&PTmiss>-0.00)", "Cut: PTmiss in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.00&&Theta_gamma_gamma>-0.00) ||   (pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.50&&Theta_gamma_gamma>-0.00)   ||   (pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.00&&Theta_gamma_gamma>-0.00)", "Cut: Theta_gamma_gamma in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<4.00&&DeltaPhi>-0.00)                   ||   (pho_det_region==1&&pro_det_region==1&&DeltaPhi<6.000&&DeltaPhi>-0.00)                    ||   (pho_det_region==1&&pro_det_region==2&&DeltaPhi<5.00&&DeltaPhi>-0.00)", "Cut: DeltaPhi in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.01&&Mx2_epg>-0.01)                     ||   (pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.02&&Mx2_epg>-0.02)                       ||   (pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.01&&Mx2_epg>-0.01)", "Cut: Mx2_epg in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.30&&Mx2_eg>0.50)                        ||   (pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.50&&Mx2_eg>0.20)                          ||   (pho_det_region==1&&pro_det_region==2&&Mx2_eg<1.7&&Mx2_eg>-0.00)", "Cut: Mx2_eg in 3sigma")
+  .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)         ||   (pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.71&&Theta_e_gamma>29.17)          ||   (pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
 }
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){
   return df.Define("DVPi0_pass",
-      [](bool& haspho2, double& mass_pi0, double& mx2_eppi0, double& emiss_pi0, double& mx2_ep_pi0, double& mx2_epi0, double& ptmiss_pi0, double& theta_pi0pi0, double& deltaphi_pi0, int& pho_det_region, int& pho2_det_region, double& recpho_p, double& recpho2_p, int& pro_det_region) {
+      [](bool& haspho2, double& mass_pi0, double& mx2_eppi0, double& emiss_pi0, double& mx2_ep_pi0, double& mx2_epi0, double& ptmiss_pi0, double& theta_pi0pi0, double& deltaphi_pi0,
+              int& pho_det_region, int& pho2_det_region, double& recpho_p, double& recpho2_p, int& pro_det_region,
+              double& Q2, double& t, double& W) {
         bool pass = false;
-        if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4) {
+        if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
           if (pho_det_region == 0 && pho2_det_region == 0 && pro_det_region ==2) {
             pass = Inrange(mass_pi0, 0.12, 0.15);
             pass = pass && Inrange(emiss_pi0, -0.5, 0.3);
@@ -642,16 +633,16 @@ ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){
         }
         return pass;
       },
-      {"hasrecpho2", "Mass_pi0", "Mx2_eppi0", "Emiss_pi0", "Mx2_ep_pi0", "Mx2_epi0", "PTmiss_pi0", "Theta_pi0pi0", "DeltaPhi_pi0","pho_det_region","pho2_det_region", "recpho_p", "recpho2_p", "pro_det_region"});
+      {"hasrecpho2", "Mass_pi0", "Mx2_eppi0", "Emiss_pi0", "Mx2_ep_pi0", "Mx2_epi0", "PTmiss_pi0", "Theta_pi0pi0", "DeltaPhi_pi0","pho_det_region","pho2_det_region", "recpho_p", "recpho2_p", "pro_det_region","Q2","t","W"});
 }
 
 ROOT::RDF::RNode ApplyFinalDVPi0Selections(ROOT::RDF::RNode df) {
-  df = df.Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
-      .Filter("t < 1.0", "Cut: t < 1 GeV^2")
+  //df = df.Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
+  //    .Filter("t < 1.0", "Cut: t < 1 GeV^2")
       //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
 
       // 5. W > 2
-      .Filter("W > 2.0", "Cut: W > 1.8 GeV");
+  //    .Filter("W > 2.0", "Cut: W > 1.8 GeV");
       //.Filter("phi > 100.0 && phi < 300 ", "Cut: phi")
   df = DefineDVPi0Pass(df);
   return df.Filter("DVPi0_pass", "Cut: DVPi0 event selection");
