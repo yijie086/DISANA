@@ -168,9 +168,13 @@ void DISANA_Xplotter2() {
   //xBins.SetTBins({0.1, 0.2, 0.6});
   //xBins.SetXBBins({0.15, 0.2, 0.3});
 
-  xBins.SetQ2Bins({1.0, 1.25, 1.5, 1.7, 2.0});
-  xBins.SetTBins({0.1, 0.15, 0.25, 0.4, 0.6, 0.8});
-  xBins.SetXBBins({0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
+  //xBins.SetQ2Bins({1.0, 1.3, 1.7, 2.2});
+  //xBins.SetTBins({0.15, 0.3, 0.6, 0.8});
+  //xBins.SetXBBins({0.15, 0.175, 0.235, 0.3});
+  
+  xBins.SetQ2Bins({1.0, 6.0});
+  xBins.SetTBins({0.1, 1.0});
+  xBins.SetXBBins({0.1, 1.0});
 
   comparer.SetXBinsRanges(xBins);
 
