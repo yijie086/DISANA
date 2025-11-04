@@ -16,10 +16,10 @@ public:
   std::vector<std::string> convert(const std::string& tempFilePrefix);
 
   std::size_t lastInputCount() const { return lastInputCount_; }
+  std::vector<std::string> getHipoFilesInPath(const std::string& directory, int nfiles) const;
 
 private:
-  std::vector<std::string>
-  getHipoFilesInPath(const std::string& directory, int nfiles) const;
+
 
   std::string fInputDir_;
   std::string fOutputDir_;

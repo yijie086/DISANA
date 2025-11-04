@@ -46,7 +46,7 @@ private:
 public:
   // Atomic version: Pass AND (if pass) AccumulateCharge in one lock.
   static inline bool PassAndAccumulate(int run, int ev) {
-    if (run == 5740) return false;           // your veto
+    if (run == 5740 || run == 3262) return false;           // your veto
     if (run <= 0 || ev <= 0) return true;    // permissive on missing meta
     std::lock_guard<std::mutex> lock(mtx());
     if (qa().Pass(run, ev)) {
@@ -58,7 +58,7 @@ public:
 
   // (Optional) separate ops — do NOT use them split under MT.
   static inline bool Pass(int run, int ev) {
-    if (run == 5740) return false;
+    if (run == 5740 || run == 3262) return false;
     if (run <= 0 || ev <= 0) return true;
     std::lock_guard<std::mutex> lock(mtx());
     return qa().Pass(run, ev);

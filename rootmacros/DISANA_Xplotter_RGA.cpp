@@ -4,15 +4,20 @@
 #include "../DreamAN/DrawHist/DrawStyle.h"
 #include "../DreamAN/DrawHist/DISANAMath.h"
 
-ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_);
+ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy);
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df);
 void CreateCorrectionHistogram4D(ROOT::RDF::RNode df_dvcs_mc, ROOT::RDF::RNode df_pi0_mc, ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data,
                                  const std::string& out_file_name);
 
 ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending);
+ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df);
+ROOT::RDF::RNode ApplyFinalDVPi0Selections(ROOT::RDF::RNode df);
 
 ROOT::RDF::RNode InitKinematics(const std::string& filename_ = "", const std::string& treename_ = "", float beam_energy = 0);
+ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy = 0);
 ROOT::RDF::RNode InitGenKinematics(const std::string& filename_ = "", const std::string& treename_ = "", float beam_energy = 0);
+void PlotAllRecoDistributions(ROOT::RDF::RNode df, const std::string& out = "reco_kinematics_grid.png",
+                              int bins_p = 120, int bins_theta = 120, int bins_phi = 120);
 
 static double MomentumFunc(float px, float py, float pz) { return std::sqrt(px * px + py * py + pz * pz); }
 static double ThetaFunc(float px, float py, float pz) { return std::acos(pz / std::sqrt(px * px + py * py + pz * pz)); }
@@ -21,6 +26,7 @@ static double PhiFunc(float px, float py) {
   return phi < 0 ? phi + 2 * M_PI : phi;
 }
 
+bool Inrange(double var, double min, double max) { return (var >= min && var < max); }
 /// styling plots
 // double double titleSize = 0.05, double labelSize = 0.04,double xTitleOffset = 1.1, double yTitleOffset = 1.6, int font = 42, int maxDigits = 5, int nDivisions = 510, double
 // leftMargin = 0.16, double rightMargin = 0.07, double bottomMargin = 0.13, double topMargin = 0.06
@@ -36,6 +42,12 @@ std::vector<std::pair<std::string, std::string>> detCuts = {
     {"pho_det_region == 1 && pro_det_region == 1", "FD-FD"},
 };
 
+std::vector<std::pair<std::string, std::string>> detCutsPi0 = {
+    {"pho_det_region == 0 && pho2_det_region == 0 && pro_det_region == 2", "FT-CD"},
+    {"pho_det_region == 1 && pho2_det_region == 1 && pro_det_region == 2", "FD-CD"},
+    {"pho_det_region == 1 && pho2_det_region == 1 && pro_det_region == 1", "FD-FD"},
+};
+
 template <typename Method>
 ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, const Method method, float beam_energy) {
   return node.Define(name,
@@ -44,6 +56,20 @@ ROOT::RDF::RNode define_DISCAT(ROOT::RDF::RNode node, const std::string& name, c
                        return (DISANAMath(beam_energy, recel_p, recel_theta, recel_phi, recpro_p, recpro_theta, recpro_phi, recpho_p, recpho_theta, recpho_phi).*method)();
                      },
                      {"recel_p", "recel_theta", "recel_phi", "recpro_p", "recpro_theta", "recpro_phi", "recpho_p", "recpho_theta", "recpho_phi"});
+}
+
+
+template <typename Method>
+ROOT::RDF::RNode define_DISCAT_pi0(ROOT::RDF::RNode node, const std::string& name, const Method method, float beam_energy) {
+  return node.Define(name,
+                     [method, beam_energy](double recel_p, double recel_theta, double recel_phi, double recpro_p, double recpro_theta, double recpro_phi,
+                                           double recpho_p, double recpho_theta, double recpho_phi, double recpho2_p, double recpho2_theta,
+                                           double recpho2_phi) {
+                       return (DISANAMath(Pi0Tag{}, beam_energy, recel_p, recel_theta, recel_phi, recpro_p, recpro_theta, recpro_phi, recpho_p, recpho_theta,
+                                          recpho_phi, recpho2_p, recpho2_theta, recpho2_phi).*method)();
+                     },
+                     {"recel_p", "recel_theta", "recel_phi", "recpro_p", "recpro_theta", "recpro_phi", "recpho_p", "recpho_theta", "recpho_phi",
+                      "recpho2_p", "recpho2_theta", "recpho2_phi"});
 }
 
 void DISANA_Xplotter_RGA() {
@@ -56,16 +82,16 @@ void DISANA_Xplotter_RGA() {
   /// proton momentum correction applied
   
   //data path
-  std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/final_cooking/";
-  std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/";
+  std::string input_path_from_analysisRun_inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/DISANA_pi_0_bug_checks/dvcs_data_inb/build/";
+  std::string input_path_from_analysisRun_out_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/qadb/";
   
   //pi-0 MC path
-  std::string input_path_from_analysisRun_inb_pi0MC  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/inb/";
-  std::string input_path_from_analysisRun_outb_pi0MC  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/inb/";
+  std::string input_path_from_analysisRun_inb_pi0MC  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/DISANA_pi_0_bug_checks/pi_0_mc_inb/build/pi0_001_003_4/";
+  std::string input_path_from_analysisRun_outb_pi0MC  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/DISANA_pi_0_bug_checks/pi_0_mc_outb/build/";
   
   //DVCS MC path
-  std::string input_path_from_analysisRun_inb_DVCSMC_rec  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/rec/";
-  std::string input_path_from_analysisRun_outb_DVCSMC_rec  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/rec/";
+  std::string input_path_from_analysisRun_inb_DVCSMC_rec  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/DISANA_pi_0_bug_checks/dvcs_mc_rec_inb/build/";
+  std::string input_path_from_analysisRun_outb_DVCSMC_rec  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/DISANA_pi_0_bug_checks/dvcs_mc_rec_outb/build/";
   std::string input_path_from_analysisRun_inb_DVCSMC_gen  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/accept_all/";
   std::string input_path_from_analysisRun_outb_DVCSMC_gen  ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
 
@@ -81,7 +107,7 @@ void DISANA_Xplotter_RGA() {
   std::string filename_afterFid_inb_data_corr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_data.c_str());
   std::string filename_afterFid_outb_data_corr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_out_data.c_str());
   
-  std::string filename_afterFid_inb_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_pi0MC.c_str());
+  std::string filename_afterFid_inb_pi0MC = Form("%s/dfSelected_afterFid_afterCorr_final.root", input_path_from_analysisRun_inb_pi0MC.c_str());
   std::string filename_afterFid_outb_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_outb_pi0MC.c_str());
   
   std::string filename_afterFid_dvcsmc_inb_gen = Form("%s/dfSelected.root", input_path_from_analysisRun_inb_DVCSMC_gen.c_str());
@@ -96,8 +122,8 @@ void DISANA_Xplotter_RGA() {
   std::string filename_afterFid_dvcsmc_outb_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_outb_dvcsmc_nobkg.c_str());
 
 
-  std::string filename_afterFid_dvcsmc_rad = Form("%s/rad100M.root", input_path_from_analysisRun_dvcsmc_rad.c_str());
-  std::string filename_afterFid_dvcsmc_norad = Form("%s/no_rad100M.root", input_path_from_analysisRun_dvcsmc_norad.c_str());
+  std::string filename_afterFid_dvcsmc_rad = Form("%s/rad_gen_10312025.root", input_path_from_analysisRun_dvcsmc_rad.c_str());
+  std::string filename_afterFid_dvcsmc_norad = Form("%s/no_rad_gen_10312025.root", input_path_from_analysisRun_dvcsmc_norad.c_str());
 
   
 
@@ -144,32 +170,43 @@ void DISANA_Xplotter_RGA() {
   auto df_final_dvcs_outb_DVCSMC_nobkg = ApplyFinalDVCSSelections(df_afterFid_dvcsmc_outb_nobkg, false);
 
   // reject pi0 events from dvcs sample ----------- 
-  auto df_final_dvcsPi_rejected_inb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_inb_data_corr);
-  auto df_final_dvcsPi_rejected_outb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_outb_data_corr);
+  auto df_final_dvcsPi_rejected_inb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_inb_data_corr,beam_energy);
+  auto df_final_dvcsPi_rejected_outb_data_corr = RejectPi0TwoPhoton(df_final_dvcs_outb_data_corr,beam_energy);
   
-  auto df_final_dvcsPi_rejected_inb_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_inb_pi0MC);
-  auto df_final_dvcsPi_rejected_outb_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_outb_pi0MC);
+  auto df_final_dvcsPi_rejected_inb_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_inb_pi0MC,beam_energy);
+  auto df_final_dvcsPi_rejected_outb_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_outb_pi0MC,beam_energy);
 
-  auto df_final_dvcsPi_rejected_inb_DVCSMC_rec = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_rec);
-  auto df_final_dvcsPi_rejected_outb_DVCSMC_rec = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_rec);
+  auto df_final_dvcsPi_rejected_inb_DVCSMC_rec = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_rec,beam_energy);
+  auto df_final_dvcsPi_rejected_outb_DVCSMC_rec = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_rec,beam_energy);
  
-  auto df_final_dvcsPi_rejected_inb_DVCSMC_bkg = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_bkg);
-  auto df_final_dvcsPi_rejected_outb_DVCSMC_bkg = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_bkg);
+  auto df_final_dvcsPi_rejected_inb_DVCSMC_bkg = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_bkg,beam_energy);
+  auto df_final_dvcsPi_rejected_outb_DVCSMC_bkg = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_bkg,beam_energy);
 
-  auto df_final_dvcsPi_rejected_inb_DVCSMC_nobkg = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_nobkg);
-  auto df_final_dvcsPi_rejected_outb_DVCSMC_nobkg = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_nobkg);
+  auto df_final_dvcsPi_rejected_inb_DVCSMC_nobkg = RejectPi0TwoPhoton(df_final_dvcs_inb_DVCSMC_nobkg,beam_energy);
+  auto df_final_dvcsPi_rejected_outb_DVCSMC_nobkg = RejectPi0TwoPhoton(df_final_dvcs_outb_DVCSMC_nobkg,beam_energy);
 
   
   // pi0 event selection cuts ------------
-  auto df_final_OnlPi0_inb_data_corr = SelectPi0Event(df_final_dvcs_inb_data_corr);
-  auto df_final_OnlPi0_outb_data_corr = SelectPi0Event(df_final_dvcs_outb_data_corr);
+  auto df_final_OnlPi0_inb_data_corr = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_inb_data_corr), beam_energy));
+  auto df_final_OnlPi0_outb_data_corr = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_outb_data_corr), beam_energy));
 
-  auto df_final_OnlPi0_inb_pi0MC = SelectPi0Event(df_final_dvcs_inb_pi0MC);
-  auto df_final_OnlPi0_outb_pi0MC = SelectPi0Event(df_final_dvcs_outb_pi0MC);
+  auto df_final_OnlPi0_inb_pi0MC = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_inb_pi0MC), beam_energy));
+  auto df_final_OnlPi0_outb_pi0MC = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_outb_pi0MC), beam_energy));
 
   // final single photon from pi0 correction factors here
 
   // for inbending data
+
+/*df_final_dvcsPi_rejected_outb_data_corr.Count();
+df_final_OnlPi0_outb_data_corr.Count();
+df_final_dvcsPi_rejected_outb_pi0MC.Count();
+df_final_OnlPi0_outb_pi0MC.Count();
+df_afterFid_dvcsmc_outb_gen.Count();
+df_final_dvcsPi_rejected_outb_DVCSMC_rec.Count();
+df_final_dvcsPi_rejected_outb_DVCSMC_bkg.Count();
+df_final_dvcsPi_rejected_outb_DVCSMC_nobkg.Count();
+df_afterFid_dvcsmc_rad.Count();
+df_afterFid_dvcsmc_norad.Count();*/
 
   DISANAcomparer comparer;
   comparer.SetOutputDir("./");
@@ -186,8 +223,11 @@ void DISANA_Xplotter_RGA() {
   xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   comparer.SetXBinsRanges(xBins);
 
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb after", beam_energy, true, true,true, true);
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb after", beam_energy, true, true,true,true);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb Inb", beam_energy, true, true,true, true);
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_DVCSMC_rec,df_final_OnlPi0_outb_pi0MC,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb MC", beam_energy, true, true,true, true);
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb data", beam_energy, true, true,true,true);
+  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_DVCSMC_rec,df_final_OnlPi0_inb_pi0MC,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb MC", beam_energy, true, true,true,true);
+  
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data,df_final_OnlPi0_inb_data,df_final_dvcsPi_rejected_inb_MC,df_final_OnlPi0_inb_MC,/*mcdvcs*/df_final_dvcsPi_rejected_inb_MC,/*mcdvcs_acceptance*/df_final_OnlPi0_inb_MC, /*mc dvcsbkg*/df_final_OnlPi0_inb_MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_MC, /*dvscrad*/df_final_OnlPi0_inb_MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_MC, "Sp18 Inb no corr", beam_energy, false, false,false,false);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_inb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_pi0MC, /*dvscrad*/df_final_OnlPi0_inb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_pi0MC, "Sp18 Inb Before", beam_energy, false, false,false,false);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_OnlPi0_inb_pi0MC, /*dvcs mcnobkg*/df_final_OnlPi0_inb_pi0MC, /*dvscrad*/df_final_OnlPi0_inb_pi0MC, /*dvcsmc_norad*/df_final_OnlPi0_inb_pi0MC, "Sp18 Inb after", beam_energy, true, true,false,false);
@@ -198,26 +238,40 @@ void DISANA_Xplotter_RGA() {
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data,df_final_dvcsPi_rejected_outb_MC,df_final_OnlPi0_outb_MC, "Sp18 outb corr", beam_energy, false);
 
 
-  double luminosity = 1.0;  // Set your desired luminosity here
-  double polarisation = 0.85;  // Set your desired polarisation here
+ // double luminosity = 1.0;  // Set your desired luminosity here
+  // for outbending data
+  /*total accumulated charge: 1.6434829742447374E7 (nC)
+total no hel accumulated charge: 1.754618483935547E7 (nC)
+total pos hel accumulated charge: 0.0 (nC)
+total neg hel accumulated charge: 0.0 (nC)
+total unassigned hel accumulated charge: 1.754618483935547E7 (nC)*/
+
+  double charge=1.7546; //(mC)//4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
+  std::cout<<"Total effective charge (mC): "<<charge<<std::endl;
+  double luminosity = (charge)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
+  
+  double polarisation = 0.8592;  // Set your desired polarisation here
 
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true, true);
-  //comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
-  //comparer.PlotKinematicComparison();
-  //comparer.PlotDVCSKinematicsComparison();
+  comparer.PlotPi0KinematicComparison();
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true, true, true);
+  comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
+  comparer.PlotPi0ExclusivityComparisonByDetectorCases(detCutsPi0);
+  comparer.PlotKinematicComparison();
+  comparer.PlotDVCSKinematicsComparison();
   gApplication->Terminate(0);
 }
 
-//
-ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_) {
+ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy) {
+  //df_ = Init2PhotonKinematics(df_, beam_energy);
+  //df_ = DefineDVPi0Pass(df_);
+  //df_ = df_.Filter("!DVPi0_pass", "Cut: reject pi0");
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& daughterPass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
         int e = 0, g = 0, p = 0;
         for (size_t i = 0; i < pid.size(); ++i) {
           if (!pass[i]) continue;
-          if (daughterPass[i]) return false;  // reject if any daughter particle is a pi0
           if (pid[i] == 11)
             e++;
           else if (pid[i] == 22)
@@ -227,35 +281,31 @@ ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_) {
         }
         return (e == 1 && g == 1 && p == 1);
       },
-      {"REC_Particle_pid", "REC_Particle_pass", "REC_DaughterParticle_pass"}, "Cut: one good e, γ (not π⁰-like), p");
+      {"REC_Particle_pid", "REC_Particle_pass"}, "Cut: one good e, γ , p");
 }
 // pi-0 event selection cuts for single photon contaminations
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df_) {
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& daughterPass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
         int e = 0, g = 0, p = 0;
-        bool hasPi0Daughter = false;
         bool result = false;
         for (size_t i = 0; i < pid.size(); ++i) {
-          if (!pass[i]) continue;
-          if (pid[i] == 11){
+          //if (!pass[i]) continue;
+          if (pid[i] == 11 && pass[i]){
             e++;
           }
-          else if (pid[i] == 22 /*&& daughterPass[i]*/){
-            g++;  // photon must NOT be from pi0
-            hasPi0Daughter = hasPi0Daughter || daughterPass[i];  // check if this photon is a daughter of pi0
-            //std::cout << "pid[i] = " << pid[i] << " pass[i] = " << pass[i] << " daughterPass[i] = " << daughterPass[i] << std::endl;
+          else if (pid[i] == 22 && pass[i]){
+            g++;
           }
-          else if (pid[i] == 2212){
+          else if (pid[i] == 2212 && pass[i]){
             p++;
           }
         }
         //if(g==2) std::cout << "e = " << e << " g = " << g << " p = " << p << std::endl;
-        result = (e == 1 && g >= 1 && p == 1 && hasPi0Daughter);  // at least one photon, no pi0 daughter
-        hasPi0Daughter = false;  // reset for next event
-        return result;  // at least one photon, no pi0 daughter
+        result = (e == 1 && g >= 2 && p == 1 );  // at least one photon
+        return result;  // at least one photon, 
       },
-      {"REC_Particle_pid", "REC_Particle_pass", "REC_DaughterParticle_pass"}, "Cut: one good e, γ (not π⁰-like), p");
+      {"REC_Particle_pid", "REC_Particle_pass"}, "Cut: one good e, γ (not π⁰-like), p");
 }
 // exclusivity cuts
 ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
@@ -263,6 +313,7 @@ ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, bool inbending) {
       // 4. Q2 > 1
       .Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
       .Filter("t < 1.0", "Cut: t > 1 GeV^2")
+      .Filter("recpho_p >0.15*10.594", "Cut: pho_p > 0.15*10.594 GeV")
       //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
       .Filter("recpro_p < 1.2", "Cut: recpro_p < 1.2")
       // 5. W > 2
@@ -479,6 +530,60 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   return *df_;
 }
 
+ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){
+  return df.Define("DVPi0_pass",
+      [](bool& haspho2, double& mass_pi0, double& mx2_eppi0, double& emiss_pi0, double& mx2_ep_pi0, double& mx2_epi0, double& ptmiss_pi0, double& theta_pi0pi0, double& deltaphi_pi0,
+              int& pho_det_region, int& pho2_det_region, double& recpho_p, double& recpho2_p, int& pro_det_region,
+              double& Q2, double& t, double& W) {
+        bool pass = false;
+        if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4 && recpho_p >0.15*10.594 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
+          if (pho_det_region == 0 && pho2_det_region == 0 && pro_det_region ==2) {
+            pass = Inrange(mass_pi0, 0.12, 0.15);
+            pass = pass && Inrange(emiss_pi0, -0.5, 0.3);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.15);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            pass = pass && Inrange(mx2_eppi0, -0.03, 0.03);
+            pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.3);
+            pass = pass && Inrange(mx2_epi0, 0.0, 1.5);
+          } else if (pho_det_region == 1 && pho2_det_region == 1 && pro_det_region ==1) {
+            pass = Inrange(mass_pi0, 0.1, 0.16);
+            pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
+            pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
+            pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
+          } else if (pho_det_region == 1 && pho2_det_region == 1 && pro_det_region ==2) {
+            pass = Inrange(mass_pi0, 0.11, 0.15);
+            pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
+            pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
+            pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
+          }
+        }
+        return pass;
+      },
+      {"hasrecpho2", "Mass_pi0", "Mx2_eppi0", "Emiss_pi0", "Mx2_ep_pi0", "Mx2_epi0", "PTmiss_pi0", "Theta_pi0pi0", "DeltaPhi_pi0","pho_det_region","pho2_det_region", "recpho_p", "recpho2_p", "pro_det_region","Q2","t","W"});
+}
+
+ROOT::RDF::RNode ApplyFinalDVPi0Selections(ROOT::RDF::RNode df) {
+  //df = df.Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
+  //    .Filter("t < 1.0", "Cut: t < 1 GeV^2")
+      //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
+
+      // 5. W > 2
+  //    .Filter("W > 2.0", "Cut: W > 1.8 GeV");
+      //.Filter("phi > 100.0 && phi < 300 ", "Cut: phi")
+  df = DefineDVPi0Pass(df);
+  return df.Filter("DVPi0_pass", "Cut: DVPi0 event selection");
+}
+
+
 ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::string& treename_, float beam_energy) {
   ROOT::RDataFrame rdf(treename_, filename_);
   auto df_ = std::make_unique<ROOT::RDF::RNode>(rdf);
@@ -607,4 +712,73 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
   return *df_;
 }
 
-
+ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy) {
+  df_ = df_.Define("pho2_px",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
+                       for (size_t i = 0; i < pid.size(); ++i)
+                         if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return px[i];
+                       return -999.0f;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass", "REC_Photon_MaxE"})
+             .Define("pho2_py",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
+                       for (size_t i = 0; i < pid.size(); ++i)
+                         if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return py[i];
+                       return -999.0f;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass", "REC_Photon_MaxE"})
+             .Define("pho2_pz",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
+                       for (size_t i = 0; i < pid.size(); ++i)
+                         if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return pz[i];
+                       return -999.0f;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass", "REC_Photon_MaxE"})
+             .Define("recpho2_vz",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) -> float {
+                       for (size_t i = 0; i < pid.size(); ++i)
+                         if (pid[i] == 22 && pass[i] && !maxEpass[i]) return vz[i];
+                       return -999.0f;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass", "REC_Photon_MaxE"})
+             .Define("recpho2_beta",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& beta, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
+                       for (size_t i = 0; i < pid.size(); ++i)
+                         if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return beta[i];
+                       return -999.0f;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_beta", "REC_Particle_pass", "REC_Photon_MaxE"})
+             .Define("hasrecpho2", [](float px) { return (px != -999.0f); }, {"pho2_px"})
+             .Define("recpho2_p", MomentumFunc, {"pho2_px", "pho2_py", "pho2_pz"})
+             .Define("recpho2_theta", ThetaFunc, {"pho2_px", "pho2_py", "pho2_pz"})
+             .Define("recpho2_phi", PhiFunc, {"pho2_px", "pho2_py"})
+             .Define("pho2_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == 22 && pass[i] && !maxEpass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0;  // FT
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1;  // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2;  // CD
+                           else
+                             return -1;  // Unknown/Other
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass", "REC_Photon_MaxE"});
+  df_ = define_DISCAT_pi0(df_, "Mass_pi0", &DISANAMath::GetMass_pi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Mx2_eppi0", &DISANAMath::GetMx2_eppi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Emiss_pi0", &DISANAMath::GetEmiss_pi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Mx2_ep_pi0", &DISANAMath::GetMx2_ep_pi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Mx2_epi0", &DISANAMath::GetMx2_epi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "PTmiss_pi0", &DISANAMath::GetPTmiss_pi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Theta_pi0pi0", &DISANAMath::GetTheta_pi0pi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "DeltaPhi_pi0", &DISANAMath::GetDeltaPhi_pi0, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Theta_epho1", &DISANAMath::GetTheta_epho1, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Theta_epho2", &DISANAMath::GetTheta_epho2, beam_energy);
+  return df_;
+}

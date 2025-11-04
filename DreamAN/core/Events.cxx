@@ -6,6 +6,10 @@
 
 #include "HipoToRootConverter.h"
 #include "TROOT.h"
+#include "hipo4/RHipoDS.hxx"
+#include "TSystem.h"
+#include "TInterpreter.h"
+
 
 namespace fs = std::filesystem;
 
@@ -42,11 +46,25 @@ Events::Events(const std::string& directory, const std::string& outputDirectory,
       }
       if (nthreads == 1) {
         //std::cout << "Reprocessing ROOT files is disabled." << std::endl;
-        inputFiles = GetHipoFilesInPath(directory, nfiles);
+        HipoToRootConverter converter(".", fOutputDir_, nfiles, nthreads);
+        inputFiles = converter.getHipoFilesInPath(directory, nfiles);
+        //nputFiles = GetHipoFilesInPath(directory, nfiles);
         if (inputFiles.empty()) {
           std::cerr << "No .hipo files found in directory: " << directory << std::endl;
           return;
         }
+
+        for (const auto& file : inputFiles) {
+          std::cout << "Input file: " << file << std::endl;
+        }
+        // Make sure ROOT knows the HIPO headers and loads the libs before using RHipoDS.
+        if (const char* h = std::getenv("HIPO_HOME")) {
+            std::string inc = std::string(h) + "/include";
+            gInterpreter->AddIncludePath(inc.c_str());
+        } 
+        gSystem->Load("libhipo4");
+        gSystem->Load("libHipoDataFrame");
+
 
         std::cout << "Creating RHipoDS from input files..." << std::endl;
         dataSource = std::make_unique<RHipoDS>(inputFiles);
@@ -96,7 +114,7 @@ Events::~Events() {
   }
 }
 
-std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory, int nfiles) {
+/*std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory, int nfiles) {
   std::vector<std::string> files;
   int count = 0;
   for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
@@ -111,7 +129,7 @@ std::vector<std::string> Events::GetHipoFilesInPath(const std::string& directory
   std::cout << "================ " << files.size() << " Files Found ================" << std::endl;
   return files;
 }
-
+*/
 std::optional<ROOT::RDF::RNode> Events::getNode() const { return dfNode_; }
 std::size_t Events::getFileCount() const { return fileCount_; }
 std::string Events::getFinalInputPath() const { return finalInputPath_; }

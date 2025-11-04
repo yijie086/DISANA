@@ -22,8 +22,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = false; 
   //std::string dataconfig = "rgasp18_inb";
-  //std::string dataconfig = "rgasp18_outb";  
-  std::string dataconfig = "rgkfa18_7546";
+  std::string dataconfig = "rgasp18_outb";  
+  //std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -84,7 +84,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/test_nthread/";// DVCS data
     
     //outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";//// DVCSgen accept all
-    outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/rec/";//// DVCSgen accept all
+    outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/qadb/";//// DVCSgen accept all
 
     //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/outb/";// //// DVCS aaogen
   }
@@ -430,7 +430,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   dvcsTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false); // Set to true to accept all events, false to apply cuts
-  dvcsTask->SetQADBCut(false); // 或 false
+  dvcsTask->SetQADBCut(true); // 或 false
 
   mgr.AddTask(std::move(dvcsTask));
 
