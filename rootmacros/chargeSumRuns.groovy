@@ -1,62 +1,57 @@
 #!/usr/bin/env groovy
-// Calculate total analyzed charge with QA cuts,
-// discovering runs from ANY *.hipo filenames by parsing run numbers.
-// Usage:
-//   groovy calcCharge.groovy runLB runUB [path]
-//   groovy calcCharge.groovy [path]
-// If only run limits are given, you'll be prompted for the directory.
+// Calculate total analyzed charge with QA cuts.
+// Modes:
+//   1) run-only:      runLB runUB
+//   2) path-only:     [path]
+//   3) combined:      runLB runUB [path]
+// Optional flags anywhere: --recursive  --exclude "3211,3215-3220"  --exclude-file file
+//
+// Typical modules on ifarm: jdk/21.0.2, coatjava/13.4.0, qadb/3.4.0, groovy/4.0.20
+// Run examples:
+//   $COATJAVA/bin/run-groovy chargeSumRuns.groovy 5681 5757
+//   $COATJAVA/bin/run-groovy chargeSumRuns.groovy /path/to/DVCSWagon/
+//   $COATJAVA/bin/run-groovy chargeSumRuns.groovy 5681 5757 /path/to/DVCSWagon/ --exclude "5690,5705-5708"
 
-
-//Load specific Modulefiles:
-// 1) jdk/21.0.2   2) coatjava/13.4.0   3) qadb/3.4.0   4) groovy/4.0.20
-// To run the macro, use the command:
-//$COATJAVA/bin/run-groovy ./../../../../../source/rootmacros/chargeSumRuns2.groovy  path
-
-//import org.jlab.io.hipo.HipoDataSource
 import clasqa.QADB
 import java.nio.file.*
 
+// ---------- helpers ----------
 String promptForPath(String prompt) {
-  def console = System.console()
-  if (console != null) return console.readLine(prompt)
+  def c = System.console()
+  if (c != null) return c.readLine(prompt)
   print(prompt); return new BufferedReader(new InputStreamReader(System.in)).readLine()
 }
 
-// Extract a run number from a filename by:
-// 1) taking the LAST digit group with length >= 4 before ".hipo"
-//    Examples:
-//      foo_003949.hipo          -> 3949
-//      DVCS_003949_02.hipo      -> 3949
-//      run12_004321-file.hipo   -> 4321
-//    (If multiple groups fit, we use the last one. Leading zeros ok.)
-// Extract run number: take the LAST group of 4+ digits before .hipo.
-// If none exists, return null (skip file).
-Integer extractRunFromName(String name) {
-  if (!name.toLowerCase().endsWith(".hipo")) return null
-  String stem = name.substring(0, name.length() - 5) // drop ".hipo"
-  def m = (stem =~ /\d{4,}/)   // only 4+ digit groups
-  if (!m.find()) return null
-  // collect all matches, use the last occurrence
-  def groups = []
-  m.reset()
-  while (m.find()) groups << m.group()
-  try { return groups.last().toInteger() } catch (ignored) { return null }
+boolean isInt(String s) {
+  try { s?.toInteger(); return true } catch (ignored) { return false }
 }
 
+// Extract run number: LAST group of 4+ digits before .hipo; else null.
+Integer extractRunFromName(String name) {
+  if (!name?.toLowerCase()?.endsWith(".hipo")) return null
+  String stem = name.substring(0, name.length() - 5)
+  def m = (stem =~ /\d{4,}/)
+  if (!m.find()) return null
+  def gs = []
+  m.reset(); while (m.find()) gs << m.group()
+  try { return gs.last().toInteger() } catch (ignored) { return null }
+}
 
-// Collect runs from a directory (non-recursive by default)
+// Collect runs from a directory (case-insensitive *.hipo). Set recursive=true to walk subdirs.
 Set<Integer> collectRunsFromDir(File dir, boolean recursive = false) {
-  def runs = new HashSet<Integer>()
+  def runs = new LinkedHashSet<Integer>()
   if (!dir?.isDirectory()) return runs
   if (!recursive) {
-    dir.listFiles({ File f -> f.isFile() && f.name.endsWith(".hipo") } as FileFilter)?.each { f ->
-      def rn = extractRunFromName(f.name)
-      if (rn != null) runs << rn
+    dir.eachFileMatch(~/(?i).*\.hipo$/) { f ->
+      if (f.isFile()) {
+        def rn = extractRunFromName(f.name)
+        if (rn != null) runs << rn
+      }
     }
   } else {
-    Files.walk(dir.toPath()).forEach { p ->
-      if (Files.isRegularFile(p) && p.fileName.toString().endsWith(".hipo")) {
-        def rn = extractRunFromName(p.fileName.toString())
+    dir.eachFileRecurse { f ->
+      if (f.isFile() && f.name =~ /(?i).*\.hipo$/) {
+        def rn = extractRunFromName(f.name)
         if (rn != null) runs << rn
       }
     }
@@ -66,46 +61,121 @@ Set<Integer> collectRunsFromDir(File dir, boolean recursive = false) {
 
 void die(String msg) { System.err.println(msg); System.exit(1) }
 
-// --------- Args ---------
+// Parse "3211,3215-3220,3987"
+Set<Integer> parseRunList(String spec) {
+  def out = new LinkedHashSet<Integer>()
+  if (!spec) return out
+  spec.split(/[,\s]+/).each { tok ->
+    if (!tok) return
+    if (tok.contains("-")) {
+      def parts = tok.split("-", 2)
+      try {
+        int a = parts[0].trim().toInteger()
+        int b = parts[1].trim().toInteger()
+        int lo = Math.min(a,b), hi = Math.max(a,b)
+        (lo..hi).each { out << it }
+      } catch (ignored) {}
+    } else {
+      try { out << tok.trim().toInteger() } catch (ignored) {}
+    }
+  }
+  return out
+}
+
+Set<Integer> loadExcludeFile(String path) {
+  def out = new LinkedHashSet<Integer>()
+  if (!path) return out
+  def f = new File(path)
+  if (!f.exists() || !f.isFile()) die("ERROR: exclude file '${path}' not found.")
+  f.eachLine { line -> out.addAll(parseRunList(line)) }
+  return out
+}
+
+// ---------- parse flags (can appear anywhere) ----------
+def argList = (args as List).collect { it as String }
+boolean recursive = false
+String excludeSpec = null
+String excludeFile = null
+
+for (int i = 0; i < argList.size(); ) {
+  def a = argList[i]
+  if (a == "--recursive") { recursive = true; argList.remove(i) }
+  else if (a == "--exclude" && i+1 < argList.size()) { excludeSpec = argList[i+1]; argList.remove(i+1); argList.remove(i) }
+  else if (a == "--exclude-file" && i+1 < argList.size()) { excludeFile = argList[i+1]; argList.remove(i+1); argList.remove(i) }
+  else { i++ }
+}
+
+// ---------- decide mode from remaining positionals ----------
 Integer runLB = null, runUB = null
 File dataDir = null
+boolean runOnlyMode = false
+boolean pathOnlyMode = false
+boolean combinedMode = false
 
-if (args.length == 0) {
+if (argList.size() == 0) {
+  // no args -> ask for path (path-only)
   dataDir = new File((promptForPath("Enter directory path containing .hipo files: ") ?: "").trim())
-} else if (args.length == 1) {
-  dataDir = new File(args[0])
-} else {
-  try {
-    runLB = args[0].toInteger(); runUB = args[1].toInteger()
-  } catch (e) {
-    die("ERROR: First two args must be integers (runLB runUB).")
+  pathOnlyMode = true
+} else if (argList.size() == 1) {
+  // single positional: either a path OR a run number (we treat as path)
+  if (isInt(argList[0])) {
+    die("ERROR: Received one integer ('${argList[0]}'). For run-only mode provide: runLB runUB")
   }
-  if (args.length >= 3) {
-    dataDir = new File(args[2])
+  dataDir = new File(argList[0])
+  pathOnlyMode = true
+} else if (argList.size() >= 2 && isInt(argList[0]) && isInt(argList[1])) {
+  // have runLB runUB
+  runLB = argList[0].toInteger()
+  runUB = argList[1].toInteger()
+  if (runLB > runUB) die("ERROR: runLB (${runLB}) must be <= runUB (${runUB}).")
+  if (argList.size() >= 3) {
+    dataDir = new File(argList[2])
+    combinedMode = true
   } else {
-    dataDir = new File((promptForPath("Enter directory path containing .hipo files: ") ?: "").trim())
+    runOnlyMode = true
   }
+} else {
+  die("ERROR: Unrecognized arguments. Use either [runLB runUB] or [path] or [runLB runUB path].")
 }
 
-if (!dataDir.exists() || !dataDir.isDirectory()) die("ERROR: '${dataDir}' is not a valid directory.")
+// ---------- build allowedRuns ----------
+Set<Integer> allowedRuns
+if (runOnlyMode) {
+  // No filesystem: use the entire range
+  allowedRuns = (runLB..runUB).toSet()
+  println "Mode: run-only. Using runs ${runLB}..${runUB} (no directory filtering)."
+} else {
+  if (!dataDir.exists() || !dataDir.isDirectory()) die("ERROR: '${dataDir}' is not a valid directory.")
+  def runsFromDir = collectRunsFromDir(dataDir, recursive)
+  if (runsFromDir.isEmpty()) die("No *.hipo files with parseable run numbers found in ${dataDir}.")
 
-// --------- Discover runs ---------
-def runsFromDir = collectRunsFromDir(dataDir /*, recursive=false */)
-if (runsFromDir.isEmpty()) die("No *.hipo files with parseable run numbers found in ${dataDir}.")
-
-if (runLB == null || runUB == null) {
-  runLB = runsFromDir.min(); runUB = runsFromDir.max()
-  println "Inferred run range from files: ${runLB} to ${runUB}"
-} else if (runLB > runUB) {
-  die("ERROR: runLB (${runLB}) must be <= runUB (${runUB}).")
+  if (pathOnlyMode) {
+    runLB = runsFromDir.min(); runUB = runsFromDir.max()
+    println "Mode: path-only. Inferred run range from files: ${runLB} to ${runUB}"
+    allowedRuns = runsFromDir
+  } else {
+    println "Mode: combined. Directory has ${runsFromDir.size()} run IDs."
+    allowedRuns = runsFromDir.findAll { it >= runLB && it <= runUB } as Set<Integer>
+    if (allowedRuns.isEmpty()) die("No runs in directory fall within ${runLB}..${runUB}.")
+  }
+  println "Scanning: ${dataDir.absolutePath}"
 }
 
-println "Scanning: ${dataDir.absolutePath}  |  Found ${runsFromDir.size()} run IDs in filenames."
-def allowedRuns = runsFromDir.findAll { it >= runLB && it <= runUB } as Set<Integer>
-if (allowedRuns.isEmpty()) die("No runs in directory fall within ${runLB}..${runUB}.")
+// ---------- apply exclusions (all modes) ----------
+def excludeRuns = new LinkedHashSet<Integer>()
+excludeRuns.addAll(parseRunList(excludeSpec))
+excludeRuns.addAll(loadExcludeFile(excludeFile))
+excludeRuns.addAll(parseRunList(System.getenv("EXCLUDE_RUNS")))
+if (!excludeRuns.isEmpty()) {
+  def before = allowedRuns.size()
+  allowedRuns.removeAll(excludeRuns)
+  println "Excluded ${excludeRuns.size()} specified runs; kept ${allowedRuns.size()} of ${before}."
+  if (allowedRuns.isEmpty()) die("No runs left to analyze after exclusions.")
+}
 
-// --------- QA setup ---------
-println "run range: $runLB to $runUB (restricted to runs present in directory)"
+// ---------- QA setup ----------
+println "run range considered: $runLB to $runUB"
+println "number of runs to analyze: ${allowedRuns.size()}"
 QADB qa = new QADB("latest", runLB, runUB)
 
 // Enable desired defect checks
@@ -113,7 +183,7 @@ qa.checkForDefect("TotalOutlier");
 qa.checkForDefect("TerminalOutlier");
 qa.checkForDefect("MarginalOutlier");
 qa.checkForDefect("SectorLoss");
-// qa.checkForDefect("LowLiveTime");
+qa.checkForDefect("LowLiveTime"); // enabled per your note for RGA spring 2018
 qa.checkForDefect("Misc");
 qa.checkForDefect("TotalOutlierFT");
 qa.checkForDefect("TerminalOutlierFT");
@@ -130,7 +200,7 @@ qa.checkForDefect("ChargeNegative");
 qa.checkForDefect("ChargeUnknown");
 qa.checkForDefect("PossiblyNoBeam");
 
-// --------- Iterate only over runs that exist in dir ---------
+// ---------- iterate only over allowed runs ----------
 int runnum, evnum
 qa.getQaTree().each { runnumStr, runTree ->
   runnum = runnumStr.toInteger()
@@ -157,7 +227,7 @@ qa.getQaTree().each { runnumStr, runTree ->
   println "${runnum},${runTotal},${runPos},${runNeg},${run0}"
 }
 
-// --------- Totals ---------
+// ---------- totals ----------
 println "\ntotal accumulated charge: " + qa.getAccumulatedCharge() + " (nC)"
 println "total no hel accumulated charge: " + qa.getAccumulatedChargeHL(0) + " (nC)"
 println "total pos hel accumulated charge: " + qa.getAccumulatedChargeHL(1) + " (nC)"

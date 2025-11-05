@@ -219,7 +219,7 @@ df_afterFid_dvcsmc_norad.Count();*/
   /// bins for cross-section plots
   BinManager xBins;
   xBins.SetQ2Bins({1.0, 1.2, 1.456, 1.912, 2.51, 3.295, 4.326, 5.761});
-  xBins.SetTBins({0.11, 1.0});
+  xBins.SetTBins({0.25, .40});
   xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   comparer.SetXBinsRanges(xBins);
 
@@ -246,7 +246,15 @@ total pos hel accumulated charge: 0.0 (nC)
 total neg hel accumulated charge: 0.0 (nC)
 total unassigned hel accumulated charge: 1.754618483935547E7 (nC)*/
 
-  double charge=1.7546; //(mC)//4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
+/* for charge and luminosity calculation
+Q = 1.65E7 nC = 0.0165 C
+e = 1.602E-19 C
+Q/e = 1.030E17
+NA rho \ell / AH = 2.136E23 cm^-2
+L = 2.20E7 nb^-1 (edited) 
+*/
+
+  double charge=17.546; //(mC)//4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
   std::cout<<"Total effective charge (mC): "<<charge<<std::endl;
   double luminosity = (charge)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
   
