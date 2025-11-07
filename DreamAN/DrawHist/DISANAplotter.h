@@ -864,7 +864,8 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
     std::cerr << "[MakePhiMassFitCanvases3D] luminosity<=0 → will NOT compute dσ/dt′ cache.\n";
   }
 
-  gSystem->mkdir(outDirPerModel.c_str(), /*recursive=*//*true);
+  gSystem->mkdir(outDirPerModel.c_str(), //recursive
+                                                  true);
 
   const auto& q2Edges    = bins.GetQ2Bins();
   const auto& tPrimeEdges= bins.GetTprimeBins();      // -t′ bin edges (GeV^2)

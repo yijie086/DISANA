@@ -78,15 +78,15 @@ void DISANA_Xplotter2() {
 
   ROOT::EnableImplicitMT();
  
-  std::string input_path_from_analysisRun_7546_data = "./../build/data";
+  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data";
 
-  std::string input_path_from_analysisRun_7546_pi0MC = "./../build/pi0";
+  std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/pi0";
   
-  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "./../build/gen2000";
-  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "./../build/rec2000"; //(no bkg merged)
+  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/gen2000";
+  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/rec2000"; //(no bkg merged)
 
-  std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "./../build/bkg";
-  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "./../build/nobkg";
+  std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/bkg";
+  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/nobkg";
 
   std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data.c_str());
 
@@ -98,8 +98,8 @@ void DISANA_Xplotter2() {
   std::string filename_afterFid_7546_dvcsmc_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg.c_str());
   std::string filename_afterFid_7546_dvcsmc_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg.c_str());
 
-  std::string filename_afterFid_7546_dvcsmc_rad = "./../build/radcor/rad.root";
-  std::string filename_afterFid_7546_dvcsmc_norad = "./../build/radcor/nor.root";
+  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/radcor/rad.root";
+  std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/radcor/nor.root";
   
 
   float beam_energy = 7.546;
@@ -221,7 +221,7 @@ void DISANA_Xplotter2() {
   //comparer.PlotPi0KinematicComparison();
   //comparer.PlotxBQ2tBin();
   //comparer.PlotDVCSKinematicsComparison();
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true, true, true);   
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(luminosity, polarisation, true, true, true, true, true, true, false);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
