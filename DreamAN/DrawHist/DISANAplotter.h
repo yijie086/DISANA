@@ -90,9 +90,7 @@ std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() { return phi_dsdt_QW_; } // 
 
 
 void GenerateKinematicHistos(const std::string& type) {
-    // std::cout << " type is " <<type << std::endl;
-    std::vector<std::string> vars = {"p", "theta", "phi", "vz"}; //for Phi analysis
-    //std::vector<std::string> vars = {"p", "theta", "phi"}; // for DVCS analysis
+    std::vector<std::string> vars = {"p", "theta", "phi"}; // for DVCS analysis
     for (const auto& v : vars) {
       std::string base = "rec" + type + "_" + v;
       //std::cout << " base is " << base << std::endl;
@@ -131,6 +129,50 @@ void GenerateKinematicHistos(const std::string& type) {
     //acceptHistos.push_back(std::shared_ptr<TH1>(h_acceptance));
   }
 }
+
+void GeneratePhiKinematicHistos(const std::string& type) {
+    // std::cout << " type is " <<type << std::endl;
+    std::vector<std::string> vars = {"p", "theta", "phi", "vz"}; //for Phi analysis
+    //std::vector<std::string> vars = {"p", "theta", "phi"}; // for DVCS analysis
+    for (const auto& v : vars) {
+      std::string base = "rec" + type + "_" + v;
+      //std::cout << " base is " << base << std::endl;
+      double histMin, histMax;
+      auto it = kinematicAxisRanges.find(base);
+      if (it != kinematicAxisRanges.end()) {
+        histMin = it->second.first;
+        histMax = it->second.second;
+      } else {
+        auto minVal = rdf.Min(base);
+        auto maxVal = rdf.Max(base);
+        double lo = *minVal;
+        double hi = *maxVal;
+        double margin = std::max(1e-3, 0.05 * (hi - lo));
+        histMin = lo - margin;
+        histMax = hi + margin;
+        kinematicAxisRanges[base] = {histMin, histMax};  // store it
+      }
+    
+       // auto h_all = rdf.Histo1D({(base + "_all").c_str(), "", 100, histMin, histMax}, base);
+    auto h_acc = rdf.Histo1D({(base).c_str(), "", 100, histMin, histMax}, base);
+    kinematicHistos.push_back(h_acc);
+    }
+
+  std::map<std::string, std::pair<double, double>> cachedRanges;
+
+  for (const auto& var : Phivars) {
+    double histMin = axisRanges[var].first;
+    double histMax = axisRanges[var].second;
+    // auto h_all = rdf.Histo1D({(var + "_all").c_str(), (var + " All").c_str(), 100, histMin, histMax}, var);
+    auto h_acc = rdf.Histo1D({var.c_str(), var.c_str(), 100, histMin, histMax}, var);
+    disHistos.push_back(h_acc);
+
+    //auto h_acceptance = dynamic_cast<TH1*>(h_acc->Clone((var + "_acceptance").c_str()));
+    //h_acceptance->SetTitle(("Acceptance for " + var).c_str());
+    //acceptHistos.push_back(std::shared_ptr<TH1>(h_acceptance));
+  }
+}
+
 
 void GeneratePi0KinematicHistos(const std::string& type) {
     // std::cout << " type is " <<type << std::endl;
@@ -572,13 +614,13 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   gSystem->mkdir(outDirPerModel.c_str(), /*recursive=*/true);
 
   const auto& q2Edges = bins.GetQ2Bins();
-  const auto& tEdges  = bins.GetTBins();
+  const auto& tPrimeEdges  = bins.GetTprimeBins();
   const auto& wEdges  = bins.GetWBins();
   const bool  hasW    = !wEdges.empty();
 
   const size_t nQ = q2Edges.size() > 1 ? q2Edges.size() - 1 : 0;
   const size_t nW = hasW ? (wEdges.size() - 1) : 1;
-  const size_t nT = tEdges.size() > 1 ? tEdges.size() - 1 : 0;
+  const size_t nT = tPrimeEdges.size() > 1 ? tPrimeEdges.size() - 1 : 0;
 
   std::vector<std::vector<std::vector<PhiMassDraw>>> out;
   if (!nQ || !nT) return out;
@@ -605,16 +647,17 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
       if (luminosity_nb_inv > 0.0) {
         auto hname = Form("phi_dsdt_Q%zu_W%zu_%lu", iq, iw, uid_dsdt.fetch_add(1));
         auto htitle = Form("d#sigma/dt; -t [GeV^{2}]; nb/GeV^{2}");
-        TH1D* hDsDt = new TH1D(hname, htitle, static_cast<int>(tEdges.size() - 1), tEdges.data());
+        TH1D* hDsDt = new TH1D(hname, htitle, static_cast<int>(tPrimeEdges.size() - 1), tPrimeEdges.data());
         hDsDt->SetDirectory(nullptr);
         phi_dsdt_QW_[iq][iw] = hDsDt;
       }
 
       for (size_t it = 0; it < nT; ++it) {
-        const double tLo = tEdges[it], tHi = tEdges[it + 1];
+        const double tLo = tPrimeEdges[it], tHi = tPrimeEdges[it + 1];
         const double dT  = tHi - tLo;
 
-        auto df_bin = df_qw.Filter([=](double t){ return t > tLo && t <= tHi; }, {"t"});
+       // auto df_bin = df_qw.Filter([=](double t){ return t > tLo && t <= tHi; }, {"t"});
+        auto df_bin = df_qw.Filter([=](double mtp){ return mtp > tLo && mtp <= tHi; }, {"mtprime"});
 
         static std::atomic<unsigned long> uid{0};
         auto hname = Form("hM_%zu_%zu_%zu_%lu", iq, iw, it, uid.fetch_add(1));
@@ -774,14 +817,14 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
         TLatex latex;
         latex.SetNDC();
         latex.SetTextSize(0.035);
-        latex.DrawLatex(0.45, 0.89, Form("Q^{2}[%.2f,%.2f]  %s  -t[%.2f,%.2f]", qLo, qHi, hasW ? Form("W[%.1f,%.1f]", wLo, wHi) : "", tLo, tHi));
+        latex.DrawLatex(0.45, 0.89, Form("Q^{2}[%.2f,%.2f]  %s  -t'[%.2f,%.2f]", qLo, qHi, hasW ? Form("W[%.1f,%.1f]", wLo, wHi) : "", tLo, tHi));
         latex.DrawLatex(0.55, 0.85, Form("#mu = %.3f GeV, #sigma = %.3f GeV", mu, sigma));
         const double chi2ndf = fTot->GetNDF() > 0 ? fTot->GetChisquare()/fTot->GetNDF() : 0.0;
         latex.DrawLatex(0.55, 0.81, Form("#chi^{2}/ndf = %.2f", chi2ndf));
         latex.DrawLatex(0.55, 0.77, Form("N_{#phi} (total) = %.1f #pm %.1f", Nsig, Nsig_err));
 
-        auto tagRaw = hasW ? Form("Q2_%.1f_%.1f__W_%.1f_%.2f__t_%.1f_%.1f", qLo,qHi,wLo,wHi,tLo,tHi)
-                           : Form("Q2_%.1f_%.1f__t_%.1f_%.1f", qLo,qHi,tLo,tHi);
+        auto tagRaw = hasW ? Form("Q2_%.1f_%.1f__W_%.1f_%.2f__tprime_%.1f_%.1f", qLo,qHi,wLo,wHi,tLo,tHi)
+                           : Form("Q2_%.1f_%.1f__tprime_%.1f_%.1f", qLo,qHi,tLo,tHi);
         std::string tag = tagRaw; std::replace(tag.begin(), tag.end(), '.', '_');
         c->SaveAs(Form("%s/KKmass_%s.pdf", outDirPerModel.c_str(), tag.c_str()));
 
@@ -804,11 +847,237 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   } // iq (Q2 bins)
   return out;
 }
+/*inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases3D(
+    const BinManager& bins,
+    const std::string& outDirPerModel,
+    int nMassBins = 200,
+    double mMin = 0.9874,
+    double mMax = 1.120,
+    bool constrainSigma = true,
+    double sigmaRef = 0.004,
+    double sigmaFrac = 0.30,
+    // --- compute dσ/dt′ when luminosity > 0 ---
+    double luminosity_nb_inv = -1.0,
+    double branching = 0.492)
+{ 
+  if (luminosity_nb_inv <= 0.0) {
+    std::cerr << "[MakePhiMassFitCanvases3D] luminosity<=0 → will NOT compute dσ/dt′ cache.\n";
+  }
+
+  gSystem->mkdir(outDirPerModel.c_str(), /*recursive=*//*true);
+
+  const auto& q2Edges    = bins.GetQ2Bins();
+  const auto& tPrimeEdges= bins.GetTprimeBins();      // -t′ bin edges (GeV^2)
+  const auto& wEdges     = bins.GetWBins();
+  const bool  hasW       = !wEdges.empty();
+
+  const size_t nQ = q2Edges.size()     > 1 ? q2Edges.size()     - 1 : 0;
+  const size_t nW = hasW               ? wEdges.size()          - 1 : 1;
+  const size_t nT = tPrimeEdges.size() > 1 ? tPrimeEdges.size() - 1 : 0;
+
+  std::vector<std::vector<std::vector<PhiMassDraw>>> out;
+  if (!nQ || !nT) return out;
+  out.resize(nQ);
+
+  // 3D cache for dσ/dt′ (indexed by Q2-bin, W-bin)
+  phi_dsdt_QW_.assign(nQ, std::vector<TH1D*>(nW, nullptr));
+  static std::atomic<unsigned long> uid_dsdt{0};
+
+  // Helper: guarantee -t′ is available on this RDF (expects Q2,xB,t)
+  for (size_t iq = 0; iq < nQ; ++iq) {
+    out[iq].resize(nW);
+
+    const double qLo = q2Edges[iq], qHi = q2Edges[iq + 1];
+    auto df_q = rdf.Filter([=](double Q2){ return Q2 > qLo && Q2 <= qHi; }, {"Q2"});
+  
+    for (size_t iw = 0; iw < nW; ++iw) {
+      const double wLo = hasW ? wEdges[iw]     : 0.0;
+      const double wHi = hasW ? wEdges[iw + 1] : 1e9;
+      auto df_qw = df_q.Filter([=](double W){ return (!hasW) || (W > wLo && W <= wHi); }, {"W"});
+
+      out[iq][iw].resize(nT);
+
+      // Create the dσ/dt′ histogram for this (Q2,W) slice
+      if (luminosity_nb_inv > 0.0) {
+        auto hname  = Form("phi_dsigmadtprime_Q%zu_W%zu_%lu", iq, iw, uid_dsdt.fetch_add(1));
+        auto htitle = Form("d#sigma/dt' ; -t' [GeV^{2}]; nb/GeV^{2}");
+        TH1D* hDsDt = new TH1D(hname, htitle, static_cast<int>(tPrimeEdges.size() - 1), tPrimeEdges.data());
+        hDsDt->SetDirectory(nullptr);
+        phi_dsdt_QW_[iq][iw] = hDsDt;
+      }
+
+      for (size_t it = 0; it < nT; ++it) {
+        const double tpLo = tPrimeEdges[it], tpHi = tPrimeEdges[it + 1];
+        const double dT   = tpHi - tpLo;
+
+        // bin in -t′ directly
+        auto df_bin = df_qw.Filter([=](double mtp){ return mtp > tpLo && mtp <= tpHi; }, {"mtprime"});
+
+        static std::atomic<unsigned long> uid{0};
+        auto hname = Form("hM_%zu_%zu_%zu_%lu", iq, iw, it, uid.fetch_add(1));
+        auto hR = df_bin.Histo1D(ROOT::RDF::TH1DModel(hname, ";M_{K^{+}K^{-}} [GeV];Counts", nMassBins, 0.8, 1.8),
+                                 "invMass_KpKm");
+        hR.GetValue();
+        TH1D* h = (TH1D*)hR.GetPtr();
+        if (!h || h->GetEntries() <= 20) {
+          // still record an empty point in dσ/dt′ if we're computing it
+          if (luminosity_nb_inv > 0.0 && phi_dsdt_QW_[iq][iw]) {
+            const int b = static_cast<int>(it + 1);
+            phi_dsdt_QW_[iq][iw]->SetBinContent(b, 0.0);
+            phi_dsdt_QW_[iq][iw]->SetBinError  (b, 0.0);
+          }
+          continue;
+        }
+
+        // ---- drawing/fitting (unchanged style) ----
+        TH1D* hDraw = (TH1D*)h->Clone(Form("%s_draw", h->GetName()));
+        hDraw->SetDirectory(0);
+        hDraw->SetTitle("");
+        hDraw->SetLineColor(kBlue + 1);
+        hDraw->SetLineWidth(2);
+        hDraw->GetYaxis()->SetTitleOffset(1.2);
+        hDraw->SetFillColorAlpha(kBlue - 9, 0.3);
+        hDraw->SetMarkerStyle(20);
+        hDraw->SetMarkerSize(1.2);
+        hDraw->SetMarkerColor(kBlue + 2);
+        hDraw->GetXaxis()->SetTitle("M(K^{+}K^{-}) [GeV]");
+        hDraw->GetYaxis()->SetTitle("Counts");
+        hDraw->GetXaxis()->SetRangeUser(mMin - 0.02, mMax + .020);
+
+        const double bw = hDraw->GetXaxis()->GetBinWidth(1);
+        std::cout << Form("[MakePhiMassFitCanvases3D] Fitting %s with %d bins, M=[%.4f,%.4f], BW=%.4f GeV",
+                          hDraw->GetName(), hDraw->GetNbinsX(), mMin, mMax, bw) << std::endl;
+
+        std::string formula = Form(
+            "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))"
+            " + "
+            "[3]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[4])/([5]),2))/TMath::Abs([5])",
+            bw);
+
+        TF1* fTot = new TF1(Form("fitTotal_%s",hname), formula.c_str(), mMin, mMax);
+        fTot->SetParNames("A","alpha","lambda","N","mu","sigma");
+        fTot->SetParameters(4, 0.9, 2, 10, 1.02, 0.010);
+        fTot->SetParLimits(4, 1.005, 1.022);
+        fTot->SetParLimits(5, 0.0025, 0.025);
+        fTot->SetParLimits(3, 0.000001, 100000.0);
+        fTot->SetLineColor(kRed + 1);
+        fTot->SetLineWidth(3);
+        hDraw->Fit(fTot, "R0QL");
+        fTot->Draw("SAME C");
+
+        const double N     = fTot->GetParameter(3);
+        const double N_err = fTot->GetParError(3);
+        const double mu    = fTot->GetParameter(4);
+        const double sigma = fTot->GetParameter(5);
+
+        const double mLo   = mu - 3.0 * sigma;
+        const double mHi   = mu + 3.0 * sigma;
+
+        TF1* fSig = new TF1(Form("fSig_%s",hname), Form("[0]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[1])/([2]),2))/TMath::Abs([2])",bw), mMin, mMax);
+        fSig->SetParameters(N, mu, sigma);
+        fSig->SetLineColor(kOrange + 1);
+        fSig->SetLineStyle(2);
+        fSig->SetLineWidth(2);
+        fSig->SetFillColorAlpha(kOrange - 3, 0.3);
+        fSig->SetFillStyle(1001);
+        fSig->Draw("SAME FC");
+
+        TF1* fBkg = new TF1(Form("fBkg_%s",hname),
+                             "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))",
+                             mMin, mMax);
+        fBkg->SetParameters(fTot->GetParameter(0), fTot->GetParameter(1), fTot->GetParameter(2));
+        fBkg->SetLineColor(kGreen + 2);
+        fBkg->SetLineStyle(3);
+        fBkg->SetLineWidth(2);
+        fBkg->SetFillColorAlpha(kGreen - 7, 0.3);
+        fBkg->SetFillStyle(1001);
+        fBkg->Draw("SAME FC");
+
+        // ---- fill dσ/dt′ if requested ----
+        if (luminosity_nb_inv > 0.0 && phi_dsdt_QW_[iq][iw]) {
+          const double Aeps = accEffProvider_(qLo, qHi, wLo, wHi, tpLo, tpHi); // A×ε for this (Q2,W,t′) bin
+          const int    b    = static_cast<int>(it + 1);
+          double val = 0.0, err = 0.0;
+          if (Aeps > 0.0 && branching > 0.0 && dT > 0.0) {
+            val = N     / (luminosity_nb_inv * Aeps * branching * dT);
+            err = N_err / (luminosity_nb_inv * Aeps * branching * dT);
+          }
+          phi_dsdt_QW_[iq][iw]->SetBinContent(b, val);
+          phi_dsdt_QW_[iq][iw]->SetBinError  (b, err);
+        }
+
+        // ---- canvas & labels ----
+        TCanvas* c = new TCanvas(Form("c_%s", hname), "K^{+}K^{-} mass", 1200, 1000);
+        gStyle->Reset();
+        gStyle->SetOptStat(0);
+        gStyle->SetOptFit(0);
+        c->SetTicks(1,1);
+        c->cd();
+        hDraw->SetMinimum(0.0);  
+        hDraw->Draw("PE");
+        fBkg->Draw("SAME FC");
+        fSig->Draw("SAME FC");
+        fTot->Draw("SAME C");
+
+        const double yMax = hDraw->GetMaximum();
+        TLine* L1 = new TLine(mLo, 0.0, mLo, yMax * 0.75);
+        TLine* L2 = new TLine(mHi, 0.0, mHi, yMax * 0.75);
+        L1->SetLineColor(kMagenta + 2);
+        L2->SetLineColor(kMagenta + 2);
+        L1->SetLineStyle(2); L2->SetLineStyle(2);
+        L1->SetLineWidth(2); L2->SetLineWidth(2);
+        L1->Draw("SAME");    L2->Draw("SAME");
+
+        TLegend* leg = new TLegend(0.55, 0.5, 0.85, 0.75);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->AddEntry(hDraw, "K^{+}K^{-} Inv. Mass", "lep");
+        leg->AddEntry(fTot,  "Total Fit: Exp + Gauss", "l");
+        leg->AddEntry(fSig,  "Signal (Gauss)", "f");
+        leg->AddEntry(fBkg,  "Background (Exp)", "f");
+        leg->AddEntry(L1,    "#pm 3#sigma", "l");
+        leg->Draw();
+
+        TLatex latex;
+        latex.SetNDC();
+        latex.SetTextSize(0.035);
+        latex.DrawLatex(0.45, 0.89, Form("Q^{2}[%.2f,%.2f]  %s  -t'[%.2f,%.2f]",
+                              qLo, qHi, hasW ? Form("W[%.1f,%.1f]", wLo, wHi) : "", tpLo, tpHi));
+        latex.DrawLatex(0.55, 0.85, Form("#mu = %.3f GeV, #sigma = %.3f GeV", mu, sigma));
+        const double chi2ndf = fTot->GetNDF() > 0 ? fTot->GetChisquare()/fTot->GetNDF() : 0.0;
+        latex.DrawLatex(0.55, 0.81, Form("#chi^{2}/ndf = %.2f", chi2ndf));
+        latex.DrawLatex(0.55, 0.77, Form("N_{#phi} (total) = %.1f #pm %.1f", N, N_err));
+
+        auto tagRaw = hasW ? Form("Q2_%.1f_%.1f__W_%.1f_%.2f__tprime_%.1f_%.1f", qLo,qHi,wLo,wHi,tpLo,tpHi)
+                           : Form("Q2_%.1f_%.1f__tprime_%.1f_%.1f", qLo,qHi,tpLo,tpHi);
+        std::string tag = tagRaw; std::replace(tag.begin(), tag.end(), '.', '_');
+        c->SaveAs(Form("%s/KKmass_%s.pdf", outDirPerModel.c_str(), tag.c_str()));
+
+        // pack draw products
+        PhiMassDraw pack;
+        pack.h = hDraw; pack.fTot = fTot; pack.fSig = fSig; pack.fBkg = fBkg;
+        pack.mu = mu; pack.sigma = sigma; pack.mLo = mLo; pack.mHi = mHi;
+        pack.c = c; pack.name = tag;
+        out[iq][iw][it] = pack;
+
+        delete c;
+        if (gPad) { gPad->Clear(); gPad->Update(); gPad->SetSelected(nullptr); }
+        delete leg;
+        delete L1;
+        delete L2;
+      } // it (t′ bins)
+    } // iw (W bins)
+  } // iq (Q2 bins)
+
+  return out;
+}
+*/
 
  private:
 
   std::vector<std::string> disvars = {"Q2", "xB", "t", "W", "phi"};
-  std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}}, {"W", {1.0, 10.0}}, {"t", {0.0, 10.0}}, {"phi", {-180.0, 180.0}}};
+  std::vector<std::string> Phivars = {"Q2", "xB", "t", "W", "phi","mtprime"};
+  std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}}, {"W", {1.0, 10.0}}, {"t", {0.0, 10.0}}, {"mtprime", {0.0, 10.0}}, {"phi", {-180.0, 180.0}}};
   std::map<std::string, std::pair<double, double>> kinematicAxisRanges = {
       {"recel_p", {-0.05, 13.0}},    {"recel_theta", {-0.01, 1.0}}, {"recel_phi", {-0.01, 6.1}}, {"recpho_p", {-0.01, 10.0}}, {"recpho2_p", {-0.01, 4.0}},
       {"recpho_theta", {-0.01, 1.0}}, {"recpho_phi", {-0.01, 6.1}},   {"recpro_p", {-0.01, 2.0}},  {"recpro_theta", {-0.01, 2.0}},

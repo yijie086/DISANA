@@ -3,6 +3,8 @@
 #include "../DreamAN/DrawHist/DISANAcomparer.h"
 #include "../DreamAN/DrawHist/DrawStyle.h"
 #include "../DreamAN/DrawHist/DISANAMath.h"
+#include "../DreamAN/Math/luminosity.h"
+
 
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy);
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df);
@@ -33,7 +35,7 @@ bool Inrange(double var, double min, double max) { return (var >= min && var < m
 DrawStyle KinStyle(0.07, 0.06, 0.9, 1.2);                                       // For Kin plots
 DrawStyle dvcsStyle(0.06, 0.06, 1.2, 1.4, 42, 5, 510, 0.14, 0.07, 0.13, 0.06);  // For DVCS plots
 DrawStyle csStyle(0.05, 0.04, 1.0, 1.3);                                        // For Cross-Sections
-DrawStyle bsaStyle(0.06, 0.045, 1.0, 1.2);                                      // For BSA
+DrawStyle bsaStyle(0.06, 0.045, 1.0, 1.2);    //                                   // For BSA
 
 // for exclusivity plots
 std::vector<std::pair<std::string, std::string>> detCuts = {
@@ -77,6 +79,20 @@ void DISANA_Xplotter_RGA() {
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
   float beam_energy = 10.594;
   ROOT::EnableImplicitMT();
+  const double Q_C      = 0.50; /// get it using the groovy script that reads the run database
+  const double rho      = 0.07229; // g/cm^3
+  const double L_cm     = 15.0;    // cm
+  const double A_eff    = 1.0079;  // g/mol (hydrogen atom)
+
+  Corrections corr;
+  corr.live_time = 0.95;
+  corr.prescale  = 1.0;   // if you kept only 1 out of N triggers in hardware, put 1/N here
+  corr.boiling   = 0.98;  // example 2% reduction
+  corr.good_frac = 0.90;
+
+  const double Lint_cm2 = integrated_luminosity_cm2(Q_C, rho, L_cm, A_eff, corr);
+
+  std::cout << "Integrated luminosity  = " << Lint_cm2 << " cm^-2  (" << cm2_to_inv_nb(Lint_cm2) << " nb^-1, " << cm2_to_inv_pb(Lint_cm2) << " pb^-1)\n";
 
 
   /// proton momentum correction applied
@@ -101,7 +117,9 @@ void DISANA_Xplotter_RGA() {
   std::string input_path_from_analysisRun_outb_dvcsmc_nobkg = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/no_bkg/";
 
   std::string input_path_from_analysisRun_dvcsmc_rad = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/rad_gen/";
+  //std::string input_path_from_analysisRun_dvcsmc_rad = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/rad_gen/test_tim/";
   std::string input_path_from_analysisRun_dvcsmc_norad = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/no_rad_gen/";
+  //std::string input_path_from_analysisRun_dvcsmc_norad = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/aaogen/no_rad_gen/test_tim/";
   
   // File names
   std::string filename_afterFid_inb_data_corr = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_inb_data.c_str());
@@ -223,8 +241,8 @@ df_afterFid_dvcsmc_norad.Count();*/
   xBins.SetXBBins({0.062, 0.09, 0.118, 0.155, 0.204, 0.268, 0.357, 0.446, 0.581});
   comparer.SetXBinsRanges(xBins);
 
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb Inb", beam_energy, true, true,true, true);
-  //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_DVCSMC_rec,df_final_OnlPi0_outb_pi0MC,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb MC", beam_energy, true, true,true, true);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_data_corr,df_final_OnlPi0_outb_data_corr,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb", beam_energy, true, true,true, true);
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_outb_DVCSMC_rec,df_final_OnlPi0_outb_pi0MC,df_final_dvcsPi_rejected_outb_pi0MC,df_final_OnlPi0_outb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_outb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_outb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_outb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_outb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 outb MC", beam_energy, true, true,true, true);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_data_corr,df_final_OnlPi0_inb_data_corr,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb data", beam_energy, true, true,true,true);
   //comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_inb_DVCSMC_rec,df_final_OnlPi0_inb_pi0MC,df_final_dvcsPi_rejected_inb_pi0MC,df_final_OnlPi0_inb_pi0MC,/*mcdvcs*/df_afterFid_dvcsmc_inb_gen,/*mcdvcs_acceptance*/df_final_dvcsPi_rejected_inb_DVCSMC_rec, /*mc dvcsbkg*/df_final_dvcsPi_rejected_inb_DVCSMC_bkg, /*dvcs mcnobkg*/df_final_dvcsPi_rejected_inb_DVCSMC_nobkg, /*dvscrad*/df_afterFid_dvcsmc_rad, /*dvcsmc_norad*/df_afterFid_dvcsmc_norad, "Sp18 Inb MC", beam_energy, true, true,true,true);
   
@@ -252,6 +270,7 @@ e = 1.602E-19 C
 Q/e = 1.030E17
 NA rho \ell / AH = 2.136E23 cm^-2
 L = 2.20E7 nb^-1 (edited) 
+1.6434829742447374E7 (nC)
 */
 
   double charge=17.546; //(mC)//4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)

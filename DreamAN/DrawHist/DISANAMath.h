@@ -27,6 +27,7 @@ const double m_p = 0.938272;       // GeV
 //const double m_p = 0.938;       // GeV
 const double m_kMinus = 0.493677;  // GeV
 const double m_kPlus = 0.493677;   // GeV
+const double m_phi = 1.019461;    // GeV
 
 // -----------------------------------------------------------------------------
 // (p,theta,phi) helpers
@@ -53,6 +54,7 @@ class BinManager {
   BinManager() {
     q2_bins_ = {1.0, 2.0, 4.0, 6.0};
     t_bins_ = {0.1, 0.3, 0.6, 1.0};
+    tprime_bins_ = {0.0, 10.0};
     xb_bins_ = {0.1, 0.2, 0.4, 0.6};
     W_bins_ = {0.1, 10.0};
   }
@@ -60,13 +62,15 @@ class BinManager {
   const std::vector<double> &GetTBins() const { return t_bins_; }
   const std::vector<double> &GetXBBins() const { return xb_bins_; }
   const std::vector<double> &GetWBins() const { return W_bins_; }
+  const std::vector<double> &GetTprimeBins() const { return tprime_bins_; }
   void SetQ2Bins(const std::vector<double> &v) { q2_bins_ = v; }
   void SetTBins(const std::vector<double> &v) { t_bins_ = v; }
   void SetXBBins(const std::vector<double> &v) { xb_bins_ = v; }
   void SetWBins(const std::vector<double> &v) { W_bins_ = v; }
+  void SetTprimeBins(const std::vector<double> &v) { tprime_bins_ = v; }
 
  private:
-  std::vector<double> q2_bins_, t_bins_, xb_bins_, W_bins_;
+  std::vector<double> q2_bins_, t_bins_, xb_bins_, W_bins_,tprime_bins_;
 };
 
 // -----------------------------------------------------------------------------
@@ -96,6 +100,7 @@ class DISANAMath {
   double Cone_Kp_{};
   double Cone_Km_{};
   double Cone_p_{};
+  double tmin_{-999.0};
   double coplanarity_had_normals_deg_{};
 
   double Mass_pi0_{};
@@ -172,6 +177,7 @@ class DISANAMath {
   double GetQ2() const { return Q2_; }
   double GetxB() const { return xB_; }
   double GetT() const { return t_; }
+  double GetTmin() const{return tmin_;}
   double GetPhi() const { return phi_deg_; }
   double GetW() const { return W_; }
   double GetNu() const { return nu_; }
@@ -210,9 +216,40 @@ class DISANAMath {
   double GetDeltaPhi_pi0() const { return delta_phi_pi0_; }
 
 
+
   double GetCoplanarity_had_normals_deg() const { return coplanarity_had_normals_deg_; }
 
   // Helpers
+  // got from the PAC39 need for tmin, Källén function λ(x,y,z) = x^2 + y^2 + z^2 − 2xy − 2xz − 2yz
+  double kallen(double x, double y, double z) {
+    return std::max(0.0, x*x + y*y + z*z - 2.0*(x*y + x*z + y*z));
+  }
+  // t_min for γ* p → φ p given Q2 and xB  (proton at rest DIS vars)
+  // Returns t_min (note: usually negative); also useful: -t_min.
+  double tmin_phi_from_Q2_xB(double Q2, double xB) {
+      // physical masses (GeV)
+      const double m_p2   = m_p * m_p;
+      const double m_phi2 = m_phi*m_phi;
+
+      // W^2 = M^2 + Q^2 * (1/xB - 1)
+      const double s = m_p2 + Q2 * (1.0/xB - 1.0);  // γ* p c.m. energy squared. :contentReference[oaicite:1]{index=1}
+
+      // masses-squared of a+b→c+d: a=γ* (m^2=-Q^2), b=p, c=φ, d=p
+      const double m1sq = -Q2;   // γ*
+      const double m2sq = m_p2;   // p
+      const double m3sq = m_phi2; // φ
+      const double m4sq = m_p2;   // p
+
+      // handy pieces for PDG 2→2 t-limits at θ=0 (forward)
+      const double A = (s + m1sq - m2sq) * (s + m3sq - m4sq);
+      const double B = std::sqrt(kallen(s, m1sq, m2sq)) * std::sqrt(kallen(s, m3sq, m4sq));
+
+      // forward-angle limit (a.k.a. "t0" in PDG) — this is the experimental t_min (smallest |t|)
+      const double t_min = (m1sq + m3sq) - (A - B) / (2.0*s);
+      return t_min;
+  }
+
+
   double ComputePhiH(const TVector3 &q1_, const TVector3 &k1_, const TVector3 &q2_) const {
     const double t1 = ((q1_.Cross(k1_)).Dot(q2_)) / std::abs((q1_.Cross(k1_)).Dot(q2_));
     const TVector3 t2 = q1_.Cross(k1_);
@@ -249,7 +286,7 @@ class DISANAMath {
     W_ = (proton_in + q).Mag();
     xB_ = Q2_ / (2.0 * proton_in.Dot(q));
     t_ = std::abs((proton_in - proton_out).Mag2());
-
+   
     TVector3 nL = electron_in.Vect().Cross(electron_out.Vect()).Unit();
     TVector3 nH = photon.Vect().Cross(q.Vect()).Unit();
     const double cos_phi = nL.Dot(nH);
@@ -290,6 +327,7 @@ class DISANAMath {
     W_ = (proton_in + q).Mag();
     xB_ = Q2_ / (2.0 * proton_in.Dot(q));
     t_ = std::abs((proton_in - proton_out).Mag2());
+    tmin_ = tmin_phi_from_Q2_xB(Q2_, xB_);
 
     TVector3 nL = electron_in.Vect().Cross(electron_out.Vect()).Unit();
     TVector3 nH = q.Vect().Cross(proton_out.Vect()).Unit();

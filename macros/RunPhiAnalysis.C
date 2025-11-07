@@ -28,11 +28,11 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = false;       // Set to true if you want to run on inbending data
   bool IsMinimalBook = false;     // Set to true if you want to run minimal booking (only essential histograms)
-  // std::string dataconfig = "rgasp18_inb";
-  // std::string dataconfig = "rgasp18_outb";
-  // std::string dataconfig = "rgafall18_inb";
-  // std::string dataconfig = "rgafall18_outb";
-  std::string dataconfig = "rgasp19_inb";
+   //std::string dataconfig = "rgasp18_inb";
+   //std::string dataconfig = "rgasp18_outb";
+   //std::string dataconfig = "rgafall18_inb";
+   //std::string dataconfig = "rgafall18_outb";
+   std::string dataconfig = "rgasp19_inb";
   // std::string dataconfig = "rgkfa18_7546";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -52,12 +52,12 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output
   // directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
   //  DVCS wagons
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/";  // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/";  // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/";  // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/";  // Default output directory
-  /*std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory*/
-  std::string outputFileDir = "./";  // local output directory
+   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/";  // Default output directory
+   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/after_fids/";  // Default output directory
+   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/after_fids/";  // Default output directory
+   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/after_fids/";  // Default output directory
+  std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/";  // Default output directory*/
+  //std::string outputFileDir = "./";  // local output directory
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";
   std::string inputHipoDirTest = " ";
@@ -72,7 +72,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/inb/";
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/sp2018/nsidis_wagon/inb/";
+    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/";
+    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/outb/";
     inputRootFileName = "dfSelected.root";
     inputRootTreeName = "dfSelected";
@@ -169,7 +170,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   /// set sampling fraction for the particle in detector
   trackCuts->SetMinECALEnergyCut(11, 1, 0.06);  // Electron PCal layer 1
   // apply sampling fraction and diagolal cuts tbd!!
-  /*trackCuts->SetSFCut(true,11,0.19,4.9);  // Set to true if you want to apply sampling fraction cut
+  trackCuts->SetSFCut(true,11,0.19,4.9);  // Set to true if you want to apply sampling fraction cut
   //3 sigma cuts for electron in rga sp18 in
   if (dataconfig == "rgasp18_inb") {
       trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
@@ -199,7 +200,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
       trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
       trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
   }
-  // rga fall18 in
+  /*
+  // // rga fall18 in
   if (dataconfig == "rgafall18_inb") {
       trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
       trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
@@ -248,7 +250,6 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
 */
   auto corr = std::make_shared<MomentumCorrection>();
-
   /// Momentum correction for the proton
   if (dataconfig == "rgasp18_inb") {
     corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 inb
@@ -355,6 +356,9 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
                                    return p + (A_p + B_p / p + C_p / (p * p));
                                  });
   }
+
+  // kaon energy loss corrections to be added here: TBD
+  
 
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();

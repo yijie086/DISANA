@@ -80,6 +80,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     //outputFileDir="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVCS_wagon/test_nthread/";
     
   }else if(dataconfig == "rgasp18_outb"){
+    outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/qadb/";// qadb DVCS data
     //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/";// DVCS data
     //outputFileDir ="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVCS_wagon/test_nthread/";// DVCS data
     

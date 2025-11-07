@@ -419,6 +419,13 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
 *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
   *df_ = define_DISCAT(*df_, "xB", &DISANAMath::GetxB, beam_energy);
   *df_ = define_DISCAT(*df_, "t", &DISANAMath::GetT, beam_energy);
+  *df_ = define_DISCAT(*df_, "tmin", &DISANAMath::GetTmin, beam_energy);
+  *df_=df_->Define("mtprime",        // non-negative: this is what you’ll plot
+                 [](double mt, double tmin){ return std::abs(-mt - std::abs(tmin)); },
+                 {"t", "tmin"})
+      .Define("tprime",         // optional signed t' ≤ 0
+                 [](double mtp){ return -mtp; },
+                 {"mtprime"});
   *df_ = define_DISCAT(*df_, "phi", &DISANAMath::GetPhi, beam_energy);
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
@@ -698,6 +705,13 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
 *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
   *df_ = define_DISCAT(*df_, "xB", &DISANAMath::GetxB, beam_energy);
   *df_ = define_DISCAT(*df_, "t", &DISANAMath::GetT, beam_energy);
+  *df_ = define_DISCAT(*df_, "tmin", &DISANAMath::GetTmin, beam_energy);
+  *df_=df_->Define("mtprime",        // non-negative: this is what you’ll plot
+                 [](double mt, double tmin){ return std::abs(-mt - std::abs(tmin)); },
+                 {"t", "tmin"})
+      .Define("tprime",         // optional signed t' ≤ 0
+                 [](double mtp){ return -mtp; },
+                 {"mtprime"});
   *df_ = define_DISCAT(*df_, "phi", &DISANAMath::GetPhi, beam_energy);
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
@@ -988,6 +1002,15 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
   *df_ = define_DISCAT(*df_, "xB", &DISANAMath::GetxB, beam_energy);
   *df_ = define_DISCAT(*df_, "t", &DISANAMath::GetT, beam_energy);
+  *df_ = define_DISCAT(*df_, "tmin", &DISANAMath::GetTmin, beam_energy);
+
+  *df_=df_->Define("mtprime",        // non-negative: this is what you’ll plot
+                 [](double mt, double tmin){ return std::abs(-mt - std::abs(tmin)); },
+                 {"t", "tmin"})
+      .Define("tprime",         // optional signed t' ≤ 0
+                 [](double mtp){ return -mtp; },
+                 {"mtprime"});
+
   *df_ = define_DISCAT(*df_, "phi", &DISANAMath::GetPhi, beam_energy);
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
@@ -1045,7 +1068,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df,
     "invMass_KpKm",
 
     // DISANAMath-derived
-    "Q2","xB","t","phi","W","nu","y",
+    "Q2","xB","t","tmin","mtprime","tprime","phi","W","nu","y",
     "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
@@ -1092,7 +1115,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKm(ROOT::RDF::RNode df,
     "invMass_KpKm",
 
     // DISANAMath-derived
-    "Q2","xB","t","phi","W","nu","y",
+    "Q2","xB","t","tmin","mtprime", "tprime","phi","W","nu","y",
     "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
@@ -1138,13 +1161,12 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKp(ROOT::RDF::RNode df,
     "invMass_KpKm",
 
     // DISANAMath-derived
-    "Q2","xB","t","phi","W","nu","y",
+    "Q2","xB","t","tmin","mtprime","tprime","phi","W","nu","y",
     "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
     "Coplanarity_had_normals_deg"
   };
-
   // Write the slim tree (this triggers the event loop)
   df.Snapshot(outTree, outFile, keep);
 
