@@ -40,31 +40,42 @@ void DrawECALHitResponse(const int &selectedPid, const int &selecteddetector,
         for (int sector : sectors) {
             std::string name, title;
             std::string key = Form("pid%d_ECAL_L%d_S%d%s", selectedPid, layer, sector, doFid ? "" : "_noFid");
+            auto getLayerNames = [](int layer){
+                switch (layer) {
+                    case 1: return std::pair<std::string,std::string>{"ECin",  "EC-in"};
+                    case 4: return std::pair<std::string,std::string>{"ECout", "EC-out"};
+                    case 7: return std::pair<std::string,std::string>{"PCAL",  "PCAL"};
+                    default:return std::pair<std::string,std::string>{Form("L%d",layer), Form("Layer %d",layer)};
+                }
+            };
+            auto [layerTag, layerTitle] = getLayerNames(layer);
+
             if (selectedPid == 2212) {
                 if (doFid) {
-                    name = Form("proton_ECAL_L%d_S%d", layer, sector);
-                    title = Form("proton ECAL layer %d sector %d", layer, sector);
+                    name  = Form("proton_ECAL_%s_S%d", layerTag.c_str(), sector);
+                    title = Form("proton %s sector %d", layerTitle.c_str(), sector);
                 } else {
-                    name = Form("proton_ECAL_L%d_S%d_noFid", layer, sector);
-                    title = Form("proton ECAL layer %d sector %d (no fiducial cuts)", layer, sector);
+                    name  = Form("proton_ECAL_%s_S%d_noFid", layerTag.c_str(), sector);
+                    title = Form("proton %s sector %d (no fiducial cuts)", layerTitle.c_str(), sector);
                 }
             } else if (selectedPid == 11) {
                 if (doFid) {
-                    name = Form("electron_ECAL_L%d_S%d", layer, sector);
-                    title = Form("electron ECAL layer %d sector %d", layer, sector);
+                    name  = Form("electron_ECAL_%s_S%d", layerTag.c_str(), sector);
+                    title = Form("electron %s sector %d", layerTitle.c_str(), sector);
                 } else {
-                    name = Form("electron_ECAL_L%d_S%d_noFid", layer, sector);
-                    title = Form("electron ECAL layer %d sector %d (no fiducial cuts)", layer, sector);
+                    name  = Form("electron_ECAL_%s_S%d_noFid", layerTag.c_str(), sector);
+                    title = Form("electron %s sector %d (no fiducial cuts)", layerTitle.c_str(), sector);
                 }
             } else {
                 if (doFid) {
-                    name = Form("pid%d_ECAL_L%d_S%d", selectedPid, layer, sector);
-                    title = Form("pid%d ECAL layer %d sector %d", selectedPid, layer, sector);
+                    name  = Form("pid%d_ECAL_%s_S%d", selectedPid, layerTag.c_str(), sector);
+                    title = Form("pid%d %s sector %d", selectedPid, layerTitle.c_str(), sector);
                 } else {
-                    name = Form("pid%d_ECAL_L%d_S%d_noFid", selectedPid, layer, sector);
-                    title = Form("pid%d ECAL layer %d sector %d (no fiducial cuts)", selectedPid, layer, sector);
+                    name  = Form("pid%d_ECAL_%s_S%d_noFid", selectedPid, layerTag.c_str(), sector);
+                    title = Form("pid%d %s sector %d (no fiducial cuts)", selectedPid, layerTitle.c_str(), sector);
                 }
             }
+
 
             //title += ";x [cm];y [cm]";
             histos[key] = new TH2F(name.c_str(), title.c_str(), 500, 0, 500, 500, 0, 500);
@@ -90,13 +101,13 @@ void DrawECALHitResponse(const int &selectedPid, const int &selecteddetector,
             if (lay == 1 || lay == 4) {
                 x = lw[i];
                 y = lv[i];
-                histos[key]->GetXaxis()->SetTitle("lw [cm]");
-                histos[key]->GetYaxis()->SetTitle("lv [cm]");
+                histos[key]->GetXaxis()->SetTitle("w [cm]");
+                histos[key]->GetYaxis()->SetTitle("v [cm]");
             } else if (lay == 7) {
                 x = lu[i];
                 y = lv[i];
-                histos[key]->GetXaxis()->SetTitle("lu [cm]");
-                histos[key]->GetYaxis()->SetTitle("lv [cm]");
+                histos[key]->GetXaxis()->SetTitle("u [cm]");
+                histos[key]->GetYaxis()->SetTitle("v [cm]");
             }
             histos[key]->Fill(x, y);
         }
@@ -154,8 +165,8 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
     std::map<int, TH2F*> hist_lw, hist_lv;
 
     for (int sector : sectors) {
-        hist_lw[sector] = new TH2F(Form("lw_S%d", sector), ";PCAL lw [cm];E/p", 500, 0, 100, 500, 0, 2);
-        hist_lv[sector] = new TH2F(Form("lv_S%d", sector), ";PCAL lv [cm];E/p", 500, 0, 100, 500, 0, 2);
+        hist_lw[sector] = new TH2F(Form("lw_S%d", sector), ";PCAL w [cm];E/p", 500, 0, 100, 500, 0, 2);
+        hist_lv[sector] = new TH2F(Form("lv_S%d", sector), ";PCAL v [cm];E/p", 500, 0, 100, 500, 0, 2);
         hist_lw[sector]->SetDirectory(nullptr);
         hist_lv[sector]->SetDirectory(nullptr);
     }
@@ -226,17 +237,17 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
         p_lw->SetLineColor(kBlue + 1);
         p_lw->SetMarkerColor(kBlue + 1);
         p_lw->SetMarkerStyle(20);
-        p_lw->SetTitle(Form("E/p in Sector %d (Position from PCAL); lv or lw [cm];E/p", sector));
+        p_lw->SetTitle(Form("E/p in Sector %d (Position from PCAL); v or w [cm];E/p", sector));
         p_lw->GetYaxis()->SetRangeUser(0.15, 0.3);
         p_lw->Draw("PE");
-        leg->AddEntry(p_lw, "E/p vs lw", "lp");
+        leg->AddEntry(p_lw, "E/p vs w", "lp");
 
         TProfile *p_lv = hist_lv[sector]->ProfileX(Form("pfx_lv_S%d", sector), 1, -1, "s");
         p_lv->SetLineColor(kRed + 1);
         p_lv->SetMarkerColor(kRed + 1);
         p_lv->SetMarkerStyle(21);
         p_lv->Draw("PE SAME");
-        leg->AddEntry(p_lv, "E/p vs lv", "lp");
+        leg->AddEntry(p_lv, "E/p vs v", "lp");
 
         leg->Draw();
 
@@ -263,14 +274,12 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisECALFid() {
-    //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    //std::string path = "./../build/";
-    std::string path = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/NewAnalysisFrameWork/testing_outupt/afterFiducialCuts/afterallFidCuts_dsts/";
+    std::string path = "./../build/data/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
     DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
-    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
-    DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
+    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
+    DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
     DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }

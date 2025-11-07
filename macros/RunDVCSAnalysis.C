@@ -22,8 +22,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = false; 
   //std::string dataconfig = "rgasp18_inb";
-  std::string dataconfig = "rgasp18_outb";  
-  //std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgasp18_outb";  
+  std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
