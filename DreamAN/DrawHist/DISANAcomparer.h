@@ -1574,7 +1574,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
           TH1D* h = xs3D[iq][iw];
           if (!h) continue;
           const double I = h->Integral(1, h->GetNbinsX());          // sum of contents
-          //if (I > 0)  h->Scale(1.0 / I);
+          if (I > 0)  h->Scale(1.0 / I);
           for (int b = 1; b <= h->GetNbinsX(); ++b) {
             const double v = h->GetBinContent(b);
             if (v > 0.0 && v < yMinPos) yMinPos = v;

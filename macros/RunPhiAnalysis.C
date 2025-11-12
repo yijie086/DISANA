@@ -28,11 +28,11 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = false;       // Set to true if you want to run on inbending data
   bool IsMinimalBook = false;     // Set to true if you want to run minimal booking (only essential histograms)
-   //std::string dataconfig = "rgasp18_inb";
+   std::string dataconfig = "rgasp18_inb";
    //std::string dataconfig = "rgasp18_outb";
    //std::string dataconfig = "rgafall18_inb";
    //std::string dataconfig = "rgafall18_outb";
-   std::string dataconfig = "rgasp19_inb";
+   //std::string dataconfig = "rgasp19_inb";
   // std::string dataconfig = "rgkfa18_7546";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -52,11 +52,11 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output
   // directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
   //  DVCS wagons
-   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/";  // Default output directory
-   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/after_fids/";  // Default output directory
-   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/after_fids/";  // Default output directory
-   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/after_fids/";  // Default output directory
-  std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/";  // Default output directory*/
+   std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default output directory
+   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default output directory
+   //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default output directory
+  //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default output directory
+  //std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default output directory*/
   //std::string outputFileDir = "./";  // local output directory
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";
@@ -200,55 +200,71 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
       trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
       trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
   }
-  /*
+  
   // // rga fall18 in
-  if (dataconfig == "rgafall18_inb") {
-      trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
-      trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
-      trackCuts->AddSamplingFractionMinCut(11, 2, 0.135106, 0.0249842, -0.00270237);  // Electronsector 2
-      trackCuts->AddSamplingFractionMaxCut(11, 2, 0.331777, -0.0134885, 0.00144937);  // Electronsector 2
-      trackCuts->AddSamplingFractionMinCut(11, 3, 0.135934, 0.0294809, -0.00307425);  // Electronsector 3
-      trackCuts->AddSamplingFractionMaxCut(11, 3, 0.324863, -0.0116574, 0.00104596);  // Electro sector 3
-      trackCuts->AddSamplingFractionMinCut(11, 4, 0.145492, 0.0211262, -0.00191841);  // Electronsector 4
-      trackCuts->AddSamplingFractionMaxCut(11, 4, 0.325025, -0.0139604, 0.00143415);  // Electronsector 4
-      trackCuts->AddSamplingFractionMinCut(11, 5, 0.158792, 0.0159181, -0.00139627);  // Electronsector 5
-      trackCuts->AddSamplingFractionMaxCut(11, 5, 0.310616, -0.00565024, 0.000488421);  // Electronsector 5
-      trackCuts->AddSamplingFractionMinCut(11, 6, 0.154587, 0.0202241, -0.00200259);  // Electronsector 6
-      trackCuts->AddSamplingFractionMaxCut(11, 6, 0.315009, -0.00725113, 0.000452379);  // Electro sector 6
-  }
+if (dataconfig == "rgafall18_inb") {
+  trackCuts->AddSamplingFractionMinCut(11, 1, 0.182257, 0.007442, -0.000758);    // Electron sector 1
+  trackCuts->AddSamplingFractionMaxCut(11, 1, 0.304421, -0.002123, -0.000286);   // Electron sector 1
 
-  //fall18 out
-  if (dataconfig == "rgafall18_outb") {
-      trackCuts->AddSamplingFractionMinCut(11, 1, 0.153109, 0.018688, -0.00156815);  // Electronsector 1
-      trackCuts->AddSamplingFractionMaxCut(11, 1, 0.27668, 0.00393487, -0.000495404);  // Electro sector 1
-      trackCuts->AddSamplingFractionMinCut(11, 2, 0.156875, 0.0164895, -0.00139281);  // Electronsector 2
-      trackCuts->AddSamplingFractionMaxCut(11, 2, 0.285319, 0.000615206, 7.59911e-06);  // Electronsector 2
-      trackCuts->AddSamplingFractionMinCut(11, 3, 0.159718, 0.0176749, -0.00147327);  // Electronsector 3
-      trackCuts->AddSamplingFractionMaxCut(11, 3, 0.280747, 0.00494729, -0.00071406);  // Electro sector 3
-      trackCuts->AddSamplingFractionMinCut(11, 4, 0.158643, 0.0173334, -0.00137467);  // Electronsector 4
-      trackCuts->AddSamplingFractionMaxCut(11, 4, 0.279673, 0.00510175, -0.00068517);  // Electronsector 4
-      trackCuts->AddSamplingFractionMinCut(11, 5, 0.155656, 0.0166533, -0.0012774);  // Electronsector 5
-      trackCuts->AddSamplingFractionMaxCut(11, 5, 0.285419, 1.77522e-05, -8.01094e-05);  // Electronsector 5
-      trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);   // Electronsector6
-      trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);  // Electro sector 6
-  }
-      //// //rga sp19 in
-  if (dataconfig == "rgasp19_inb") {
-      trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);  // Electronsector 1
-      trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
-      trackCuts->AddSamplingFractionMinCut(11, 2, 0.135106, 0.0249842, -0.00270237);  // Electronsector 2
-      trackCuts->AddSamplingFractionMaxCut(11, 2, 0.331777, -0.0134885, 0.00144937);  // Electronsector 2
-      trackCuts->AddSamplingFractionMinCut(11, 3, 0.135934, 0.0294809, -0.00307425);  // Electronsector 3
-      trackCuts->AddSamplingFractionMaxCut(11, 3, 0.324863, -0.0116574, 0.00104596);  // Electro sector 3
-      trackCuts->AddSamplingFractionMinCut(11, 4, 0.145492, 0.0211262, -0.00191841);  // Electronsector 4
-      trackCuts->AddSamplingFractionMaxCut(11, 4, 0.325025, -0.0139604, 0.00143415);  // Electronsector 4
-      trackCuts->AddSamplingFractionMinCut(11, 5, 0.158792, 0.0159181, -0.00139627);  // Electronsector 5
-      trackCuts->AddSamplingFractionMaxCut(11, 5, 0.310616, -0.00565024, 0.000488421);  // Electronsector 5
-      trackCuts->AddSamplingFractionMinCut(11, 6, 0.154587, 0.0202241, -0.00200259);  // Electronsector 6
-      trackCuts->AddSamplingFractionMaxCut(11, 6, 0.315009, -0.00725113, 0.000452379);  // Electro sector 6
-  }
+  trackCuts->AddSamplingFractionMinCut(11, 2, 0.179615, 0.009837, -0.000981);    // Electron sector 2
+  trackCuts->AddSamplingFractionMaxCut(11, 2, 0.306626, -0.001156, -0.000418);   // Electron sector 2
 
-*/
+  trackCuts->AddSamplingFractionMinCut(11, 3, 0.179768, 0.011258, -0.001113);    // Electron sector 3
+  trackCuts->AddSamplingFractionMaxCut(11, 3, 0.304496, 0.000808, -0.000712);    // Electron sector 3
+
+  trackCuts->AddSamplingFractionMinCut(11, 4, 0.179226, 0.010001, -0.000851);    // Electron sector 4
+  trackCuts->AddSamplingFractionMaxCut(11, 4, 0.310082, -0.002499, -0.000111);   // Electron sector 4
+
+  trackCuts->AddSamplingFractionMinCut(11, 5, 0.174914, 0.011152, -0.001008);    // Electron sector 5
+  trackCuts->AddSamplingFractionMaxCut(11, 5, 0.315217, -0.006281, 0.000256);    // Electron sector 5
+
+  trackCuts->AddSamplingFractionMinCut(11, 6, 0.182785, 0.008533, -0.000850);    // Electron sector 6
+  trackCuts->AddSamplingFractionMaxCut(11, 6, 0.307112, -0.000586, -0.000559);   // Electron sector 6
+}
+
+
+// RGA Fall 2018 Outbending
+if (dataconfig == "rgafall18_outb") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.186279, 0.006740, -0.000434);   // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.303829, -0.003178, 0.000029);   // Electro sector 1
+
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.186446, 0.006058, -0.000374);   // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.298393, -0.001543, -0.000090);  // Electronsector 2
+
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.186023, 0.008322, -0.000555);   // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.300515, -0.000776, -0.000302);  // Electro sector 3
+
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.186014, 0.006690, -0.000387);   // Electronsector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.299888, -0.001181, -0.000234);  // Electronsector 4
+
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.187277, 0.004536, -0.000115);   // Electronsector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.297246, -0.002602, 0.000075);   // Electronsector 5
+
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.181060, 0.008314, -0.000519);   // Electronsector 6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.297379, -0.000577, -0.000283);  // Electro sector 6
+}
+
+//// RGA Spring 2019 Inbending
+if (dataconfig == "rgasp19_inb") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.166035, 0.017046, -0.001806);   // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.323043, -0.010838, 0.000676);   // Electro sector 1
+
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.187470, 0.004908, -0.000521);   // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.296504, 0.004220, -0.001003);   // Electronsector 2
+
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.178773, 0.012186, -0.001253);   // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.302329, 0.001279, -0.000800);   // Electro sector 3
+
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.176627, 0.011507, -0.001057);   // Electronsector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.293717, 0.003929, -0.000917);   // Electronsector 4
+
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.173851, 0.012135, -0.001183);   // Electronsector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.300202, 0.001455, -0.000786);   // Electronsector 5
+
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.183544, 0.007833, -0.000789);   // Electronsector 6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.303698, 0.000896, -0.000796);   // Electro sector 6
+}
+
   auto corr = std::make_shared<MomentumCorrection>();
   /// Momentum correction for the proton
   if (dataconfig == "rgasp18_inb") {
@@ -358,7 +374,6 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   }
 
   // kaon energy loss corrections to be added here: TBD
-  
 
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
@@ -411,8 +426,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   PhiTask->SetDoFiducialCut(true);
 
   PhiTask->SetDoInvMassCut(true);  // in this case pi0 background for two-photon pairs in the event
-  // PhiTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
-  // PhiTask->SetMomentumCorrection(corr);  // Set the momentum correction object
+  PhiTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+  PhiTask->SetMomentumCorrection(corr);  // Set the momentum correction object
   PhiTask->SetMaxEvents(0);  // Set the maximum number of events to process, 0 means no limit
 
   mgr.AddTask(std::move(PhiTask));

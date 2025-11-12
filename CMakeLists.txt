@@ -68,7 +68,7 @@ add_executable(AnalysisDVCS
     DreamAN/core/Columns.cxx
     DreamAN/Cuts/EventCut.cxx
     DreamAN/Cuts/TrackCut.cxx
-    DreamAN/Cuts/QADBCut.cxx
+    DreamAN/Cuts/QADBCuts.cxx
     DreamAN/Correction/MomentumCorrection.cxx
     DreamAN/Math/RECParticleKinematic.cxx
     DreamAN/Math/MathKinematicVariable.cxx
@@ -108,6 +108,7 @@ add_executable(AnalysisPhi
     DreamAN/core/Columns.cxx
     DreamAN/Cuts/EventCut.cxx
     DreamAN/Cuts/TrackCut.cxx
+    DreamAN/Cuts/QADBCuts.cxx
     DreamAN/Correction/MomentumCorrection.cxx
     DreamAN/Math/RECParticleKinematic.cxx
     DreamAN/Math/MathKinematicVariable.cxx

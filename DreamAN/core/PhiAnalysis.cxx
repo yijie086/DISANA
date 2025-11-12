@@ -121,7 +121,7 @@ void PhiAnalysis::SaveOutput() {
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      if(!IsMinBooking&&!fDoMomentumCorrection)SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
+      if(!IsMinBooking)SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
     }
   }
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {

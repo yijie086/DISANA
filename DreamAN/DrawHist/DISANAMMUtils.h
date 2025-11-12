@@ -421,7 +421,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "t", &DISANAMath::GetT, beam_energy);
   *df_ = define_DISCAT(*df_, "tmin", &DISANAMath::GetTmin, beam_energy);
   *df_=df_->Define("mtprime",        // non-negative: this is what you’ll plot
-                 [](double mt, double tmin){ return std::abs(-mt - std::abs(tmin)); },
+                 [](double mt, double tmin){ return std::abs(mt + tmin); },
                  {"t", "tmin"})
       .Define("tprime",         // optional signed t' ≤ 0
                  [](double mtp){ return -mtp; },
@@ -707,7 +707,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "t", &DISANAMath::GetT, beam_energy);
   *df_ = define_DISCAT(*df_, "tmin", &DISANAMath::GetTmin, beam_energy);
   *df_=df_->Define("mtprime",        // non-negative: this is what you’ll plot
-                 [](double mt, double tmin){ return std::abs(-mt - std::abs(tmin)); },
+                 [](double mt, double tmin){ return std::abs(mt + tmin); },
                  {"t", "tmin"})
       .Define("tprime",         // optional signed t' ≤ 0
                  [](double mtp){ return -mtp; },
@@ -1005,7 +1005,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "tmin", &DISANAMath::GetTmin, beam_energy);
 
   *df_=df_->Define("mtprime",        // non-negative: this is what you’ll plot
-                 [](double mt, double tmin){ return std::abs(-mt - std::abs(tmin)); },
+                 [](double mt, double tmin){ return std::abs(mt +tmin); },
                  {"t", "tmin"})
       .Define("tprime",         // optional signed t' ≤ 0
                  [](double mtp){ return -mtp; },
