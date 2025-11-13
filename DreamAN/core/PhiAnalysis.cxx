@@ -4,8 +4,9 @@
 #include <stdexcept>
 
 #include "AnalysisTaskManager.h"
+#include "PerRunCounter.h"
 
-PhiAnalysis::PhiAnalysis(bool IsMC, bool IsReproc,  bool IsMinBook) : IsMC(IsMC), IsReproc(IsReproc), IsMinBooking(IsMinBook), fHistPhotonP(nullptr) {}
+PhiAnalysis::PhiAnalysis(bool IsMC, bool IsReproc, bool IsMinBook) : IsMC(IsMC), IsReproc(IsReproc), IsMinBooking(IsMinBook), fHistPhotonP(nullptr) {}
 PhiAnalysis::~PhiAnalysis() {}
 
 void PhiAnalysis::UserCreateOutputObjects() {}
@@ -14,7 +15,7 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   using namespace std;
 
   if (fMaxEvents > 0) {
-    df = df.Range(0, fMaxEvents);   // only process the first fMaxEvents
+    df = df.Range(0, fMaxEvents);  // only process the first fMaxEvents
   }
   if (!fTrackCuts || !fEventCuts) throw std::runtime_error("PhiAnalysis: One or more cut not set.");
 
@@ -33,8 +34,17 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dforginal = dfDefs;
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
+  // QADB cuts should be place in the first to reduce the computation load
+  if (fIsQADBCut && fQADBCuts) {
+    std::cout << "Applying QADB cut..." << std::endl;
+    dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_QADB_pass",
+                                      *fQADBCuts,  // <-- use the configured functor instance
+                                      {"RUN_config_run", "RUN_config_event"});
+    dfDefsWithTraj = dfDefsWithTraj.Filter("REC_QADB_pass", "QADB pass");
+  }
   auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
-  auto caloCols = CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
+  auto caloCols =
+      CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
   auto fwdtagCols = CombineColumns(RECForwardTagger::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
 
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols);
@@ -59,7 +69,7 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfSelected = DefineOrRedefine(*dfSelected, "EventCutResult", *fEventCuts, cols_track_nofid);
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
-  //dfSelected = DefineOrRedefine(*dfSelected, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
+  // dfSelected = DefineOrRedefine(*dfSelected, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
 
   if (fDoInvMassCut) {
     fEventCuts->SetDoCutMotherInvMass(true);
@@ -75,7 +85,7 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
-    
+
     if (fDoInvMassCut) {
       fEventCuts->SetDoCutMotherInvMass(true);
       dfSelected_afterFid =
@@ -99,14 +109,14 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   }
 }
 void PhiAnalysis::SaveOutput() {
-   if (IsMC) {
+  if (IsMC) {
     // snapshot of the MC bank for efficiency and other studies
-    dforginal->Snapshot("dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
-                 {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
-                  "MC_Event_pbeam",  // include if this exists
-                  "MC_Event_ptarget", "MC_Event_ebeam"});
+    dforginal->Snapshot(
+        "dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
+        {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
+         "MC_Event_pbeam",  // include if this exists
+         "MC_Event_ptarget", "MC_Event_ebeam"});
   }
-
 
   if (!dfSelected.has_value()) {
     std::cerr << "PhiAnalysis::SaveOutput: dfSelected not set!" << std::endl;
@@ -121,13 +131,15 @@ void PhiAnalysis::SaveOutput() {
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      if(!IsMinBooking)SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
+      if (!IsMinBooking) SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
     }
   }
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
     std::cout << "Events selected after fiducial and momentum correction: " << dfSelected_afterFid_afterCorr->Count().GetValue() << std::endl;
-    if(!IsMinBooking)SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
+    if (!IsMinBooking) SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
   }
-
+  if (fIsQADBCut) {
+    std::cout << "\n[QADB] total accumulated charge analyzed: " << fQADBCuts->GetAccumulatedCharge() / 1e6 << " mC (Do NOT use this number if you enable MT)\n";
+  }
 }
 void PhiAnalysis::SetOutputDir(const std::string& dir) { fOutputDir = dir; }

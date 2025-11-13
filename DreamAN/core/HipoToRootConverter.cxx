@@ -1,6 +1,7 @@
 #include "HipoToRootConverter.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -8,7 +9,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
-#include <fnmatch.h>  
+#include <fnmatch.h>
 
 #include "ROOT/RDataFrame.hxx"
 #include "ROOT/RDFHelpers.hxx"
@@ -20,7 +21,7 @@
 
 namespace fs = std::filesystem;
 
-// ---- Static helper functions (preload_hipo, makeRDFFromSlice, etc.) remain unchanged ----
+// ---- Static helper functions (preload_hipo, makeRDFFromSlice, etc.) ----
 
 static inline void preload_hipo() {
   if (const char* h = std::getenv("HIPO_HOME")) {
@@ -39,22 +40,39 @@ static ROOT::RDataFrame makeRDFFromSlice(std::vector<std::string> slice) {
   return ROOT::RDataFrame(std::move(ds));
 }
 
+// Inspect a slice's schema; if the slice has zero entries, return empty (caller will ignore)
 static std::unordered_map<std::string, std::string>
 inspectSliceSchema(const std::vector<std::string>& slice) {
   ROOT::RDataFrame rdf =
       makeRDFFromSlice(std::vector<std::string>(slice.begin(), slice.end()));
+  // Count is lazy; force evaluation
+  auto n = *rdf.Count();
+  if (n == 0) {
+    std::cerr << "[Converter] Schema discovery: slice has 0 rows, ignoring in intersection\n";
+    return {};
+  }
   std::unordered_map<std::string, std::string> types;
   for (const auto& c : rdf.GetColumnNames()) types.emplace(c, rdf.GetColumnType(c));
   return types;
 }
 
+// Compute columns common to all *non-empty* slices. Empty slices are ignored.
 static std::vector<std::string>
 computeStableColumns(const std::vector<std::vector<std::string>>& slices) {
   std::unordered_map<std::string, std::string> common;
-  bool first = true;
+  bool haveSeed = false;
+
   for (const auto& s : slices) {
     auto types = inspectSliceSchema(s);
-    if (first) { common = std::move(types); first = false; continue; }
+    if (types.empty()) {
+      // ignore empty/no-tree slices for the intersection
+      continue;
+    }
+    if (!haveSeed) {
+      common = std::move(types);
+      haveSeed = true;
+      continue;
+    }
     for (auto it = common.begin(); it != common.end();) {
       auto jt = types.find(it->first);
       if (jt == types.end() || jt->second != it->second) it = common.erase(it);
@@ -62,30 +80,46 @@ computeStableColumns(const std::vector<std::vector<std::string>>& slices) {
     }
     if (common.empty()) break;
   }
+
+  if (!haveSeed) {
+    throw std::runtime_error("[Converter] All slices appear empty; cannot determine stable schema.");
+  }
+
   std::vector<std::string> cols; cols.reserve(common.size());
   for (auto& kv : common) cols.push_back(kv.first);
   std::sort(cols.begin(), cols.end());
   return cols;
 }
 
+// Snapshot a slice to ROOT only if it has rows; otherwise, skip writing the file.
 static void snapshotSliceToRoot(std::vector<std::string> sliceFiles,
                                 const std::string& outPath,
                                 const std::string& treeName,
                                 const std::vector<std::string>& cols) {
   ROOT::RDataFrame rdf = makeRDFFromSlice(std::move(sliceFiles));
+
+  // Skip empty slices to avoid producing empty/no-tree files that break the chain
+  auto n = *rdf.Count();
+  if (n == 0) {
+    std::cerr << "[Converter] Slice " << outPath
+              << " is empty -> not writing a ROOT file\n";
+    return;
+  }
+
   ROOT::RDF::RSnapshotOptions opts;
   opts.fMode = "RECREATE";
-  #if defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE >= ROOT_VERSION(6,22,0)
+#if defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE >= ROOT_VERSION(6,22,0)
   opts.fCompressionAlgorithm = ROOT::ECompressionAlgorithm::kLZ4;
-  #else
+#else
   opts.fCompressionAlgorithm = ROOT::ECompressionAlgorithm::kZLIB;
-  #endif
+#endif
   opts.fCompressionLevel = 4;
   opts.fAutoFlush = 50'000;
+
   rdf.Snapshot(treeName, outPath, cols, opts);
 }
 
-// ---- Constructor and getHipoFilesInPath remain unchanged ----
+// ---- Constructor and getHipoFilesInPath ----
 
 HipoToRootConverter::HipoToRootConverter(const std::string& inputDir,
                                          const std::string& outputDir,
@@ -95,115 +129,95 @@ HipoToRootConverter::HipoToRootConverter(const std::string& inputDir,
   if (!fs::exists(fOutputDir_)) fs::create_directories(fOutputDir_);
 }
 
-/*std::vector<std::string>
-HipoToRootConverter::getHipoFilesInPath(const std::string& directory, int nfiles) const {
-    // ... implementation is unchanged ...
-    std::vector<std::string> files;
-    std::size_t count = 0;
-    try {
-        for (const auto& entry : fs::recursive_directory_iterator(directory)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".hipo") {
-                files.push_back(entry.path().string());
-                ++count;
-                if (nfiles > 0 && static_cast<int>(count) >= nfiles) break;
-            }
-        }
-    } catch (const fs::filesystem_error& e) {
-        std::cerr << "[Converter] Filesystem error: " << e.what() << std::endl;
-    }
-    std::cout << "[Converter] Found " << files.size() << " .hipo files\n";
-    return files;
-}
-*/
 // Minimal '*' and '?' glob matcher (case-sensitive)
 static bool globMatch(const std::string& pat, const std::string& s) {
-    size_t pi = 0, si = 0, star = std::string::npos, match = 0;
-    while (si < s.size()) {
-        if (pi < pat.size() && (pat[pi] == '?' || pat[pi] == s[si])) {
-            ++pi; ++si;                   // single-char match
-        } else if (pi < pat.size() && pat[pi] == '*') {
-            star = pi++; match = si;      // remember star position
-        } else if (star != std::string::npos) {
-            pi = star + 1;                // backtrack: extend '*' to cover one more char
-            si = ++match;
-        } else {
-            return false;
-        }
+  size_t pi = 0, si = 0, star = std::string::npos, match = 0;
+  while (si < s.size()) {
+    if (pi < pat.size() && (pat[pi] == '?' || pat[pi] == s[si])) {
+      ++pi; ++si;                   // single-char match
+    } else if (pi < pat.size() && pat[pi] == '*') {
+      star = pi++; match = si;      // remember star position
+    } else if (star != std::string::npos) {
+      pi = star + 1;                // backtrack: extend '*' to cover one more char
+      si = ++match;
+    } else {
+      return false;
     }
-    while (pi < pat.size() && pat[pi] == '*') ++pi;
-    return pi == pat.size();
+  }
+  while (pi < pat.size() && pat[pi] == '*') ++pi;
+  return pi == pat.size();
 }
 
 std::vector<std::string>
 HipoToRootConverter::getHipoFilesInPath(const std::string& pathOrPattern, int nfiles) const {
-    namespace fs = std::filesystem;
+  namespace fs = std::filesystem;
 
-    std::vector<std::string> files;
-    std::size_t count = 0;
-    auto push = [&](const fs::path& p) {
-        files.push_back(p.string());
-        ++count;
-        return !(nfiles > 0 && static_cast<int>(count) >= nfiles);
-    };
+  std::vector<std::string> files;
+  std::size_t count = 0;
+  auto push = [&](const fs::path& p) {
+    files.push_back(p.string());
+    ++count;
+    return !(nfiles > 0 && static_cast<int>(count) >= nfiles);
+  };
 
-    const fs::path p(pathOrPattern);
-    std::error_code ec;
+  const fs::path p(pathOrPattern);
+  std::error_code ec;
 
-    // --- CASE 0: wildcard pattern (handle FIRST, to avoid opening a bogus "directory") ---
-    const std::string base = p.filename().string();
-    if (base.find_first_of("*?") != std::string::npos) {
-        const fs::path parent = p.has_parent_path() ? p.parent_path() : fs::path(".");
-        if (!fs::exists(parent, ec) || !fs::is_directory(parent, ec)) {
-            std::cerr << "[Converter] Parent directory not found for pattern: " << parent << "\n";
-            std::cout << "[Converter] Found " << files.size() << " .hipo files\n";
-            return files;
-        }
-
-        for (fs::directory_iterator it(parent, ec), end; !ec && it != end; it.increment(ec)) {
-            const fs::directory_entry& de = *it;
-            if (!de.is_regular_file(ec)) continue;
-            const fs::path& ep = de.path();
-            if (ep.extension() != ".hipo") continue;
-            if (fnmatch(base.c_str(), ep.filename().string().c_str(), 0) == 0) {
-                if (!push(ep)) break;
-            }
-        }
-        std::cout << "[Converter] Found " << files.size() << " .hipo files (pattern)\n";
-        return files;
+  // CASE 0: wildcard pattern
+  const std::string base = p.filename().string();
+  if (base.find_first_of("*?") != std::string::npos) {
+    const fs::path parent = p.has_parent_path() ? p.parent_path() : fs::path(".");
+    if (!fs::exists(parent, ec) || !fs::is_directory(parent, ec)) {
+      std::cerr << "[Converter] Parent directory not found for pattern: " << parent << "\n";
+      std::cout << "[Converter] Found " << files.size() << " .hipo files\n";
+      return files;
     }
 
-    // --- CASE 1: existing file ---
-    if (fs::is_regular_file(p, ec)) {
-        if (p.extension() == ".hipo") push(p);
-        std::cout << "[Converter] Found " << files.size() << " .hipo files (file)\n";
-        return files;
+    for (fs::directory_iterator it(parent, ec), end; !ec && it != end; it.increment(ec)) {
+      const fs::directory_entry& de = *it;
+      if (!de.is_regular_file(ec)) continue;
+      const fs::path& ep = de.path();
+      if (ep.extension() != ".hipo") continue;
+      if (fnmatch(base.c_str(), ep.filename().string().c_str(), 0) == 0) {
+        if (!push(ep)) break;
+      }
     }
-
-    // --- CASE 2: existing directory (recursive) ---
-    if (fs::is_directory(p, ec)) {
-        fs::recursive_directory_iterator it(p, fs::directory_options::skip_permission_denied, ec), end;
-        for (; !ec && it != end; it.increment(ec)) {
-            const fs::directory_entry& de = *it;
-            if (de.is_regular_file(ec) && de.path().extension() == ".hipo") {
-                if (!push(de.path())) break;
-            }
-        }
-        if (ec) std::cerr << "[Converter] Iteration warning: " << ec.message() << "\n";
-        std::cout << "[Converter] Found " << files.size() << " .hipo files (dir)\n";
-        return files;
-    }
-
-    // --- CASE 3: not found and not a glob ---
-    std::cerr << "[Converter] Path not found: " << p << "\n";
-    std::cout << "[Converter] Found " << files.size() << " .hipo files\n";
+    std::cout << "[Converter] Found " << files.size() << " .hipo files (pattern)\n";
     return files;
+  }
+
+  // CASE 1: existing file
+  if (fs::is_regular_file(p, ec)) {
+    if (p.extension() == ".hipo") push(p);
+    std::cout << "[Converter] Found " << files.size() << " .hipo files (file)\n";
+    return files;
+  }
+
+  // CASE 2: existing directory (recursive)
+  if (fs::is_directory(p, ec)) {
+    fs::recursive_directory_iterator it(p, fs::directory_options::skip_permission_denied, ec), end;
+    for (; !ec && it != end; it.increment(ec)) {
+      const fs::directory_entry& de = *it;
+      if (de.is_regular_file(ec) && de.path().extension() == ".hipo") {
+        if (!push(de.path())) break;
+      }
+    }
+    if (ec) std::cerr << "[Converter] Iteration warning: " << ec.message() << "\n";
+    std::cout << "[Converter] Found " << files.size() << " .hipo files (dir)\n";
+    return files;
+  }
+
+  // CASE 3: not found and not a glob
+  std::cerr << "[Converter] Path not found: " << p << "\n";
+  std::cout << "[Converter] Found " << files.size() << " .hipo files\n";
+  return files;
 }
 
-// --- CHANGED: `convertAndMerge` is now `convert` and returns the file list ---
+// --- convert(): parallel per-slice snapshots with stable schema & pruning ---
 std::vector<std::string> HipoToRootConverter::convert(const std::string& tempFilePrefix) {
   preload_hipo();
 
-  // Keep conversion single-threaded at the RDF level per thread
+  // Keep conversion single-threaded inside each worker (RDF-level)
   ROOT::DisableImplicitMT();
   ROOT::EnableThreadSafety();
 
@@ -229,7 +243,7 @@ std::vector<std::string> HipoToRootConverter::convert(const std::string& tempFil
 
   auto stableCols = computeStableColumns(slices);
   if (stableCols.empty())
-    throw std::runtime_error("[Converter] No common, type-consistent columns across slices.");
+    throw std::runtime_error("[Converter] No common, type-consistent columns across NON-empty slices.");
 
   std::vector<std::string> tempRoots;
   tempRoots.reserve(slices.size());
@@ -244,10 +258,21 @@ std::vector<std::string> HipoToRootConverter::convert(const std::string& tempFil
   }
   for (auto& t : threads) if (t.joinable()) t.join();
 
-  // --- REMOVED: All TFileMerger logic is gone ---
+  // Prune any missing or empty files (slices that were empty won't have written a file)
+  std::vector<std::string> pruned;
+  pruned.reserve(tempRoots.size());
+  for (auto& f : tempRoots) {
+    std::error_code ec;
+    if (fs::exists(f, ec) && !ec && fs::file_size(f, ec) > 0 && !ec) {
+      pruned.push_back(f);
+    } else {
+      std::cerr << "[Converter] Dropping missing/empty temp file: " << f << "\n";
+    }
+  }
+  tempRoots.swap(pruned);
 
   std::cout << "[Converter] Parallel conversion complete. Generated "
             << tempRoots.size() << " temporary ROOT files." << std::endl;
-            
+
   return tempRoots;
 }

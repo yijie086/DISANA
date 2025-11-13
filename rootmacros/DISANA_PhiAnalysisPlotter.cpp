@@ -40,12 +40,19 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   // -----------------------------
   // Input locations
   // Exclusive reconstruction K+K-
-  std::string input_path_from_analysisRun_SP18inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";
-  std::string input_path_from_analysisRun_SP18outb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr";
-  std::string input_path_from_analysisRun_Fall18inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";
+  std::string input_result_folder_excl = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/source/macros/results/";
+  /*std::string input_path_from_analysisRun_SP18inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";
+  */std::string input_path_from_analysisRun_SP18outb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr";
+  /*std::string input_path_from_analysisRun_Fall18inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";
   std::string input_path_from_analysisRun_Fall18outb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr";
-  std::string input_path_from_analysisRun_SP19inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";
+  std::string input_path_from_analysisRun_SP19inb_data = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";*/
 
+
+  std::string input_path_from_analysisRun_SP18inb_data_qadb = Form("%s/rgasp18_inb", input_result_folder_excl.c_str());
+  std::string input_path_from_analysisRun_SP18outb_data_qadb = Form("%s/rgasp18_outb", input_result_folder_excl.c_str());
+  std::string input_path_from_analysisRun_Fall18inb_data_qadb = Form("%s/rgafall18_inb", input_result_folder_excl.c_str());
+  std::string input_path_from_analysisRun_Fall18outb_data_qadb = Form("%s/rgafall18_outb", input_result_folder_excl.c_str());
+  std::string input_path_from_analysisRun_SP19inb_data_qadb = Form("%s/rgasp19_inb", input_result_folder_excl.c_str());
   // Reprocessed missing–mass
   //std::string input_path_from_analysisRun_SP19inb_data_missingKm = "./../data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";
   //std::string input_path_from_analysisRun_Fall18inb_data_missingKm = "./../data_processed/fall2018/inb/nsidis_wagon/missing_Km_output/";
@@ -61,11 +68,14 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
   
   // File names
-  std::string filename_afterFid_SP18inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18inb_data.c_str());
-  std::string filename_afterFid_SP18outb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_data.c_str());
-  std::string filename_afterFid_Fall18inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18inb_data.c_str());
-  std::string filename_afterFid_Fall18outb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18outb_data.c_str());
-  std::string filename_afterFid_SP19inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_data.c_str());
+  std::string filename_afterFid_SP18inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18inb_data_qadb.c_str());
+  std::string filename_afterFid_SP18outb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_data_qadb.c_str());
+  std::string filename_afterFid_Fall18inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18inb_data_qadb.c_str());
+  std::string filename_afterFid_Fall18outb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18outb_data_qadb.c_str());
+  std::string filename_afterFid_SP19inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_data_qadb.c_str());
+
+  // no qadb files for exclusive analysis
+  std::string filename_afterFid_SP18outb_data_no_qadb = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_data.c_str());
 
   std::string filename_afterFid_SP19inb_missingKm_data = Form("%s/dfSelected.root", input_path_from_analysisRun_SP19inb_data_missingKm.c_str());
   std::string filename_afterFid_Fall18inb_missingKm_data = Form("%s/dfSelected.root", input_path_from_analysisRun_Fall18inb_data_missingKm.c_str());
@@ -111,24 +121,28 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     // Initialize RDataFrames up front (shared by both modes)
   ROOT::RDF::RNode df_afterFid_sp18inb_data_init   = InitKinematics(filename_afterFid_SP18inb_data,   "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
   ROOT::RDF::RNode df_afterFid_sp18outb_data_init  = InitKinematics(filename_afterFid_SP18outb_data,  "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
+  ROOT::RDF::RNode df_afterFid_sp18outb_data_init_noqadb  = InitKinematics(filename_afterFid_SP18outb_data_no_qadb,  "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
   ROOT::RDF::RNode df_afterFid_fall18inb_data_init = InitKinematics(filename_afterFid_Fall18inb_data, "dfSelected_afterFid_afterCorr", beam_energy_fall2018);
   ROOT::RDF::RNode df_afterFid_fall18outb_data_init = InitKinematics(filename_afterFid_Fall18outb_data,"dfSelected_afterFid_afterCorr", beam_energy_fall2018);
   ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
   
-  auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive.root", "slim_sp19_exlcusive");
-  auto df_afterFid_sp18inb_data = GetSlim_exclusive(df_afterFid_sp18inb_data_init, "slim_sp18inb_exlcusive.root", "slim_sp18inb_exlcusive");
-  auto df_afterFid_sp18outb_data = GetSlim_exclusive(df_afterFid_sp18outb_data_init, "slim_sp18outb_exlcusive.root", "slim_sp18outb_exlcusive");
-  auto df_afterFid_fall18inb_data = GetSlim_exclusive(df_afterFid_fall18inb_data_init, "slim_fall18inb_exlcusive.root", "slim_fall18inb_exlcusive");
-  auto df_afterFid_fall18outb_data = GetSlim_exclusive(df_afterFid_fall18outb_data_init, "slim_fall18outb_exlcusive.root", "slim_fall18outb_exlcusive");
+  auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive_qadb.root", "slim_sp19_exlcusive_qadb");
+  auto df_afterFid_sp18inb_data = GetSlim_exclusive(df_afterFid_sp18inb_data_init, "slim_sp18inb_exlcusive_qadb.root", "slim_sp18inb_exlcusive_qadb");
+  auto df_afterFid_sp18outb_data = GetSlim_exclusive(df_afterFid_sp18outb_data_init, "slim_sp18outb_exlcusive_qadb.root", "slim_sp18outb_exlcusive_qadb");
+  auto df_afterFid_sp18outb_data_noqadb = GetSlim_exclusive(df_afterFid_sp18outb_data_init_noqadb, "slim_sp18outb_exlcusive.root", "slim_sp18outb_exlcusive");
+  auto df_afterFid_fall18inb_data = GetSlim_exclusive(df_afterFid_fall18inb_data_init, "slim_fall18inb_exlcusive_qadb.root", "slim_fall18inb_exlcusive_qadb");
+  auto df_afterFid_fall18outb_data = GetSlim_exclusive(df_afterFid_fall18outb_data_init, "slim_fall18outb_exlcusive_qadb.root", "slim_fall18outb_exlcusive_qadb");
   
     // Apply your “final” DVEP selections and then pick exclusive phi events
     auto df_sp18inb_all    = SelectExclusivePhiEvent(df_afterFid_sp18inb_data);
     auto df_sp18outb_all   = SelectExclusivePhiEvent(df_afterFid_sp18outb_data);
+    auto df_sp18outb_all_noqadb = SelectExclusivePhiEvent(df_afterFid_sp18outb_data_noqadb);
     auto df_fall18inb_all  = SelectExclusivePhiEvent(df_afterFid_fall18inb_data);
     auto df_fall18outb_all = SelectExclusivePhiEvent(df_afterFid_fall18outb_data);
     auto df_sp19inb_all = SelectExclusivePhiEvent(df_afterFid_sp19inb_data); 
 
     auto df_sp18inb_phi    = ApplyFinalDVEPSelections(df_sp18inb_all);
+    auto df_sp18outb_phi_noqadb   = ApplyFinalDVEPSelections(df_sp18outb_all_noqadb);
     auto df_sp18outb_phi   = ApplyFinalDVEPSelections(df_sp18outb_all);
     auto df_fall18inb_phi  = ApplyFinalDVEPSelections(df_fall18inb_all);
     auto df_fall18outb_phi = ApplyFinalDVEPSelections(df_fall18outb_all);
@@ -138,7 +152,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8, /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 3.0);
     DISANA::PhiMass::DrawPhiMass_Measured(df_fall18inb_phi,"PhiMassPlots/fall2018/inb/DVKpKm/exclusiveKpKm/","Fall18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
     DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi,"PhiMassPlots/spring2018/inb/DVKpKm/exclusiveKpKm/","Sp18 INB DVKpKm",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
-    DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi,"PhiMassPlots/spring2018/outb/DVKpKm/exclusiveKpKm/","Sp18 OUTB DVKpKm 1",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
+    DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi,"PhiMassPlots/spring2018/outb/DVKpKm/exclusiveKpKm/","Sp18 OUTB DVKpKm ",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
+    DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi_noqadb,"PhiMassPlots/spring2018/outb_noqadb/DVKpKm/exclusiveKpKm/","Sp18 OUTB DVKpKm no qa",/*nBins*/200, /*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0); 
     DISANA::PhiMass::DrawPhiMass_Measured(df_fall18outb_phi,"PhiMassPlots/fall2018/outb/DVKpKm/exclusiveKpKm/","Fall18 OUTB DVKpKm",/*nBins*/200,/*mMin*/0.8, /*mMax*/1.6, /*mPhiLo*/0.9874, /*mPhiHi*/1.2, /*nSigma*/3.0);
     // Add any datasets you want to compare
 
@@ -211,9 +226,9 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     comparer.AddModelPhi(df_sp18outb_phi,   "Sp18 outb",   beam_energy_sp2018);
     comparer.AddModelPhi(df_sp18inb_phi,    "Sp18 inb",    beam_energy_sp2018);*/
   // Examples you had:
- // comparer.PlotPhiElectroProKinematicsComparison();
- // comparer.PlotKinematicComparison_phiAna();
- // comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
+  comparer.PlotPhiElectroProKinematicsComparison();
+  comparer.PlotKinematicComparison_phiAna();
+  comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
   comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 40, 0.988, 1.15, true, luminosity_rga_fall18, branching);
   comparer.PlotPhiDSigmaDt_FromCache();
 
