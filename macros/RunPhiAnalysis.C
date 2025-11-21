@@ -15,7 +15,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     const std::string dataconfig,
                     bool IsMC, bool IsreprocRootFile,
                     bool IsInbending /* you can ignore and derive from dataconfig if you like */,
-                    bool IsMinimalBook) {
+                    bool IsMinimalBook,
+                    bool IsMissingKm) {
   // Determine the number of threads to use.
   if (nthreads <= 0) {
     const auto hc = std::thread::hardware_concurrency();
@@ -83,9 +84,9 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   std::shared_ptr<TrackCut> trackCuts = std::make_shared<TrackCut>();
   // defined here the DC edge cuts for electron and proton
   auto edge_regions_e = std::vector<float>{3.0f, 3.0f, 10.0f};
-  auto edge_regions_p = std::vector<float>{3.0f, 3.0f, 10.0f};
-  auto edge_regions_kM = std::vector<float>{3.0f, 3.0f, 10.0f};
-  auto edge_regions_kP = std::vector<float>{3.0f, 3.0f, 10.0f};
+  auto edge_regions_p = std::vector<float>{3.0f, 3.0f, 7.0f};
+  auto edge_regions_kM = std::vector<float>{3.0f, 3.0f, 7.0f};
+  auto edge_regions_kP = std::vector<float>{3.0f, 3.0f, 7.0f};
 
   // auto CVT_edge_layers_p = std::vector<float>{-100.0f, -100.0f, -100.0f, -100.0f, -100.0f};  // CVT edge cuts for test
   auto CVT_edge_layers_p = std::vector<float>{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};   // CVT edge cuts for protons
@@ -380,11 +381,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
     // Pass the **entire list** in one shot:
     qadbCuts->SetDefects(qaDefects);
   }
-
   else{
-    const char* qaDefects[] = {"TotalOutlier",      "TerminalOutlier",   "MarginalOutlier", "SectorLoss",   "Misc",          "TotalOutlierFT",
-                               "TerminalOutlierFT", "MarginalOutlierFT", "LossFT",        "ChargeHigh",      "ChargeNegative", "ChargeUnknown", "PossiblyNoBeam"};
-
+    const char* qaDefects[] = {"TotalOutlier", "TerminalOutlier", "MarginalOutlier", "SectorLoss",   "Misc", "ChargeHigh", "ChargeNegative", "ChargeUnknown", "PossiblyNoBeam"};
     // Pass the **entire list** in one shot:
     qadbCuts->SetDefects(qaDefects);
   }
@@ -427,17 +425,28 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
 
   eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
   eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
-  eventCuts->AddParticleCut("Neg Kaon", kMinus);    // Applies defaults automatically
-  eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
-  // eventCuts->AddParticleMotherCut("phi", phi);      // Applies defaults automatically
-
+  
+  if (IsMissingKm && IsInbending){
+     eventCuts->AddParticleCut("Pos Kaon", kPos);   
+    }else{
+    eventCuts->AddParticleCut("Neg Kaon", kMinus);    // Applies defaults automatically
+    eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
+  }
+//// in the case of missing kaon and inbending only one kaon is detected
+  if (IsMissingKm && !IsInbending){
+     eventCuts->AddParticleCut("Neg Kaon", kMinus);   
+    }else{
+    eventCuts->AddParticleCut("Neg Kaon", kMinus);    // Applies defaults automatically
+    eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
+  }
   // Task
   auto PhiTask = std::make_unique<PhiAnalysis>(IsMC, IsreprocRootFile, IsMinimalBook);
   PhiTask->SetTrackCuts(trackCuts);
   PhiTask->SetEventCuts(eventCuts);
-  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb" || dataconfig == "rgafall18_inb" || dataconfig == "rgafall18_outb" || dataconfig == "rgasp19_inb" ||
-      dataconfig == "rgasp19_outb") {
+  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb" || dataconfig == "rgafall18_inb" || dataconfig == "rgafall18_outb") {
     PhiTask->SetBeamEnergy(10.6);
+  }else if (dataconfig == "rgasp19_outb") {
+     PhiTask->SetBeamEnergy(10.2);
   }
 
   PhiTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)

@@ -183,18 +183,18 @@ qa.checkForDefect("TotalOutlier");
 qa.checkForDefect("TerminalOutlier");
 qa.checkForDefect("MarginalOutlier");
 qa.checkForDefect("SectorLoss");
-qa.checkForDefect("LowLiveTime"); // enabled per your note for RGA spring 2018
+//qa.checkForDefect("LowLiveTime"); // enabled per your note for RGA spring 2018
 qa.checkForDefect("Misc");
 qa.checkForDefect("TotalOutlierFT");
 qa.checkForDefect("TerminalOutlierFT");
 qa.checkForDefect("MarginalOutlierFT");
 qa.checkForDefect("LossFT");
-qa.checkForDefect("BSAWrong");
-qa.checkForDefect("BSAUnknown");
-qa.checkForDefect("TSAWrong");
-qa.checkForDefect("TSAUnknown");
-qa.checkForDefect("DSAWrong");
-qa.checkForDefect("DSAUnknown");
+//qa.checkForDefect("BSAWrong");
+//qa.checkForDefect("BSAUnknown");
+//qa.checkForDefect("TSAWrong");
+//qa.checkForDefect("TSAUnknown");
+//qa.checkForDefect("DSAWrong");
+//qa.checkForDefect("DSAUnknown");
 qa.checkForDefect("ChargeHigh");
 qa.checkForDefect("ChargeNegative");
 qa.checkForDefect("ChargeUnknown");

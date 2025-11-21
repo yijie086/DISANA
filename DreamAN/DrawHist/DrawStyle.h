@@ -33,9 +33,15 @@ class DrawStyle {
     gStyle->SetLabelFont(font_, "XYZ");
     gStyle->SetTitleOffset(xTitleOffset_, "X");
     gStyle->SetTitleOffset(yTitleOffset_, "Y");
-
+    gStyle->SetTitleAlign(23);   // 2 = center horizontally, 3 = top
+    gStyle->SetTitleBorderSize(0);
+    gStyle->SetTitleFillColor(0);  // same as canvas; or 0 with transparent pad
+    gStyle->SetTitleStyle(0);      // no frame
+    gStyle->SetOptTitle(0);
     gStyle->SetPadTickX(1);
-    gStyle->SetPadTickY(1);
+    gStyle->SetPadTickY(1);   // make sure the title is shown
+    gStyle->SetTitleAlign(23); // 2 = center horizontally, 3 = top vertically
+ // X position in NDC (0–1), 0.5 = center
     gStyle->SetOptStat(0);
     gStyle->SetCanvasColor(0);
     gStyle->SetFrameBorderMode(0);
@@ -74,7 +80,6 @@ class DrawStyle {
   hist->SetTitle(title);
   hist->SetTitleFont(font_, "");
   hist->SetTitleSize(titleSize > 0 ? titleSize : titleSize_, "");
-
   hist->GetXaxis()->SetTitleSize(titleSize > 0 ? titleSize : titleSize_);
   hist->GetXaxis()->SetLabelSize(labelSize > 0 ? labelSize : labelSize_);
   hist->GetXaxis()->SetTitleOffset(xOffset > 0 ? xOffset : xTitleOffset_);

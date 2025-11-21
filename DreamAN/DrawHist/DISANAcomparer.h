@@ -51,8 +51,8 @@ class DISANAcomparer {
                            ROOT::RDF::RNode df_dvcsmc_rad,
                            ROOT::RDF::RNode df_dvcsmc_norad,
                            const std::string& label,
-                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false) {
-    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad);
+                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false, double luminosity = 1.0) {
+    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, luminosity, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction 
               << ", Acceptance Correction: " << fAcceptanceCorrection <<  ", Background Merging efficiency: " << fEfficiencyCorrection
               << ", Radiative Correction: " << fRadiativeCorrection
@@ -72,8 +72,8 @@ class DISANAcomparer {
     plotters.push_back(std::move(plotter));
   }
 
-  void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy) {
-    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy);
+  void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, double luminosity = 1.0) {
+    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy, luminosity);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV without Pi0 Correction" << std::endl;
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
@@ -82,9 +82,9 @@ class DISANAcomparer {
     plotters.push_back(std::move(plotter));
   }
 
-  void AddModelPhi(ROOT::RDF::RNode df, const std::string& label, double beamEnergy) {
-    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy);
-    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV without Pi0 Correction" << std::endl;
+  void AddModelPhi(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, double luminosity = 1.0) {
+    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy, luminosity);
+    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " Luminosity is"<< luminosity << std::endl;
     plotter->GeneratePhiKinematicHistos("el");
     plotter->GeneratePhiKinematicHistos("pro");
     plotter->GeneratePhiKinematicHistos("kMinus");
@@ -264,14 +264,22 @@ class DISANAcomparer {
       }
       NormalizeHistogram(target);
       styleKin_.StyleTH1(target);
+      //styleKin_.StyleTH1(target, typeToParticle[type].c_str());
       auto [cr, cg, cb] = modelShades[i % modelShades.size()];
       const int colorIdx = 4000 + int(i) * 20;
       if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
       target->SetMarkerColor(colorIdx);
       target->SetLineColorAlpha(colorIdx, 0.8);
       target->SetLineWidth(1);
-      target->SetTitle(Form("%s;%s;Count", typeToParticle[type].c_str(), VarName[var].c_str()));
-
+      //target->SetTitleSize(0.09);
+      target->SetTitle(typeToParticle[type].c_str());
+      target->GetXaxis()->SetTitle(VarName[var].c_str());
+      target->GetYaxis()->SetTitle("Count");
+      gStyle->SetTitleFillColor(0);
+      gStyle->SetTitleBorderSize(0);
+      gStyle->SetOptTitle(1); 
+        // After the first draw, remove the title box
+      gStyle->SetTitleX(0.5);   
       if (first) {
         target->Draw("HIST");
         first = false;
@@ -282,7 +290,7 @@ class DISANAcomparer {
       legend->AddEntry(target, labels[i].c_str(), "l");
     }
 
-    legend->Draw();
+    legend->Draw("SAME");
   }
 
   void PlotPi0KinematicComparison() {
@@ -386,6 +394,7 @@ class DISANAcomparer {
       }
 
       target->SetLineColor(i + 1);
+      //target->SetTitle(Form("%s;%s;Count", typeToParticle[type].c_str()), VarName[var].c_str());
 
       if (first) {
         target->Draw("HIST");
@@ -1085,8 +1094,8 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
   /// For exclusivity cuts, you can use the following function to select one triplet
   void PlotPhiAnaExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
     std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
-        {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.0, 1.3},
-        {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.08, 0.08},
+        {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.8, 1.3},
+        {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.07, 0.07},
         {"Mx2_eKpKm", "Invariant Mass (eK^{+}K^{-})", "M^{2}(eK^{+}K^{-}) [GeV^{2}]", -0.5, 3},
         {"Mx2_epKp", "Missing Mass Squared (epK^{+})", "MM^{2}(epK^{+}) [GeV^{2}]", -0.5, 1.5},
         {"Mx2_epKm", "Missing Mass Squared (epK^{-})", "MM^{2}(epK^{-}) [GeV^{2}]", -0.5, 1.5},
@@ -1175,7 +1184,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
     }
   };
 
-  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double luminosity, double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false,
+  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false,
                                                     bool meanKinVar = false) {
     if (plotters.empty()) {
       std::cerr << "No models loaded to compare.\n";
@@ -1194,11 +1203,11 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
 
     for (auto& p : plotters) {
       if (plotBSA) {
-        auto h = p->ComputeBSA(fXbins, luminosity, pol);
+        auto h = p->ComputeBSA(fXbins, pol);
         allBSA.push_back(std::move(h));
       }
       if (plotDVCSCross) {
-        auto hists = p->ComputeDVCS_CrossSection(fXbins, luminosity);
+        auto hists = p->ComputeDVCS_CrossSection(fXbins);
         allDVCSCross.push_back(std::move(hists));
       }
       if (plotPi0Corr) {
@@ -1574,7 +1583,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
           TH1D* h = xs3D[iq][iw];
           if (!h) continue;
           const double I = h->Integral(1, h->GetNbinsX());          // sum of contents
-          if (I > 0)  h->Scale(1.0 / I);
+          //if (I > 0)  h->Scale(1.0 / I);
           for (int b = 1; b <= h->GetNbinsX(); ++b) {
             const double v = h->GetBinContent(b);
             if (v > 0.0 && v < yMinPos) yMinPos = v;
@@ -1611,7 +1620,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
           // axis cosmetics consistent with DVCS cross-section look
           h->SetTitle("");
           h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
-          h->GetYaxis()->SetTitle("d#sigma/dt [nb/GeV^{2}]");
+          h->GetYaxis()->SetTitle("d#sigma/dt [arb.unit]");
           h->GetXaxis()->CenterTitle(true);
           h->GetYaxis()->CenterTitle(true);
           h->GetXaxis()->SetNdivisions(505);
@@ -1650,7 +1659,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
   }
   // === Add to DISANAcomparer (public): =========================
   void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
-                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double luminosity_rga_fall18 = 1.0, double branching = 1.0) {
+                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0) {
     if (plotters.empty()) {
       std::cerr << "[PlotPhiInvMassPerBin] no models.\n";
       return;
@@ -1659,7 +1668,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
     for (size_t i = 0; i < plotters.size(); ++i) {
       const std::string subdir = baseOutDir + "/" + labels[i];
       std::cout << "→ Fitting/drawing per-bin K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << std::endl;
-      (void)plotters[i]->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, luminosity_rga_fall18,branching);
+      (void)plotters[i]->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac,branching);
     }
   }
 

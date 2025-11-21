@@ -2,7 +2,10 @@
 #define DISANAMATH_H
 
 // ROOT + std
+#include <TCanvas.h>
 #include <TH1D.h>
+#include <TH2D.h>
+#include <TLine.h>
 #include <TLorentzVector.h>
 #include <TMath.h>
 #include <TStopwatch.h>
@@ -15,19 +18,25 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 constexpr double pi = 3.14159265358979323846;
-const double m_e = 0.000511;       // GeV
-//const double m_e = 0.0;       // GeV
-const double m_p = 0.938272;       // GeV
-//const double m_p = 0.938;       // GeV
+const double m_e = 0.000511;  // GeV
+// const double m_e = 0.0;       // GeV
+const double m_p = 0.938272;  // GeV
+// const double m_p = 0.938;       // GeV
 const double m_kMinus = 0.493677;  // GeV
 const double m_kPlus = 0.493677;   // GeV
-const double m_phi = 1.019461;    // GeV
+const double m_phi = 1.019461;     // GeV
+
+struct EqualStatBinningResult {
+  std::vector<double> q2Edges;      // x-axis (Q^2)
+  std::vector<double> tprimeEdges;  // y-axis (t')
+};
 
 // -----------------------------------------------------------------------------
 // (p,theta,phi) helpers
@@ -47,7 +56,7 @@ TLorentzVector Build4Vector(double p, double theta, double phi, double mass) {
 }  // namespace
 
 // -----------------------------------------------------------------------------
-// Bin manager 
+// Bin manager
 // -----------------------------------------------------------------------------
 class BinManager {
  public:
@@ -58,6 +67,7 @@ class BinManager {
     xb_bins_ = {0.1, 0.2, 0.4, 0.6};
     W_bins_ = {0.1, 10.0};
   }
+
   const std::vector<double> &GetQ2Bins() const { return q2_bins_; }
   const std::vector<double> &GetTBins() const { return t_bins_; }
   const std::vector<double> &GetXBBins() const { return xb_bins_; }
@@ -69,8 +79,176 @@ class BinManager {
   void SetWBins(const std::vector<double> &v) { W_bins_ = v; }
   void SetTprimeBins(const std::vector<double> &v) { tprime_bins_ = v; }
 
+std::vector<double> ComputeAxisEdges2D(const TH2 *h,
+                                       bool alongX,
+                                       int nDesiredBins)
+{
+    std::vector<double> edges;
+
+    if (!h) {
+        std::cerr << "[ComputeAxisEdges2D] ERROR: null histogram pointer\n";
+        return edges;
+    }
+    if (nDesiredBins <= 0) {
+        std::cerr << "[ComputeAxisEdges2D] ERROR: nDesiredBins <= 0 (" << nDesiredBins << ")\n";
+        return edges;
+    }
+
+    const int nx = h->GetNbinsX();
+    const int ny = h->GetNbinsY();
+
+    const int nAxisBins = alongX ? nx : ny;
+    std::vector<double> proj(nAxisBins, 0.0);
+
+    // Build 1D projection along chosen axis
+    if (alongX) {
+        for (int ix = 1; ix <= nx; ++ix) {
+            double sum = 0.0;
+            for (int iy = 1; iy <= ny; ++iy) {
+                sum += h->GetBinContent(ix, iy);
+            }
+            proj[ix - 1] = sum;
+        }
+    } else {
+        for (int iy = 1; iy <= ny; ++iy) {
+            double sum = 0.0;
+            for (int ix = 1; ix <= nx; ++ix) {
+                sum += h->GetBinContent(ix, iy);
+            }
+            proj[iy - 1] = sum;
+        }
+    }
+
+    double total = 0.0;
+    for (double v : proj) total += v;
+
+    std::cout << "[ComputeAxisEdges2D] alongX=" << alongX
+              << " nDesiredBins=" << nDesiredBins
+              << " nAxisBins=" << nAxisBins
+              << " total=" << total << std::endl;
+
+    const TAxis *ax = alongX ? h->GetXaxis() : h->GetYaxis();
+
+    if (total <= 0.0) {
+        std::cerr << "[ComputeAxisEdges2D] WARNING: histogram appears empty; "
+                  << "returning original axis edges." << std::endl;
+
+        edges.reserve(ax->GetNbins() + 1);
+        edges.push_back(ax->GetBinLowEdge(1));
+        for (int i = 1; i <= ax->GetNbins(); ++i) {
+            edges.push_back(ax->GetBinUpEdge(i));
+        }
+        return edges;
+    }
+
+    edges.reserve(nDesiredBins + 1);
+    edges.push_back(ax->GetBinLowEdge(1)); // first edge
+
+    double cumulative = 0.0;
+    double target = total / nDesiredBins;  // target entries per bin
+
+    for (int i = 0; i < nAxisBins; ++i) {
+        cumulative += proj[i];
+
+        // Whenever we pass a multiple of target, define a new edge
+        while (cumulative >= target &&
+               static_cast<int>(edges.size()) < nDesiredBins)
+        {
+            double upper = ax->GetBinUpEdge(i + 1);
+            edges.push_back(upper);
+
+            // Next target is (number_of_edges_so_far) * total / nDesiredBins
+            target = total * static_cast<double>(edges.size()) / nDesiredBins;
+        }
+    }
+
+    // Ensure last edge at axis maximum
+    double lastEdge = ax->GetBinUpEdge(ax->GetNbins());
+    if (edges.empty() ||
+        std::fabs(edges.back() - lastEdge) > 1e-12)
+    {
+        edges.push_back(lastEdge);
+    }
+
+    // Remove duplicates (can happen if some regions are empty)
+    edges.erase(
+        std::unique(edges.begin(), edges.end(),
+                    [](double a, double b) { return std::fabs(a - b) < 1e-10; }),
+        edges.end()
+    );
+
+    return edges;
+}
+  // Public interface: build both Q^2 and t' edges
+EqualStatBinningResult MakeEqualStatBinning(const TH2 *hQ2t,
+                                            int nQ2Bins,
+                                            int nTprimeBins)
+{
+    EqualStatBinningResult res;
+    res.tprimeEdges = ComputeAxisEdges2D(hQ2t, /*alongX=*/true,  nTprimeBins); // x = t'
+    res.q2Edges     = ComputeAxisEdges2D(hQ2t, /*alongX=*/false, nQ2Bins);     // y = Q^2
+    return res;
+}
+
+  void DrawQ2TprimeWithGrid(TH2 *h, const std::vector<double> &q2Edges, const std::vector<double> &tprimeEdges, const std::string &canvasName, const std::string &outFileName) {
+    if (!h) return;
+
+    TCanvas *c = new TCanvas(canvasName.c_str(), canvasName.c_str(), 900, 700);
+    c->SetRightMargin(0.15);
+    c->SetBottomMargin(0.12);
+    c->SetLeftMargin(0.12);
+
+    gPad->SetRightMargin(0.16);
+    h->SetStats(0);
+    h->SetTitle("");
+    h->GetYaxis()->SetNoExponent(true);
+    h->GetYaxis()->SetLabelFont(42);
+    h->GetYaxis()->SetLabelSize(0.06);
+    h->GetYaxis()->SetTitleOffset(1.0);
+    h->GetYaxis()->SetTitleSize(0.06);
+    h->GetYaxis()->SetNdivisions(410);
+    h->GetXaxis()->SetTitleSize(0.065);
+    h->GetXaxis()->SetLabelFont(42);
+    h->GetXaxis()->SetLabelSize(0.06);
+    h->GetXaxis()->SetTitleOffset(0.9);
+    h->GetXaxis()->SetNdivisions(205);
+    h->GetZaxis()->SetNdivisions(410);
+    h->GetZaxis()->SetLabelSize(0.06);
+    h->GetZaxis()->SetTitleOffset(1.5);
+    h->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h->DrawCopy("COLZ");
+    gPad->SetLogz();  // optional
+
+    double ymin = h->GetYaxis()->GetBinLowEdge(1);
+    double ymax = h->GetYaxis()->GetBinUpEdge(h->GetYaxis()->GetNbins());
+    double xmin = h->GetXaxis()->GetBinLowEdge(1);
+    double xmax = h->GetXaxis()->GetBinUpEdge(h->GetXaxis()->GetNbins());
+
+    // Vertical lines at Q^2 edges
+    for (double q : tprimeEdges) {
+      TLine *lv = new TLine(q, ymin, q, ymax);
+      lv->SetLineColor(kRed + 1);
+      lv->SetLineWidth(2);
+      lv->SetLineStyle(2);
+      lv->Draw("same");
+    }
+
+    // Horizontal lines at t' edges
+    for (double t : q2Edges) {
+      TLine *lh = new TLine(xmin, t, xmax, t);
+      lh->SetLineColor(kRed + 1);
+      lh->SetLineWidth(2);
+      lh->SetLineStyle(2);
+      lh->Draw("same");
+    }
+
+    c->Update();
+    c->SaveAs(outFileName.c_str());
+  };
+
  private:
-  std::vector<double> q2_bins_, t_bins_, xb_bins_, W_bins_,tprime_bins_;
+  std::vector<double> q2_bins_, t_bins_, xb_bins_, W_bins_, tprime_bins_;
 };
 
 // -----------------------------------------------------------------------------
@@ -130,8 +308,8 @@ class DISANAMath {
   }
 
   // DVPi0-style (photon provided as p,theta,phi)
-  DISANAMath(Pi0Tag, double e_in_E, double e_out_p, double e_out_theta, double e_out_phi, double p_out_p, double p_out_theta, double p_out_phi, double g_p, double g_theta, double g_phi,
-             double g2_p, double g2_theta, double g2_phi) {
+  DISANAMath(Pi0Tag, double e_in_E, double e_out_p, double e_out_theta, double e_out_phi, double p_out_p, double p_out_theta, double p_out_phi, double g_p, double g_theta,
+             double g_phi, double g2_p, double g2_theta, double g2_phi) {
     TLorentzVector e_in(0, 0, e_in_E, e_in_E);
     TLorentzVector e_out = Build4Vector(e_out_p, e_out_theta, e_out_phi, m_e);
     TLorentzVector p_in(0, 0, 0, m_p);
@@ -177,7 +355,7 @@ class DISANAMath {
   double GetQ2() const { return Q2_; }
   double GetxB() const { return xB_; }
   double GetT() const { return t_; }
-  double GetTmin() const{return tmin_;}
+  double GetTmin() const { return tmin_; }
   double GetPhi() const { return phi_deg_; }
   double GetW() const { return W_; }
   double GetNu() const { return nu_; }
@@ -202,7 +380,6 @@ class DISANAMath {
   double GetCone_Kp() const { return Cone_Kp_; }
   double GetCone_Km() const { return Cone_Km_; }
   double GetCone_p() const { return Cone_p_; }
-  
 
   double GetMass_pi0() const { return Mass_pi0_; }
   double GetMx2_eppi0() const { return Mx2_eppi0_; }
@@ -215,40 +392,35 @@ class DISANAMath {
   double GetTheta_epho2() const { return theta_epho2_; }
   double GetDeltaPhi_pi0() const { return delta_phi_pi0_; }
 
-
-
   double GetCoplanarity_had_normals_deg() const { return coplanarity_had_normals_deg_; }
 
   // Helpers
   // got from the PAC39 need for tmin, Källén function λ(x,y,z) = x^2 + y^2 + z^2 − 2xy − 2xz − 2yz
-  double kallen(double x, double y, double z) {
-    return std::max(0.0, x*x + y*y + z*z - 2.0*(x*y + x*z + y*z));
-  }
+  double kallen(double x, double y, double z) { return std::max(0.0, x * x + y * y + z * z - 2.0 * (x * y + x * z + y * z)); }
   // t_min for γ* p → φ p given Q2 and xB  (proton at rest DIS vars)
   // Returns t_min (note: usually negative); also useful: -t_min.
   double tmin_phi_from_Q2_xB(double Q2, double xB) {
-      // physical masses (GeV)
-      const double m_p2   = m_p * m_p;
-      const double m_phi2 = m_phi*m_phi;
+    // physical masses (GeV)
+    const double m_p2 = m_p * m_p;
+    const double m_phi2 = m_phi * m_phi;
 
-      // W^2 = M^2 + Q^2 * (1/xB - 1)
-      const double s = m_p2 + Q2 * (1.0/xB - 1.0);  // γ* p c.m. energy squared. :contentReference[oaicite:1]{index=1}
+    // W^2 = M^2 + Q^2 * (1/xB - 1)
+    const double s = m_p2 + Q2 * (1.0 / xB - 1.0);  // γ* p c.m. energy squared. :contentReference[oaicite:1]{index=1}
 
-      // masses-squared of a+b→c+d: a=γ* (m^2=-Q^2), b=p, c=φ, d=p
-      const double m1sq = -Q2;   // γ*
-      const double m2sq = m_p2;   // p
-      const double m3sq = m_phi2; // φ
-      const double m4sq = m_p2;   // p
+    // masses-squared of a+b→c+d: a=γ* (m^2=-Q^2), b=p, c=φ, d=p
+    const double m1sq = -Q2;     // γ*
+    const double m2sq = m_p2;    // p
+    const double m3sq = m_phi2;  // φ
+    const double m4sq = m_p2;    // p
 
-      // handy pieces for PDG 2→2 t-limits at θ=0 (forward)
-      const double A = (s + m1sq - m2sq) * (s + m3sq - m4sq);
-      const double B = std::sqrt(kallen(s, m1sq, m2sq)) * std::sqrt(kallen(s, m3sq, m4sq));
+    // handy pieces for PDG 2→2 t-limits at θ=0 (forward)
+    const double A = (s + m1sq - m2sq) * (s + m3sq - m4sq);
+    const double B = std::sqrt(kallen(s, m1sq, m2sq)) * std::sqrt(kallen(s, m3sq, m4sq));
 
-      // forward-angle limit (a.k.a. "t0" in PDG) — this is the experimental t_min (smallest |t|)
-      const double t_min = (m1sq + m3sq) - (A - B) / (2.0*s);
-      return t_min;
+    // forward-angle limit (a.k.a. "t0" in PDG) — this is the experimental t_min (smallest |t|)
+    const double t_min = (m1sq + m3sq) - (A - B) / (2.0 * s);
+    return t_min;
   }
-
 
   double ComputePhiH(const TVector3 &q1_, const TVector3 &k1_, const TVector3 &q2_) const {
     const double t1 = ((q1_.Cross(k1_)).Dot(q2_)) / std::abs((q1_.Cross(k1_)).Dot(q2_));
@@ -260,7 +432,7 @@ class DISANAMath {
   }
 
   void ComputePi0Kinematics(const TLorentzVector &electron_in, const TLorentzVector &electron_out, const TLorentzVector &proton_in, const TLorentzVector &proton_out,
-                         const TLorentzVector &photon1, const TLorentzVector &photon2) {
+                            const TLorentzVector &photon1, const TLorentzVector &photon2) {
     TLorentzVector q = electron_in - electron_out;
     TLorentzVector pi0 = photon1 + photon2;
     Mass_pi0_ = pi0.Mag();
@@ -286,7 +458,7 @@ class DISANAMath {
     W_ = (proton_in + q).Mag();
     xB_ = Q2_ / (2.0 * proton_in.Dot(q));
     t_ = std::abs((proton_in - proton_out).Mag2());
-   
+
     TVector3 nL = electron_in.Vect().Cross(electron_out.Vect()).Unit();
     TVector3 nH = photon.Vect().Cross(q.Vect()).Unit();
     const double cos_phi = nL.Dot(nH);
@@ -355,8 +527,8 @@ class DISANAMath {
 
     delta_phi_ = std::abs(ComputePhiH(qv, ev, phiv) - ComputePhiH(qv, ev, -pv));
     theta_gphi_ = phiv.Angle((totI - (electron_out + proton_out)).Vect()) * 180. / pi;
-    Cone_p_ = (electron_in + proton_in - electron_out - phi).Angle(pv) * 180. / pi;  // p vs K+
-    Cone_Km_ = (electron_in + proton_in - electron_out - kPlus - proton_out).Angle(kmv) * 180. / pi;  // p vs K−
+    Cone_p_ = (electron_in + proton_in - electron_out - phi).Angle(pv) * 180. / pi;                    // p vs K+
+    Cone_Km_ = (electron_in + proton_in - electron_out - kPlus - proton_out).Angle(kmv) * 180. / pi;   // p vs K−
     Cone_Kp_ = (electron_in + proton_in - electron_out - kMinus - proton_out).Angle(kpv) * 180. / pi;  // p vs K−
 
     mx2_eKpKm_ = (electron_in + proton_in - electron_out - phi).Mag2();
@@ -373,7 +545,7 @@ class DISANAMath {
       double c = n_qphi.Dot(n_pphi);
       // numerical safety
       c = std::max(-1.0, std::min(1.0, c));
-      double ang = std::acos(c) * 180. / pi; // in [0, 180]
+      double ang = std::acos(c) * 180. / pi;  // in [0, 180]
 
       // treat ±normals as equivalent (optional but common)
       coplanarity_had_normals_deg_ = std::min(ang, 180.0 - ang);
@@ -661,10 +833,10 @@ class DISANAMath {
             std::cerr << " Rad Corr: Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
             continue;
           }
-         TH1D *hRatio = static_cast<TH1D *>(h_dvcs_rad->Clone(Form("hRadCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
-         hRatio->SetDirectory(nullptr); // avoid ROOT ownership surprises
-         hRatio->Divide(h_dvcs_norad); // uses default error propagation
-         hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+          TH1D *hRatio = static_cast<TH1D *>(h_dvcs_rad->Clone(Form("hRadCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
+          hRatio->SetDirectory(nullptr);  // avoid ROOT ownership surprises
+          hRatio->Divide(h_dvcs_norad);   // uses default error propagation
+          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
         }
       }
     }

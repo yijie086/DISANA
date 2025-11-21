@@ -34,14 +34,6 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dforginal = dfDefs;
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
-  // QADB cuts should be place in the first to reduce the computation load
-  if (fIsQADBCut && fQADBCuts) {
-    std::cout << "Applying QADB cut..." << std::endl;
-    dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_QADB_pass",
-                                      *fQADBCuts,  // <-- use the configured functor instance
-                                      {"RUN_config_run", "RUN_config_event"});
-    dfDefsWithTraj = dfDefsWithTraj.Filter("REC_QADB_pass", "QADB pass");
-  }
   auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
   auto caloCols =
       CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
@@ -69,7 +61,6 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfSelected = DefineOrRedefine(*dfSelected, "EventCutResult", *fEventCuts, cols_track_nofid);
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
-  // dfSelected = DefineOrRedefine(*dfSelected, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
 
   if (fDoInvMassCut) {
     fEventCuts->SetDoCutMotherInvMass(true);
@@ -97,7 +88,15 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   }
 
   dfSelected_afterFid_afterCorr = dfSelected_afterFid;
-
+  /// For Phi Analysis since the QADB may changes over time, its better to apply together with momentum correction
+    // QADB cuts should be place in the first to reduce the computation load
+  if (fIsQADBCut && fQADBCuts) {
+    std::cout << "Applying QADB cut..." << std::endl;
+    dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_QADB_pass",
+                                      *fQADBCuts,  // <-- use the configured functor instance
+                                      {"RUN_config_run", "RUN_config_event"});
+    dfSelected_afterFid_afterCorr = dfSelected_afterFid_afterCorr->Filter("REC_QADB_pass", "QADB pass");
+  }
   if (fMomCorr && fDoMomentumCorrection) {
     std::cout << "Applying momentum correction..." << std::endl;
     dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_px", fMomCorr->RECParticlePxCorrected(), RECParticle::Extend());
