@@ -430,6 +430,8 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
   *df_ = define_DISCAT(*df_, "y", &DISANAMath::Gety, beam_energy);
+  *df_ = define_DISCAT(*df_, "cos_thetaKK", &DISANAMath::GetCosTheta_KK, beam_energy);
+  *df_ = define_DISCAT(*df_, "cos_phiKK", &DISANAMath::GetCosPhi_KK, beam_energy);
 
   *df_ = define_DISCAT(*df_, "Mx2_ep", &DISANAMath::GetMx2_ep, beam_energy);
   *df_ = define_DISCAT(*df_, "Emiss", &DISANAMath::GetEmiss, beam_energy);
@@ -716,6 +718,8 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
   *df_ = define_DISCAT(*df_, "y", &DISANAMath::Gety, beam_energy);
+  *df_ = define_DISCAT(*df_, "cos_thetaKK", &DISANAMath::GetCosTheta_KK, beam_energy);
+  *df_ = define_DISCAT(*df_, "cos_phiKK", &DISANAMath::GetCosPhi_KK, beam_energy);
 
   *df_ = define_DISCAT(*df_, "Mx2_ep", &DISANAMath::GetMx2_ep, beam_energy);
   *df_ = define_DISCAT(*df_, "Emiss", &DISANAMath::GetEmiss, beam_energy);
@@ -1015,6 +1019,8 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
   *df_ = define_DISCAT(*df_, "y", &DISANAMath::Gety, beam_energy);
+  *df_ = define_DISCAT(*df_, "cos_thetaKK", &DISANAMath::GetCosTheta_KK, beam_energy);
+  *df_ = define_DISCAT(*df_, "cos_phiKK", &DISANAMath::GetCosPhi_KK, beam_energy);
 
   *df_ = define_DISCAT(*df_, "Mx2_ep", &DISANAMath::GetMx2_ep, beam_energy);
   *df_ = define_DISCAT(*df_, "Emiss", &DISANAMath::GetEmiss, beam_energy);
@@ -1068,7 +1074,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df,
     "invMass_KpKm",
 
     // DISANAMath-derived
-    "Q2","xB","t","tmin","mtprime","tprime","phi","W","nu","y",
+    "Q2","xB","t","cos_thetaKK","cos_phiKK", "tmin","mtprime","tprime","phi","W","nu","y",
     "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
@@ -1115,7 +1121,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKm(ROOT::RDF::RNode df,
     "invMass_KpKm",
 
     // DISANAMath-derived
-    "Q2","xB","t","tmin","mtprime", "tprime","phi","W","nu","y",
+    "Q2","xB","t","tmin","cos_thetaKK","cos_phiKK","mtprime", "tprime","phi","W","nu","y",
     "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
@@ -1161,7 +1167,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKp(ROOT::RDF::RNode df,
     "invMass_KpKm",
 
     // DISANAMath-derived
-    "Q2","xB","t","tmin","mtprime","tprime","phi","W","nu","y",
+    "Q2","xB","t","tmin","cos_thetaKK","cos_phiKK","mtprime","tprime","phi","W","nu","y",
     "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",

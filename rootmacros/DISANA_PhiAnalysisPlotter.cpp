@@ -47,21 +47,23 @@ double computeLuminosity(double Q_coulombs) {
   const double e = 1.602e-19;                    // electron charge (C)
   const double target_areal_density = 2.136e23;  // NA * rho * ell / (A * H) in cm^-2
 
-  // Unit conversion: 1 nb = 1e-33 cm^2
-  const double nb_conversion = 1e33;
+  // Unit conversion: 1 nb = 1e-33 cm^2. Therefore, 1 cm^-2 = 1e33 nb^-1.
+  // We must multiply the luminosity in cm^-2 by 1e33 to get nb^-1.
+  const double cm2_to_nb_inv_factor = 1e33;
 
   // Integrated luminosity:
-  // L = (Q/e) * (NA*rho*ell/AH) / 1e33   -> returns nb^-1
-  double luminosity_nb = (Q_coulombs / e) * target_areal_density / nb_conversion;
-
-  return luminosity_nb;
+  // L = (Q/e) * (Target Areal Density) * (Conversion Factor)
+  // Units: (unitless) * (cm^-2) * (nb^-1 / cm^-2) -> nb^-1
+  double luminosity_nb_inv = (Q_coulombs/1000 / e) * target_areal_density/cm2_to_nb_inv_factor;
+ // double luminosity_nb_inv = Q_coulombs * 1.316875; // Simplified constant factor
+  return luminosity_nb_inv; // Unit is nb^-1
 }
 // -----------------------------------------------------------------------------
 // Main plotter with toggles
 void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 {
   bool runExclusive = true;
-  bool runMissingMass = true;
+  bool runMissingMass = false;
   ROOT::EnableImplicitMT(32);
 
   // -----------------------------
@@ -110,7 +112,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   std::string filename_afterFid_SP18outb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_data_qadb.c_str());
   std::string filename_afterFid_Fall18inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18inb_data_qadb.c_str());
   std::string filename_afterFid_Fall18outb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18outb_data_qadb.c_str());
-  std::string filename_afterFid_SP19inb_data = Form("%s/dfSelected.root", input_path_from_analysisRun_SP19inb_data_qadb.c_str());
+  std::string filename_afterFid_SP19inb_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_data_qadb.c_str());
 
   // no qadb files for exclusive analysis
   std::string filename_afterFid_SP18outb_data_no_qadb = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_data.c_str());
@@ -149,12 +151,12 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   comparer.UseFittedPhiYields(true);
 
   // Some global constants you had
-  double luminosity_rga_sp18_outb = computeLuminosity(17.4470 * 1e-3);  // in nb^-1
+  double luminosity_rga_sp18_outb = computeLuminosity(16.465615589217398);  // in nb^-1
   // double luminosity_rga_sp18_outb = computeLuminosity(1.7447073374328613E7); // in nb^-1
-  double luminosity_rga_sp18_inb = 1.0;                                    // in nb^-1
-  double luminosity_rga_fall18_outb = computeLuminosity(0.231169 * 1e-3);  // in nb^-1
-  double luminosity_rga_fall18_inb = computeLuminosity(0.396374 * 1e-3);   // in nb^-1
-  double luminosity_rga_sp19_inb = computeLuminosity(0.312863 * 1e-3);     // in nb^-1
+  double luminosity_rga_sp18_inb = computeLuminosity(44.183881173812);                                 // in nb^-1
+  double luminosity_rga_fall18_outb = computeLuminosity(44.478816492680613 );  // in nb^-1
+  double luminosity_rga_fall18_inb = computeLuminosity(35.023407601823784);   // in nb^-1
+  double luminosity_rga_sp19_inb = computeLuminosity(44.183881173812);     // in nb^-1
   double polarisation = 0.85;
   double branching = 0.49;
 
@@ -165,13 +167,13 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   cout << "Using luminosity (nb^-1): " << luminosity_rga_sp19_inb << " for RGA SP19 INB" << endl;
 
   //
-  double charge = 17.546;  //(mC)//4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
+  double charge = 16.465615589217398;  //(mC)//4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
   std::cout << "Total effective charge (mC): " << charge << std::endl;
 
-  double luminosity = (charge) * 1.33 * pow(10, 6);  // Set your desired luminosity here nb^-1
-  std::cout << "Computed luminosity (nb^-1): " << computeLuminosity(charge * 1e-3) << std::endl;
+  double luminosity = charge*1.33*pow(10,6);; // Set your desired luminosity here nb^-1
+  std::cout << "Computed luminosity (nb^-1): " << computeLuminosity(charge) << std::endl;
   std::cout << "Computed luminosity (nb^-1): " << luminosity << std::endl;
-  // -----------------------------
+  // -----------------------------can
 
   // -----------------------------
   // 1) Exclusive measured K+K- analysis (toggle)
@@ -182,7 +184,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     ROOT::RDF::RNode df_afterFid_sp18outb_data_init_noqadb = InitKinematics(filename_afterFid_SP18outb_data_no_qadb, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
     ROOT::RDF::RNode df_afterFid_fall18inb_data_init = InitKinematics(filename_afterFid_Fall18inb_data, "dfSelected_afterFid_afterCorr", beam_energy_fall2018);
     ROOT::RDF::RNode df_afterFid_fall18outb_data_init = InitKinematics(filename_afterFid_Fall18outb_data, "dfSelected_afterFid_afterCorr", beam_energy_fall2018);
-    ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected", beam_energy_sp2019);
+    ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
 
     auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive_qadb.root", "slim_sp19_exlcusive_qadb");
     auto df_afterFid_sp18inb_data = GetSlim_exclusive(df_afterFid_sp18inb_data_init, "slim_sp18inb_exlcusive_qadb.root", "slim_sp18inb_exlcusive_qadb");
@@ -249,16 +251,16 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     comparer.SetXBinsRanges(xBins);
 
     // outb
-    //comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
-    //comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
+    comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
+    comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
     // inb
     comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb);
-    //comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb);
-    //comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb);
+    comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb);
+    comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb);
   }
 
   if (runMissingMass) {
-    ROOT::RDF::RNode df_afterFid_sp18inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_SP18inb_missingKm_data, "dfSelected", beam_energy_sp2018);
+    ROOT::RDF::RNode df_afterFid_sp18inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_SP18inb_missingKm_data, "dfSelected_", beam_energy_sp2018);
     ROOT::RDF::RNode df_afterFid_fall18inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_Fall18inb_missingKm_data, "dfSelected", beam_energy_fall2018);
     ROOT::RDF::RNode df_afterFid_sp19inb_missingKm_data = InitKinematics_MissingKm(filename_afterFid_SP19inb_missingKm_data, "dfSelected", beam_energy_sp2019);
     ROOT::RDF::RNode df_afterFid_sp19inb_missingKm_data_org = InitKinematics_MissingKm(filename_afterFid_SP19inb_missingKm_data_org, "dfSelected", beam_energy_sp2019);
@@ -306,7 +308,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto df_sp18_missingKp_all = ApplyFinalDVEPSelections(df_sp18_missingKp_phi);
     auto df_fall18_missingKp_all = ApplyFinalDVEPSelections(df_fall18_missingKp_phi);*/
     // Add to comparer
-    comparer.AddModelPhi(df_sp19_missingKm_all_org, "Sp19 inb (Missing K-)", beam_energy_sp2019, luminosity_rga_sp19_inb);
+    //comparer.AddModelPhi(df_sp19_missingKm_all_org, "Sp19 inb (Missing K-)", beam_energy_sp2019, luminosity_rga_sp19_inb);
    // comparer.AddModelPhi(df_sp19_missingKm_all, "Sp19 inb (Missing K-)", beam_energy_sp2019, luminosity_rga_sp19_inb);
     // comparer.AddModelPhi(df_fall18_missingKm_all, "Fall18 inb (Missing K-)", beam_energy_fall2018, luminosity_rga_fall18_inb);
     // comparer.AddModelPhi(df_sp18_missingKm_all, "Sp18 inb (Missing K-)", beam_energy_sp2018,  luminosity_rga_sp18_inb);
@@ -327,11 +329,11 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   // Examples you had:
  
 
-  comparer.PlotPhiElectroProKinematicsComparison();
+  comparer.PlotPhiDVEPKinematicsPlots();
   comparer.PlotKinematicComparison_phiAna();
-  comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
-  comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 40, 0.988, 1.15, true, branching);
-  comparer.PlotPhiDSigmaDt_FromCache();
+  //comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
+  //comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 40, 0.988, 1.15, true, branching);
+  //comparer.PlotPhiDSigmaDt_FromCache();
 
   gApplication->Terminate(0);
 }
@@ -364,7 +366,7 @@ ROOT::RDF::RNode ApplyFinalDVEPSelections(ROOT::RDF::RNode df) {
       //.Filter("((pro_det_region != 1) && (pro_det_region != 2)) || (recpro_vz > -10.0 && recpro_vz < 3.0)", "Cut: vz(p) in [-10, 3] cm if pro_det_region==1 or 2")
 
       // 9. Missing energy / exclusivity
-      .Filter("Mx2_eKpKm > 0.8*0.8 && Mx2_eKpKm < 1.08*1.08", "Cut: Proton Missing Mass Squared in [0.8,1.08] GeV^2")
+     .Filter("Mx2_eKpKm > 0.8*0.8 && Mx2_eKpKm < 1.08*1.08", "Cut: Proton Missing Mass Squared in [0.8,1.08] GeV^2")
       .Filter("Mx2_epKm > .08 && Mx2_epKm < 0.48", "Cut: Kaon Missing Mass Squared in [0.08,.48] GeV^2")
       .Filter("Mx2_epKp > .08 && Mx2_epKp < 0.48", "Cut: Kaon Missing Mass Squared in [0.08,.48] GeV^2")
       .Filter("Cone_Kp < 6.0", "Cut: cone Angle  K+ < 6°")

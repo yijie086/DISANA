@@ -583,7 +583,7 @@ void GeneratePi0KinematicHistos(const std::string& type) {
     return xsCorr3D;
   }
 
- std::vector<TH1D*> ComputePhiCrossSection(const BinManager& bins) { return kinCalc.ComputePhi_CrossSection(rdf, bins, luminosity_nb_inv); }
+ //std::vector<TH1D*> ComputePhiCrossSection(const BinManager& bins) { return kinCalc.ComputePhi_CrossSection(rdf, bins, luminosity_nb_inv); }
 
   // === in public: ==============================================
   struct PhiMassDraw {
@@ -611,7 +611,6 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
   if (luminosity_nb_inv <= 0.0) {
   std::cerr << "[MakePhiMassFitCanvases3D] luminosity<=0 → will NOT compute dσ/dt cache.\n";
 }
-  std::cout << " In the plotter the Luminosity is "<< luminosity_nb_inv << std::endl;
   // ensure directory exists
   gSystem->mkdir(outDirPerModel.c_str(), /*recursive=*/true);
 
@@ -657,6 +656,9 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
       for (size_t it = 0; it < nT; ++it) {
         const double tLo = tPrimeEdges[it], tHi = tPrimeEdges[it + 1];
         const double dT  = tHi - tLo;
+        const double dQ2 = qHi - qLo;
+        const double dW  = wHi - wLo;
+        double binVol =  dQ2 * dW * dT;
 
        // auto df_bin = df_qw.Filter([=](double t){ return t > tLo && t <= tHi; }, {"t"});
         auto df_bin = df_qw.Filter([=](double mtp){ return mtp > tLo && mtp <= tHi; }, {"mtprime"});
@@ -764,8 +766,8 @@ inline std::vector<std::vector<std::vector<PhiMassDraw>>> MakePhiMassFitCanvases
           const int    b    = static_cast<int>(it + 1);
           double val = 0.0, err = 0.0;
           if (Aeps > 0.0 && branching > 0.0 && dT > 0.0) {
-            val = Nsig  / (luminosity_nb_inv * Aeps * branching * dT);
-            err = Nsig_err / (luminosity_nb_inv * Aeps * branching * dT);
+            val = Nsig  / (luminosity_nb_inv * Aeps * branching * binVol);
+            err = Nsig_err / (luminosity_nb_inv * Aeps * branching * binVol);
           }
           phi_dsdt_QW_[iq][iw]->SetBinContent(b, val);
           phi_dsdt_QW_[iq][iw]->SetBinError(b, err);

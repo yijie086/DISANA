@@ -412,21 +412,26 @@ class DISANAcomparer {
     delete canvas;
   }
 
-void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
+void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
   // Store current global TGaxis state
   int oldMaxDigits = TGaxis::GetMaxDigits();
-
-  // variables to draw (note: we will derive "mtprime" and "tmin_plot" on the fly)
-  std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi", "mtprime", "tmin"};
-  std::map<std::string, std::string> titles = {
-      {"Q2", "Q^{2} [GeV^{2}]"},
-      {"xB", "x_{B}"},
-      {"t", "-t [GeV^{2}]"},
-      {"mtprime", "-t' \\equiv (t_{min}-t) [GeV^{2}]"},
-      {"tmin", "t_{min} [GeV^{2}]"},
-      {"W", "W [GeV]"},
-      {"phi", "#phi [deg]"}
+  // variables to draw (9 one-dimensional plots)
+  std::vector<std::string> variables = {
+      "Q2", "xB", "t", "W", "phi", "mtprime", "tmin", "cos_thetaKK", "cos_phiKK"
   };
+
+  std::map<std::string, std::string> titles = {
+      {"Q2",         "Q^{2} [GeV^{2}]"},
+      {"xB",         "x_{B}"},
+      {"t",          "-t [GeV^{2}]"},
+      {"mtprime",    "-t' \\equiv (t_{min}-t) [GeV^{2}]"},
+      {"tmin",       "t_{min} [GeV^{2}]"},
+      {"W",          "W [GeV]"},
+      {"phi",        "#phi [deg]"},
+      {"cos_thetaKK","cos(#theta_{K^{+}K^{-}})"},
+      {"cos_phiKK",  "cos(#phi_{K^{+}K^{-}})"}
+  };
+
   // First pass: compute global [min,max] per variable across all plotters for consistent binning
   struct Range { double lo{+1e300}, hi{-1e300}; };
   std::map<std::string, Range> globalRange;
@@ -435,22 +440,19 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
     Range R;
     for (size_t i = 0; i < plotters.size(); ++i) {
       auto r = plotters[i]->GetRDF();
-
-      // Map user-friendly var to actual column (already handled by ensureDerived)
       const std::string col = var;
-
-      if (!r.HasColumn(col)) continue; // should not happen now, but be safe
+      if (!r.HasColumn(col)) continue;
 
       double lo = *(r.Min(col));
       double hi = *(r.Max(col));
-
       if (std::isfinite(lo) && std::isfinite(hi)) {
         R.lo = std::min(R.lo, lo);
         R.hi = std::max(R.hi, hi);
       }
     }
     if (R.lo > R.hi) { // fallback if empty
-      R.lo = 0.0; R.hi = 1.0;
+      R.lo = 0.0;
+      R.hi = 1.0;
     }
     // pad a margin
     double margin = std::max(1e-3, 0.05 * (R.hi - R.lo));
@@ -458,11 +460,17 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
     globalRange[var].hi = R.hi + margin;
   }
 
-  // Canvas (3x3): 7 one-D plots + 2 two-D plots
-  TCanvas* canvas = new TCanvas("PhiEPVars", "Phi electroproduction — kinematic comparison", 1800, 1400);
-  canvas->Divide(3, 3);
+  // Canvas: 3x4 = 12 pads → 9×1D + 3×2D
+  TCanvas* canvas = new TCanvas("PhiEPVars",
+                                "Phi electroproduction — kinematic comparison",
+                                1800, 1400);
+  canvas->Divide(3, 4);
 
   int pad = 1;
+
+  // ---------------------------------------------------------------------------
+  //  9 × 1D plots
+  // ---------------------------------------------------------------------------
   for (const auto& var : variables) {
     canvas->cd(pad++);
     styleDVCS_.StylePad((TPad*)gPad);
@@ -476,17 +484,22 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
 
     for (size_t i = 0; i < plotters.size(); ++i) {
       auto r = plotters[i]->GetRDF();
-
       if (!r.HasColumn(var)) {
-        std::cerr << "[WARN] Column " << var << " not present after derivation for model " << labels[i] << "\n";
+        std::cerr << "[WARN] Column " << var
+                  << " not present after derivation for model "
+                  << labels[i] << "\n";
         continue;
       }
 
       const auto& R = globalRange[var];
       const int nbins = 100;
-      const std::string hname = Form("h_%s_%zu_%u", var.c_str(), i, gRandom->Integer(1u<<30));
+      const std::string hname =
+          Form("h_%s_%zu_%u", var.c_str(), i, gRandom->Integer(1u << 30));
 
-      auto htmp = r.Histo1D({hname.c_str(), titles[var].c_str(), nbins, R.lo, R.hi}, var);
+      auto htmp = r.Histo1D({hname.c_str(),
+                             titles[var].c_str(),
+                             nbins, R.lo, R.hi},
+                            var);
       auto* h = (TH1D*)htmp->Clone((hname + "_clone").c_str());
       if (!h) continue;
 
@@ -512,72 +525,85 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
     }
     if (!histos_to_draw.empty()) legend->Draw();
 
-    if (plotIndividual && (var == "xB" || var == "Q2" || var == "t" || var == "W" || var == "phi" || var=="mtprime" || var=="tmin_plot")) {
+    if (plotIndividual &&
+        (var == "xB" || var == "Q2" || var == "t" ||
+         var == "W"  || var == "phi" || var == "mtprime" ||
+         var == "tmin")) { // <- fixed name
       PlotSingleVariableComparison("el", var);
     }
   }
 
-  // 2D: Q2 vs -t  (pad 8)
-  if (pad <= 9) {
-    canvas->cd(pad++);
-    auto r = plotters.front()->GetRDF();
-    auto h2d = r.Histo2D({"h_Q2_vs_t",
-                          "Q^{2} vs mtprime;-t' [GeV^{2}];Q^{2} [GeV^{2}]",
-                          60, std::max(0.0, globalRange["mtprime"].lo), globalRange["mtprime"].hi,
-                          60, globalRange["Q2"].lo, globalRange["Q2"].hi},
-                         "mtprime", "Q2");
+  // For 2D plots we just use the first plotter (change if you need overlays)
+  auto r2d = plotters.front()->GetRDF();
+
+  // Common style lambda
+  auto style_h2d = [&]() {
     styleDVCS_.StylePad((TPad*)gPad);
     gPad->SetRightMargin(0.16);
-    h2d->SetStats(0);
-    h2d->SetTitle("");
-    h2d->GetYaxis()->SetNoExponent(true);
-    h2d->GetYaxis()->SetLabelFont(42);
-    h2d->GetYaxis()->SetLabelSize(0.06);
-    h2d->GetYaxis()->SetTitleOffset(1.0);
-    h2d->GetYaxis()->SetTitleSize(0.06);
-    h2d->GetYaxis()->SetNdivisions(410);
-    h2d->GetXaxis()->SetTitleSize(0.065);
-    h2d->GetXaxis()->SetLabelFont(42);
-    h2d->GetXaxis()->SetLabelSize(0.06);
-    h2d->GetXaxis()->SetTitleOffset(0.9);
-    h2d->GetXaxis()->SetNdivisions(205);
-    h2d->GetZaxis()->SetNdivisions(410);
-    h2d->GetZaxis()->SetLabelSize(0.06);
-    h2d->GetZaxis()->SetTitleOffset(1.5);
-    h2d->GetZaxis()->SetTitleSize(0.06);
+    TH2* h = (TH2*)gPad->GetListOfPrimitives()->At(0);
+    if (!h) return;
+    h->SetStats(0);
+    h->SetTitle("");
+    h->GetYaxis()->SetNoExponent(true);
+    h->GetYaxis()->SetLabelFont(42);
+    h->GetYaxis()->SetLabelSize(0.06);
+    h->GetYaxis()->SetTitleOffset(1.0);
+    h->GetYaxis()->SetTitleSize(0.06);
+    h->GetYaxis()->SetNdivisions(410);
+    h->GetXaxis()->SetTitleSize(0.065);
+    h->GetXaxis()->SetLabelFont(42);
+    h->GetXaxis()->SetLabelSize(0.06);
+    h->GetXaxis()->SetTitleOffset(0.9);
+    h->GetXaxis()->SetNdivisions(205);
+    h->GetZaxis()->SetNdivisions(410);
+    h->GetZaxis()->SetLabelSize(0.06);
+    h->GetZaxis()->SetTitleOffset(1.5);
+    h->GetZaxis()->SetTitleSize(0.06);
     TGaxis::SetMaxDigits(3);
+  };
+
+  // ---------------------------------------------------------------------------
+  //  3 × 2D plots (pads 10, 11, 12)
+  // ---------------------------------------------------------------------------
+
+  // 1) Q2 vs -t' (mtprime)
+  if (pad <= 12) {
+    canvas->cd(pad++);
+    auto h2d = r2d.Histo2D(
+        {"h_Q2_vs_tprime",
+         "Q^{2} vs -t';-t' [GeV^{2}];Q^{2} [GeV^{2}]",
+         60, std::max(0.0, globalRange["mtprime"].lo),
+         globalRange["mtprime"].hi,
+         60, globalRange["Q2"].lo, globalRange["Q2"].hi},
+        "mtprime", "Q2");
     h2d->DrawCopy("COLZ");
+    style_h2d();
   }
 
-  // 2D: Q2 vs W   (pad 9)
-  if (pad <= 9) {
+  // 2) Q2 vs W
+  if (pad <= 12) {
     canvas->cd(pad++);
-    auto r = plotters.front()->GetRDF();
-    auto h2d2 = r.Histo2D({"h_Q2_vs_W",
-                           "Q^{2} vs W;W [GeV];Q^{2} [GeV^{2}]",
-                           60, globalRange["W"].lo,  globalRange["W"].hi,
-                           60, globalRange["Q2"].lo, globalRange["Q2"].hi},
-                          "W", "Q2");
-    styleDVCS_.StylePad((TPad*)gPad);
-    gPad->SetRightMargin(0.16);
-    h2d2->SetStats(0);
-    h2d2->SetTitle("");
-    h2d2->GetYaxis()->SetNoExponent(true);
-    h2d2->GetYaxis()->SetLabelFont(42);
-    h2d2->GetYaxis()->SetLabelSize(0.06);
-    h2d2->GetYaxis()->SetTitleOffset(1.0);
-    h2d2->GetYaxis()->SetTitleSize(0.06);
-    h2d2->GetYaxis()->SetNdivisions(410);
-    h2d2->GetXaxis()->SetTitleSize(0.065);
-    h2d2->GetXaxis()->SetLabelFont(42);
-    h2d2->GetXaxis()->SetLabelSize(0.06);
-    h2d2->GetXaxis()->SetTitleOffset(0.9);
-    h2d2->GetXaxis()->SetNdivisions(205);
-    h2d2->GetZaxis()->SetNdivisions(410);
-    h2d2->GetZaxis()->SetLabelSize(0.06);
-    h2d2->GetZaxis()->SetTitleOffset(1.5);
-    h2d2->GetZaxis()->SetTitleSize(0.06);
+    auto h2d2 = r2d.Histo2D(
+        {"h_Q2_vs_W",
+         "Q^{2} vs W;W [GeV];Q^{2} [GeV^{2}]",
+         60, globalRange["W"].lo,  globalRange["W"].hi,
+         60, globalRange["Q2"].lo, globalRange["Q2"].hi},
+        "W", "Q2");
     h2d2->DrawCopy("COLZ");
+    style_h2d();
+  }
+
+  // 3) Q2 vs tmin  (requested last plot)
+  if (pad <= 12) {
+    canvas->cd(pad++);
+    auto h2d3 = r2d.Histo2D(
+        {"h_Q2_vs_tmin",
+         "Q^{2} vs t_{min};t_{min} [GeV^{2}];Q^{2} [GeV^{2}]",
+         60, globalRange["tmin"].lo, globalRange["tmin"].hi,
+         60, globalRange["Q2"].lo,   globalRange["Q2"].hi},
+        "tmin", "Q2");
+    h2d3->DrawCopy("COLZ");
+    style_h2d();
   }
 
   // Final save and cleanup
@@ -588,6 +614,7 @@ void PlotPhiElectroProKinematicsComparison(bool plotIndividual = false) {
   delete canvas;
   TGaxis::SetMaxDigits(oldMaxDigits);
 }
+
 
   void PlotDVCSKinematicsComparison(bool plotIndividual = false) {
     // Store current global TGaxis state

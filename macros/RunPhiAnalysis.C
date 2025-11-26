@@ -40,22 +40,27 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
 
   std::cout << "Running Phi Analysis with configuration: " << dataconfig << std::endl;
 
+    // ======================================================================
+  // NEW QADB Configuration: Allow 'Misc' bit for specific runs (e.g., empty target)
+  // This is the C++ equivalent of the Groovy script's global 'allowMiscBit' call.
+  // It configures the static QA::QADB instance wrapped by QADBCuts.
+  std::vector<int> miscAllowedRuns = {
+    5046, 5047, 5051, 5128, 5129, 5130, 5158, 5159,
+    5160, 5163, 5165, 5166, 5167, 5168, 5169, 5180,
+    5181, 5182, 5183, 5400, 5448, 5495, 5496, 5505,
+    5567, 5610, 5617, 5621, 5623, 6736, 6737, 6738,
+    6739, 6740, 6741, 6742, 6743, 6744, 6746, 6747,
+    6748, 6749, 6750, 6751, 6753, 6754, 6755, 6756,
+    6757,                         // RGA runs
+    16194, 16089, 16185, 16308, 16184, 16307, 16309, // RGC Su22 He/ET
+    16872, 16975,                                  // RGC Fa22 He/ET
+    17763, 17764, 17765, 17766, 17767, 17768,      // RGC Sp23 He/ET
+    17179, 17180, 17181, 17182, 17183, 17188, 17189, // RICH off/partially down
+    17252
+  };
+  
   std::string inputFileDir = inputDir;
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output
-  // directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/nsidis/missing_Km_output/";  // Default output
-  // directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";  // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";  // Default output
-  // directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/sims/DVCS/inb/";  // Default output directory
-  //  DVCS wagons
   std::string outputFileDir = outputDir;
-      //"/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default
-  // output directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr/";
-  // // Default output directory
-  // std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/outb/DVKpKm_wagon/after_fids/SF_momentum_corr/";  // Default
-  // output directory std::string outputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/SF_momentum_corr/";
-  // // Default output directory*/ std::string outputFileDir = "./";  // local output directory
   std::string inputRootFileName = " ";
   std::string inputRootTreeName = " ";
   std::string inputHipoDirTest = " ";
@@ -374,23 +379,12 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
 
   // QADB cuts
   auto qadbCuts = std::make_shared<QADBCuts>();
-  if (dataconfig == "rgasp18_outb") {
-    const char* qaDefects[] = {"TotalOutlier",      "TerminalOutlier", "MarginalOutlier", "SectorLoss",    "Misc",          "TotalOutlierFT", "TerminalOutlierFT",
-                               "MarginalOutlierFT", "LossFT",          "BSAWrong",        "BSAUnknown",    "TSAWrong",      "TSAUnknown",     "DSAWrong",
-                               "DSAUnknown",        "ChargeHigh",      "ChargeNegative",  "ChargeUnknown", "PossiblyNoBeam"};
-    // Pass the **entire list** in one shot:
-    qadbCuts->SetDefects(qaDefects);
-  }
-  else{
-    const char* qaDefects[] = {"TotalOutlier", "TerminalOutlier", "MarginalOutlier", "SectorLoss",   "Misc", "ChargeHigh", "ChargeNegative", "ChargeUnknown", "PossiblyNoBeam"};
-    // Pass the **entire list** in one shot:
-    qadbCuts->SetDefects(qaDefects);
-  }
-
+  const char* qaDefects[] = {"TotalOutlier", "TerminalOutlier", "MarginalOutlier", "SectorLoss",   "Misc", "ChargeHigh", "ChargeNegative", "ChargeUnknown", "PossiblyNoBeam"};
+  qadbCuts->SetDefects(qaDefects);
   qadbCuts->AddExcludedRun(3262);  // outbendng RGA spring 2018
-                                   // qadbCuts->AddDefect("SomeExtraDefect");
-                                   // qadbCuts->SetAccumulateCharge(true); // default true
-
+  qadbCuts->SetAllowedMiscRuns(miscAllowedRuns); 
+  std::cout << "[RunPhiAnalysis] Configured QADB to allow Misc bit for " 
+            << miscAllowedRuns.size() << " runs (Dilution Factor Runs).\n";
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
   ParticleCut proton;

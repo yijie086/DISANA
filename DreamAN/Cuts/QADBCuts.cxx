@@ -83,6 +83,16 @@ bool QADBCuts::Pass(int run, int ev) {
   return GetQADB().Pass(run, ev);
 }
 
+// Set runs for which the 'Misc' bit is allowed.
+void QADBCuts::SetAllowedMiscRuns(const std::vector<int>& runs) {
+  std::lock_guard<std::mutex> lock(GetMutex());
+  QA::QADB& qa = GetQADB();
+
+  for (int run : runs) {
+    qa.AllowMiscBit(run);
+  }
+}
+
 bool QADBCuts::PassAndAccumulate(int run, int ev) {
   if (GetExcludedRuns().count(run)) return false;
   if (run <= 0 || ev <= 0) return true;

@@ -47,6 +47,10 @@ class QADBCuts {
   // Clear all excluded runs.
   void ClearExcludedRuns();
 
+  // Set runs for which the 'Misc' bit defect should be explicitly allowed to pass.
+  // This is equivalent to calling QA::QADB::allowMiscBit() for each run.
+  static void SetAllowedMiscRuns(const std::vector<int>& runs); // sometimes misc are allowed
+
   // Control whether successful events also accumulate charge.
   void SetAccumulateCharge(bool on);
   bool GetAccumulateCharge() const { return fAccumulateCharge; }

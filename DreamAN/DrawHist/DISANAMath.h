@@ -79,19 +79,16 @@ class BinManager {
   void SetWBins(const std::vector<double> &v) { W_bins_ = v; }
   void SetTprimeBins(const std::vector<double> &v) { tprime_bins_ = v; }
 
-std::vector<double> ComputeAxisEdges2D(const TH2 *h,
-                                       bool alongX,
-                                       int nDesiredBins)
-{
+  std::vector<double> ComputeAxisEdges2D(const TH2 *h, bool alongX, int nDesiredBins) {
     std::vector<double> edges;
 
     if (!h) {
-        std::cerr << "[ComputeAxisEdges2D] ERROR: null histogram pointer\n";
-        return edges;
+      std::cerr << "[ComputeAxisEdges2D] ERROR: null histogram pointer\n";
+      return edges;
     }
     if (nDesiredBins <= 0) {
-        std::cerr << "[ComputeAxisEdges2D] ERROR: nDesiredBins <= 0 (" << nDesiredBins << ")\n";
-        return edges;
+      std::cerr << "[ComputeAxisEdges2D] ERROR: nDesiredBins <= 0 (" << nDesiredBins << ")\n";
+      return edges;
     }
 
     const int nx = h->GetNbinsX();
@@ -102,93 +99,79 @@ std::vector<double> ComputeAxisEdges2D(const TH2 *h,
 
     // Build 1D projection along chosen axis
     if (alongX) {
-        for (int ix = 1; ix <= nx; ++ix) {
-            double sum = 0.0;
-            for (int iy = 1; iy <= ny; ++iy) {
-                sum += h->GetBinContent(ix, iy);
-            }
-            proj[ix - 1] = sum;
-        }
-    } else {
+      for (int ix = 1; ix <= nx; ++ix) {
+        double sum = 0.0;
         for (int iy = 1; iy <= ny; ++iy) {
-            double sum = 0.0;
-            for (int ix = 1; ix <= nx; ++ix) {
-                sum += h->GetBinContent(ix, iy);
-            }
-            proj[iy - 1] = sum;
+          sum += h->GetBinContent(ix, iy);
         }
+        proj[ix - 1] = sum;
+      }
+    } else {
+      for (int iy = 1; iy <= ny; ++iy) {
+        double sum = 0.0;
+        for (int ix = 1; ix <= nx; ++ix) {
+          sum += h->GetBinContent(ix, iy);
+        }
+        proj[iy - 1] = sum;
+      }
     }
 
     double total = 0.0;
     for (double v : proj) total += v;
 
-    std::cout << "[ComputeAxisEdges2D] alongX=" << alongX
-              << " nDesiredBins=" << nDesiredBins
-              << " nAxisBins=" << nAxisBins
-              << " total=" << total << std::endl;
+    std::cout << "[ComputeAxisEdges2D] alongX=" << alongX << " nDesiredBins=" << nDesiredBins << " nAxisBins=" << nAxisBins << " total=" << total << std::endl;
 
     const TAxis *ax = alongX ? h->GetXaxis() : h->GetYaxis();
 
     if (total <= 0.0) {
-        std::cerr << "[ComputeAxisEdges2D] WARNING: histogram appears empty; "
-                  << "returning original axis edges." << std::endl;
+      std::cerr << "[ComputeAxisEdges2D] WARNING: histogram appears empty; "
+                << "returning original axis edges." << std::endl;
 
-        edges.reserve(ax->GetNbins() + 1);
-        edges.push_back(ax->GetBinLowEdge(1));
-        for (int i = 1; i <= ax->GetNbins(); ++i) {
-            edges.push_back(ax->GetBinUpEdge(i));
-        }
-        return edges;
+      edges.reserve(ax->GetNbins() + 1);
+      edges.push_back(ax->GetBinLowEdge(1));
+      for (int i = 1; i <= ax->GetNbins(); ++i) {
+        edges.push_back(ax->GetBinUpEdge(i));
+      }
+      return edges;
     }
 
     edges.reserve(nDesiredBins + 1);
-    edges.push_back(ax->GetBinLowEdge(1)); // first edge
+    edges.push_back(ax->GetBinLowEdge(1));  // first edge
 
     double cumulative = 0.0;
     double target = total / nDesiredBins;  // target entries per bin
 
     for (int i = 0; i < nAxisBins; ++i) {
-        cumulative += proj[i];
+      cumulative += proj[i];
 
-        // Whenever we pass a multiple of target, define a new edge
-        while (cumulative >= target &&
-               static_cast<int>(edges.size()) < nDesiredBins)
-        {
-            double upper = ax->GetBinUpEdge(i + 1);
-            edges.push_back(upper);
+      // Whenever we pass a multiple of target, define a new edge
+      while (cumulative >= target && static_cast<int>(edges.size()) < nDesiredBins) {
+        double upper = ax->GetBinUpEdge(i + 1);
+        edges.push_back(upper);
 
-            // Next target is (number_of_edges_so_far) * total / nDesiredBins
-            target = total * static_cast<double>(edges.size()) / nDesiredBins;
-        }
+        // Next target is (number_of_edges_so_far) * total / nDesiredBins
+        target = total * static_cast<double>(edges.size()) / nDesiredBins;
+      }
     }
 
     // Ensure last edge at axis maximum
     double lastEdge = ax->GetBinUpEdge(ax->GetNbins());
-    if (edges.empty() ||
-        std::fabs(edges.back() - lastEdge) > 1e-12)
-    {
-        edges.push_back(lastEdge);
+    if (edges.empty() || std::fabs(edges.back() - lastEdge) > 1e-12) {
+      edges.push_back(lastEdge);
     }
 
     // Remove duplicates (can happen if some regions are empty)
-    edges.erase(
-        std::unique(edges.begin(), edges.end(),
-                    [](double a, double b) { return std::fabs(a - b) < 1e-10; }),
-        edges.end()
-    );
+    edges.erase(std::unique(edges.begin(), edges.end(), [](double a, double b) { return std::fabs(a - b) < 1e-10; }), edges.end());
 
     return edges;
-}
+  }
   // Public interface: build both Q^2 and t' edges
-EqualStatBinningResult MakeEqualStatBinning(const TH2 *hQ2t,
-                                            int nQ2Bins,
-                                            int nTprimeBins)
-{
+  EqualStatBinningResult MakeEqualStatBinning(const TH2 *hQ2t, int nQ2Bins, int nTprimeBins) {
     EqualStatBinningResult res;
-    res.tprimeEdges = ComputeAxisEdges2D(hQ2t, /*alongX=*/true,  nTprimeBins); // x = t'
-    res.q2Edges     = ComputeAxisEdges2D(hQ2t, /*alongX=*/false, nQ2Bins);     // y = Q^2
+    res.tprimeEdges = ComputeAxisEdges2D(hQ2t, /*alongX=*/true, nTprimeBins);  // x = t'
+    res.q2Edges = ComputeAxisEdges2D(hQ2t, /*alongX=*/false, nQ2Bins);         // y = Q^2
     return res;
-}
+  }
 
   void DrawQ2TprimeWithGrid(TH2 *h, const std::vector<double> &q2Edges, const std::vector<double> &tprimeEdges, const std::string &canvasName, const std::string &outFileName) {
     if (!h) return;
@@ -258,7 +241,7 @@ struct Pi0Tag {};
 class DISANAMath {
  private:
   // Kinematics
-  double Q2_{}, xB_{}, t_{}, phi_deg_{}, W_{}, nu_{}, y_{};
+  double Q2_{}, xB_{}, t_{}, phi_deg_{}, W_{}, nu_{}, y_{}, cosTheta_KK_{}, cosPhi_KK_{};
 
   // Exclusivity
   double mx2_ep_{};
@@ -360,6 +343,8 @@ class DISANAMath {
   double GetW() const { return W_; }
   double GetNu() const { return nu_; }
   double Gety() const { return y_; }
+  double GetCosTheta_KK() const { return cosTheta_KK_; }
+  double GetCosPhi_KK() const { return cosPhi_KK_; }
 
   double GetMx2_ep() const { return mx2_ep_; }
   double GetEmiss() const { return emiss_; }
@@ -550,6 +535,88 @@ class DISANAMath {
       // treat ±normals as equivalent (optional but common)
       coplanarity_had_normals_deg_ = std::min(ang, 180.0 - ang);
     }
+
+    // --------------------------------------------------------------------
+    // NEW: cos(theta) and cos(phi) in the K+K- COM (phi rest frame)
+    //      Following the rho->pi pi construction:
+    //      lab --> (gamma* p) c.m. --> phi (K+K-) c.m.
+    // --------------------------------------------------------------------
+    cosTheta_KK_ = std::numeric_limits<double>::quiet_NaN();
+    cosPhi_KK_ = std::numeric_limits<double>::quiet_NaN();
+
+    // --------------------- 1) gamma* p c.m. frame -----------------------
+    TLorentzVector gp_sys = q + proton_in;  // total gamma* + p_in
+    TVector3 beta_gp = gp_sys.BoostVector();
+
+    TLorentzVector phi_gp = phi;
+    TLorentzVector p_out_gp = proton_out;
+    TLorentzVector kPlus_gp = kPlus;
+    TLorentzVector kMinus_gp = kMinus;
+    TLorentzVector q_gp = q;
+
+    phi_gp.Boost(-beta_gp);
+    p_out_gp.Boost(-beta_gp);
+    kPlus_gp.Boost(-beta_gp);
+    kMinus_gp.Boost(-beta_gp);
+    q_gp.Boost(-beta_gp);
+
+    // helicity axis in gamma* p c.m.: along phi momentum (same as -p_out_gp)
+    TVector3 zprime(0., 0., 0.);
+    if (phi_gp.Vect().Mag2() > 0.0) {
+      zprime = phi_gp.Vect().Unit();
+    } else if (p_out_gp.Vect().Mag2() > 0.0) {
+      zprime = (-p_out_gp.Vect()).Unit();
+    }
+
+    // --------------------- 2) phi (K+K-) rest frame ---------------------
+    TVector3 beta_phi_gp = phi_gp.BoostVector();
+
+    TLorentzVector kPlus_phi = kPlus_gp;
+    TLorentzVector p_out_phi = p_out_gp; // Recoil proton
+    TLorentzVector q_phi     = q_gp;     // Virtual photon
+
+    kPlus_phi.Boost(-beta_phi_gp);
+    p_out_phi.Boost(-beta_phi_gp);
+    q_phi.Boost(-beta_phi_gp);
+
+    // --------------------------------------------------------------------
+    // Construct the Helicity Coordinate System (Right-Handed)
+    // Reference: Diehl, arXiv:0704.1565, Page 5
+    // --------------------------------------------------------------------
+
+    // 1. Z-axis: Opposite to the recoil proton in the meson rest frame.
+    //    (Diehl p.5: "p' points in the negative z direction")
+    TVector3 z_axis = -1.0 * p_out_phi.Vect().Unit();
+
+    // 2. Y-axis: Normal to the production plane.
+    //    Defined by q x p' (virtual photon cross recoil proton).
+    //    Note: This is the same in Lab, CM, or Rest frame if q and p' are collinear.
+    //    Usually calculated using the vectors available in the rest frame.
+    TVector3 y_axis = q_phi.Vect().Cross(p_out_phi.Vect()).Unit();
+
+    // 3. X-axis: Completes the right-handed triad (y cross z).
+    TVector3 x_axis = y_axis.Cross(z_axis).Unit();
+
+    // ------------------------ Calculate Angles --------------------------
+    // Get the K+ momentum vector in the rest frame
+    TVector3 k_vec = kPlus_phi.Vect();
+
+    // Polar Angle (Theta): Angle between K+ and Z-axis
+    // Range: [0, pi], cosTheta in [-1, 1]
+    cosTheta_KK_ = std::numeric_limits<double>::quiet_NaN();
+    if(k_vec.Mag() > 0){
+        cosTheta_KK_ = z_axis.Dot(k_vec.Unit());
+    }
+
+    // Azimuthal Angle (Phi): Angle of K+ in the XY plane
+    // Range: [-pi, pi] usually mapped to degrees [-180, 180] or [0, 360]
+    // Calculated using projections onto X and Y axes.
+    cosPhi_KK_ = std::numeric_limits<double>::quiet_NaN();
+    // Use atan2(y, x) for the full angle, or just calculate cosPhi if that's all you need.
+    // However, for consistency with interference terms (sin(phi)), it is better to compute phi first.
+    
+    double phi_rad = std::atan2(k_vec.Dot(y_axis), k_vec.Dot(x_axis)); 
+    cosPhi_KK_ = std::cos(phi_rad);
   }
 
   // ---------------------------------------------------------------------------
