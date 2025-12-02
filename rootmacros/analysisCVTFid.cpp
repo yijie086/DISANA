@@ -75,7 +75,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
             int ti = thetaRegionIndex(th, thetaCuts);
 
             std::string key = "L" + std::to_string(lay) + "_T" + std::to_string(ti);
-            histos[key]->Fill(edg, chi2ndf);
+            if (chi2ndf<ymax/2) histos[key]->Fill(edg, chi2ndf);
         }
     }, {"REC_Traj_detector", "REC_Traj_layer", "REC_Traj_edge", "REC_Particle_theta", "REC_Track_chi2",
         "REC_Track_NDF", "REC_Track_pindex", "REC_Traj_pindex", "REC_Particle_pid", "REC_Track_pass_fid"});
@@ -201,7 +201,7 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
                 title = Form("pid%d CVT layer %d (no fiducial cuts);#phi [deg];#theta [deg]", selectedPid, layer);
             }
         }
-        histos[layer] = new TH2F(name.c_str(), title.c_str(), 360, -180, 180, 360, 0, 180);
+        histos[layer] = new TH2F(name.c_str(), title.c_str(), 360, -180, 180, 360, 20, 140);
         histos[layer]->SetDirectory(nullptr);
     }
 
@@ -248,28 +248,16 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
 
 void analysisCVTFid() {
     ROOT::EnableImplicitMT();
-    //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    //std::string path = "./../build/";
 
-        ///==================// phi analysis paths==========================
-    // spring 2019
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2019/sp2019_inb/missing_km_output/";
-    // spring 2018 inb
-    std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/inb/missing_Km_output/";
-    // spring 2018 outb
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/outb/missing_Kp_output/";"
-    // fall 2018 inb
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/inb/missing_Km_output/";
-    // fall 2018 outb
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/outb/missing_Km_output/";  
+    std::string path = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data/";
 
     std::vector<int> layers = {1, 3, 5, 7, 12};
-    std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -5.0};
-    std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 25.0};
+    std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -4.0};
+    std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 20.0};
     std::vector<float> thetaCuts = {55, 85, 115};
-    //DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
-    //DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid", true);
-    DrawCVTChi2ndf_Optimized(2212, 5, 0, 400, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
+    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
     DrawCVTHitResponse(2212, 5, layers, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }

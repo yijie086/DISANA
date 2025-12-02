@@ -23,8 +23,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = false;
   // std::string dataconfig = "rgasp18_inb";
-  std::string dataconfig = "rgasp18_outb";
-  // std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgasp18_outb";
+   std::string dataconfig = "rgkfa18_7546";
   // std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -186,6 +186,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
   // Sector 1, ECin only, sector, side, min, max
   trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
+  trackCuts->AddECinFiducialRange(11, 2, "lv", 99.0, 117.5);
   trackCuts->AddECinFiducialRange(11, 4, "lw", 0.0, 23.5);
   trackCuts->AddECinFiducialRange(11, 5, "lv", 0.0, 23.5);
   trackCuts->AddECinFiducialRange(11, 6, "lw", 0.0, 23.5);
@@ -196,7 +197,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
   // Cal fiducial cuts for photon, sector, side, min, max
   trackCuts->AddPCalFiducialRange(22, 1, "lw", 72.0, 94.5);
-  trackCuts->AddPCalFiducialRange(22, 1, "lw", 220.5, 234.0);
+  trackCuts->AddPCalFiducialRange(22, 1, "lw", 211.5, 234.0);
   // Sector 2, PCal
   trackCuts->AddPCalFiducialRange(22, 2, "lv", 99.0, 117.5);
   // Sector 3, PCal,
@@ -209,6 +210,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
   // Sector 1, ECin only, sector, side, min, max
   trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
+  trackCuts->AddECinFiducialRange(22, 2, "lv", 99.0, 117.5);
   trackCuts->AddECinFiducialRange(22, 4, "lw", 0.0, 23.5);
   trackCuts->AddECinFiducialRange(22, 5, "lv", 0.0, 23.5);
   trackCuts->AddECinFiducialRange(22, 6, "lw", 0.0, 23.5);

@@ -170,20 +170,21 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
         TCanvas *c = new TCanvas(Form("c_ecal_EoverP_S%d", sector), "", 2000, 1500);
         if (selectedPid == 11) {
-            hist_SF[sector]->SetTitle(Form("Electron E/p in Sector %d; p [GeV];E/p", sector));
+            hist_SF[sector]->SetTitle(Form("Electron E_{dep}/p in Sector %d; p [GeV];E_{dep}/p", sector));
         }
         else if (selectedPid == 22) {
-            hist_SF[sector]->SetTitle(Form("Photon E/p in Sector %d; p [GeV];E/p", sector));
+            hist_SF[sector]->SetTitle(Form("Photon E_{dep}/p in Sector %d; p [GeV];E_{dep}/p", sector));
         } else {
-            hist_SF[sector]->SetTitle(Form("PID %d E/p in Sector %d; p [GeV];E/p", selectedPid, sector));
+            hist_SF[sector]->SetTitle(Form("PID %d E_{dep}/p in Sector %d; p [GeV];E_{dep}/p", selectedPid, sector));
         }
-        hist_SF[sector]->GetYaxis()->SetRangeUser(0.1, 0.35);
+        hist_SF[sector]->GetYaxis()->SetRangeUser(0.08, 0.352);
         hist_SF[sector]->GetXaxis()->SetRangeUser(fitpMin, fitpMax);
+        gPad->SetLogz();
         hist_SF[sector]->Draw("COLZ");
         grUpper->SetLineWidth(10);
         grLower->SetLineWidth(10);
-        fUpFit.SetLineWidth(10);
-        fLoFit.SetLineWidth(10);
+        fUpFit.SetLineWidth(5);
+        fLoFit.SetLineWidth(5);
         grUpper->Draw("L SAME");
         grLower->Draw("L SAME");
         fUpFit.Draw("L SAME");      // --- NEW ---
@@ -206,15 +207,16 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
         TCanvas *c2 = new TCanvas(Form("c_ecal_triangle_S%d", sector), "", 2000, 1500);
         if (selectedPid == 11) {
-            hist_Triangle[sector]->SetTitle(Form("Electron E_{dep} in Sector %d; ECIN E/p; PCAL E/p", sector));
+            hist_Triangle[sector]->SetTitle(Form("Electron E_{dep} in Sector %d; ECIN E_{dep}/p; PCAL E_{dep}/p", sector));
         }
         else if (selectedPid == 22) {
-            hist_Triangle[sector]->SetTitle(Form("Photon E_{dep} in Sector %d; ECIN E/p; PCAL E/p", sector));
+            hist_Triangle[sector]->SetTitle(Form("Photon E_{dep} in Sector %d; ECIN E_{dep}/p; PCAL E_{dep}/p", sector));
         } else {
-            hist_Triangle[sector]->SetTitle(Form("PID %d E_{dep} in Sector %d; ECIN E/p; PCAL E/p", selectedPid, sector));
+            hist_Triangle[sector]->SetTitle(Form("PID %d E_{dep} in Sector %d; ECIN E_{dep}/p; PCAL E_{dep}/p", selectedPid, sector));
         }
         hist_Triangle[sector]->GetYaxis()->SetRangeUser(0.00, 0.3);
         hist_Triangle[sector]->GetXaxis()->SetRangeUser(0.00, 0.3);
+        gPad->SetLogz();
         hist_Triangle[sector]->Draw("COLZ");
 
         std::string outname2;
@@ -240,25 +242,13 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
 void analysisECALSF() {
     ROOT::EnableImplicitMT();
-    //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    //std::string path = "../build/rgk7546dataSFCorr/";
-    /// Do not touch this:D
-    ///==================// phi analysis paths==========================
-    // spring 2019
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2019/sp2019_inb/missing_km_output/";
-    // spring 2018 inb
-    std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/inb/missing_Km_output/";
-    // spring 2018 outb
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2018/outb/missing_Kp_output/";"
-    // fall 2018 inb
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/inb/missing_Km_output/";
-    // fall 2018 outb
-    //std::string path = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/fall2018/outb/missing_Km_output/";  
+
+    std::string path = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data/"; 
     
     //==================// DVCS analysis paths==========================
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
     //DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 5.5);
-    DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false, 3, 2, 7.5);
+    DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false, 3, 2, 5.8);
     gApplication->Terminate(0);
 }

@@ -1211,8 +1211,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     }
   };
 
-  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false,
-                                                    bool meanKinVar = false) {
+  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false, bool meanKinVar = false) {
     if (plotters.empty()) {
       std::cerr << "No models loaded to compare.\n";
       return;

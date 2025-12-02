@@ -331,7 +331,7 @@ void DrawDCHitResponse(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisDCFid() {
-    std::string path = "./../build/data/";
+    std::string path = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/";
     std::vector<int> layers = {6, 18, 36};
     std::vector<float> xmins = {0, 0, 0, 0, 0, 0};
     std::vector<float> xmaxs = {25, 25, 25, 25, 25, 25};
@@ -342,8 +342,8 @@ void analysisDCFid() {
     //DrawDCChi2ndf_Optimized(2212, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
     //DrawDCChi2ndf_Optimized(2212, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
     DrawDCHitResponse(11, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
-    DrawDCHitResponse(2212, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
+    //DrawDCHitResponse(2212, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
     DrawDCHitResponse(11, 6, layers, path + "dfSelected.root", "dfSelected",false);
-    DrawDCHitResponse(2212, 6, layers, path + "dfSelected.root", "dfSelected",false);
+    //DrawDCHitResponse(2212, 6, layers, path + "dfSelected.root", "dfSelected",false);
     gApplication->Terminate(0);
 }

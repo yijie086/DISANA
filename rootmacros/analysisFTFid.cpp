@@ -34,19 +34,19 @@ void DrawFTHitResponse(const int &selectedPid, const int &selecteddetector,
         if (selectedPid == 22) {  // Photon
             if (doFid) {
                 name = Form("photon_x_vs_y_L%d", layer);
-                title = Form("photon FTCal layer %d;x [cm];y [cm]", layer);
+                title = Form("photon FTCal;x [cm];y [cm]");
             } else {
                 name = Form("photon_x_vs_y_L%d_noFid", layer);
-                title = Form("photon FTCal layer %d (no fiducial cuts);x [cm];y [cm]", layer);
+                title = Form("photon FTCal (no fiducial cuts);x [cm];y [cm]");
             }
         }
         else if (selectedPid == 11) {  // Electron
             if (doFid) {
                 name = Form("electron_x_vs_y_L%d", layer);
-                title = Form("electron FTCal layer %d;x [cm];y [cm]", layer);
+                title = Form("electron FTCal;x [cm];y [cm]");
             } else {
                 name = Form("electron_x_vs_y_L%d_noFid", layer);
-                title = Form("electron FTCal layer %d (no fiducial cuts);x [cm];y [cm]", layer);
+                title = Form("electron FTCal (no fiducial cuts);x [cm];y [cm]");
             }
         }
         else {
@@ -58,7 +58,7 @@ void DrawFTHitResponse(const int &selectedPid, const int &selecteddetector,
                 title = Form("pid%d FTCal layer %d (no fiducial cuts);x [cm];y [cm]", selectedPid, layer);
             }
         }
-        histos[layer] = new TH2F(name.c_str(), title.c_str(), 400, -20, 20, 400, -20, 20);
+        histos[layer] = new TH2F(name.c_str(), title.c_str(), 400, -18, 18, 400, -18, 18);
         histos[layer]->SetDirectory(nullptr);
     }
 
@@ -105,14 +105,12 @@ void DrawFTHitResponse(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisFTFid() {
-    //std::string path = "/work/clas12/yijie/clas12ana/analysis203/DISANA/build/bbbs/";
-    //std::string path = "./../build/";
-    std::string path = "//w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim_from_nsidis/sp2019/sp2019_inb/missing_km_output/";
+    std::string path = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data/";
     
     std::vector<int> layers = {1};
-    DrawFTHitResponse(22, 10, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawFTHitResponse(22, 10, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
     DrawFTHitResponse(22, 10, layers, path + "dfSelected.root", "dfSelected",false);
-    DrawFTHitResponse(11, 10, layers, path + "dfSelected_afterFid.root", "dfSelected_afterFid",true);
+    DrawFTHitResponse(11, 10, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
     DrawFTHitResponse(11, 10, layers, path + "dfSelected.root", "dfSelected",false);
     gApplication->Terminate(0);
 }
