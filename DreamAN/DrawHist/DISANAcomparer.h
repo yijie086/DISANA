@@ -910,7 +910,8 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
       {"Mx2_ep_pi0",   "Missing Mass Squared (ep#pi)",     "MM^{2}(ep) [GeV^{2}]",         -0.4,  0.6},
       {"Mx2_epi0",     "Missing Mass Squared (e#pi)",      "MM^{2}(e#pi) [GeV^{2}]",       -0.2,   2.0},
       {"Theta_epho1",  "Angle: e-#gamma_{1}",              "#theta(e, #gamma_{1}) [deg]",  0.0,   60.0},
-      {"Theta_epho2",  "Angle: e-#gamma_{2}",              "#theta(e, #gamma_{2}) [deg]",  0.0,   60.0}
+      {"Theta_epho2",  "Angle: e-#gamma_{2}",              "#theta(e, #gamma_{2}) [deg]",  0.0,   60.0},
+      {"Theta_pho1pho2", "Angle: #gamma_{1}-#gamma_{2}",   "#theta(#gamma_{1}, #gamma_{2}) [deg]", 0.0, 15.0}
   };
 
   for (const auto& [cutExpr, cutLabel] : detectorCuts) {
@@ -1268,7 +1269,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
     if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
     if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
-    if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.5, 1.5, "pdf", false, true, false, false, meanKinVar);
+    if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.0, 1.5, "pdf", false, true, false, false, meanKinVar);
   }
 
   bool file_exists(const char* name) {

@@ -274,6 +274,7 @@ class DISANAMath {
   double delta_phi_pi0_{};
   double theta_epho1_{};
   double theta_epho2_{};
+  double theta_pho1pho2_{};
 
   double DeltaE_{};
 
@@ -375,6 +376,7 @@ class DISANAMath {
   double GetTheta_pi0pi0() const { return theta_pi0pi0_; }
   double GetTheta_epho1() const { return theta_epho1_; }
   double GetTheta_epho2() const { return theta_epho2_; }
+  double GetTheta_pho1pho2() const { return theta_pho1pho2_; }
   double GetDeltaPhi_pi0() const { return delta_phi_pi0_; }
 
   double GetCoplanarity_had_normals_deg() const { return coplanarity_had_normals_deg_; }
@@ -430,6 +432,7 @@ class DISANAMath {
     delta_phi_pi0_ = std::abs(ComputePhiH(q.Vect(), electron_in.Vect(), pi0.Vect()) - ComputePhiH(q.Vect(), electron_in.Vect(), -proton_out.Vect()));
     theta_epho1_ = electron_out.Angle(photon1.Vect()) * 180. / pi;
     theta_epho2_ = electron_out.Angle(photon2.Vect()) * 180. / pi;
+    theta_pho1pho2_ = photon1.Angle(photon2.Vect()) * 180. / pi;
   }
 
   // Core (DVCS-like)

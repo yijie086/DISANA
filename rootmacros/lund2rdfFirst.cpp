@@ -9,7 +9,6 @@
 #include <vector>
 #include <iostream>
 #include <glob.h>   // POSIX glob for pattern matching
-#include <cmath>
 
 // Split a line by whitespace
 static std::vector<std::string> split_ws(const std::string &line) {
@@ -42,8 +41,8 @@ static std::vector<std::string> glob_files(const char* pattern) {
 }
 
 // Main function: read all files matching pattern, write a single ROOT file
-void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsgen/radnew2/*.dat",
-               const char* outPath   = "raddelta0p1Max.root")
+void lund2rdfFirst(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsgen/radnew2/*.dat",
+              const char* outPath   = "raddelta0p1First.root")
 {
     // Prepare output ROOT file
     TFile fout(outPath, "RECREATE");
@@ -55,6 +54,7 @@ void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsg
     // Branch containers
     std::vector<int>   v_pid;
     std::vector<float> v_px, v_py, v_pz;
+    bool hasphoto = false;
 
     TTree tree("MC", "MC particles from LUND (dvcsgen)");
     tree.Branch("MC_Particle_pid", &v_pid);
@@ -102,10 +102,6 @@ void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsg
             v_py .reserve(nPart);
             v_pz .reserve(nPart);
 
-            // === 新增：记录能量最大的 photon ===
-            int   bestPhotonIdx = -1;
-            float bestPhotonE   = -1.0f;
-
             for (int i = 0; i < nPart; ++i) {
                 std::string pline;
                 if (!std::getline(fin, pline)) break;
@@ -120,54 +116,19 @@ void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsg
                     float px  = std::stof(ptoks[6]);
                     float py  = std::stof(ptoks[7]);
                     float pz  = std::stof(ptoks[8]);
+                    if (pid == 22 && hasphoto) continue; // only keep first photon
+                    if (pid == 22) hasphoto = true;
 
-                    // 先把粒子统一 push 进容器
-                    int idx = (int)v_pid.size();
+
                     v_pid.push_back(pid);
                     v_px .push_back(px);
                     v_py .push_back(py);
                     v_pz .push_back(pz);
-
-                    // 如果是 photon，更新“最大能量 photon”的 index
-                    if (pid == 22) {
-                        float E = std::sqrt(px*px + py*py + pz*pz); // 对 photon: E ≈ |p|
-                        if (E > bestPhotonE) {
-                            bestPhotonE   = E;
-                            bestPhotonIdx = idx;
-                        }
-                    }
                 } catch (...) {
                     // skip bad line
                 }
             }
-
-            // === 第二步：只保留最大能量的 photon，其余 photon 删掉 ===
-            if (bestPhotonIdx >= 0) {
-                std::vector<int>   new_pid;
-                std::vector<float> new_px, new_py, new_pz;
-
-                new_pid.reserve(v_pid.size());
-                new_px .reserve(v_px.size());
-                new_py .reserve(v_py.size());
-                new_pz .reserve(v_pz.size());
-
-                for (size_t i = 0; i < v_pid.size(); ++i) {
-                    int pid = v_pid[i];
-                    // 非 photon 全留下；photon 只留下 bestPhotonIdx 那一个
-                    if (pid != 22 || (int)i == bestPhotonIdx) {
-                        new_pid.push_back(pid);
-                        new_px .push_back(v_px[i]);
-                        new_py .push_back(v_py[i]);
-                        new_pz .push_back(v_pz[i]);
-                    }
-                }
-
-                v_pid.swap(new_pid);
-                v_px .swap(new_px);
-                v_py .swap(new_py);
-                v_pz .swap(new_pz);
-            }
-
+            hasphoto = false;
             tree.Fill();
             ++evCount;
         }

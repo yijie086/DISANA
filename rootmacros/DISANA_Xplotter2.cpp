@@ -44,9 +44,9 @@ std::vector<std::pair<std::string, std::string>> detCuts = {
 };
 
 std::vector<std::pair<std::string, std::string>> detCutsPi0 = {
-    {"pho_det_region == 0 && pho2_det_region == 0 && pro_det_region == 2", "FT-CD"},
-    {"pho_det_region == 1 && pho2_det_region == 1 && pro_det_region == 2", "FD-CD"},
-    {"pho_det_region == 1 && pho2_det_region == 1 && pro_det_region == 1", "FD-FD"},
+    {"pho_det_region == 0 && pho2_det_region == 0 && pro_det_region == 2", "FT-FT-CD"},
+    {"pho_det_region == 1 && pho2_det_region == 1 && pro_det_region == 2", "FD-FD-CD"},
+    {"pho_det_region == 1 && pho2_det_region == 1 && pro_det_region == 1", "FD-FD-FD"},
 };
 
 template <typename Method>
@@ -81,15 +81,9 @@ void DISANA_Xplotter2() {
   std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data";
 
   std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/pi0";
-  
-  std::string input_path_from_analysisRun_7546_dvcsmc_gen_new = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/gen2000";
-  std::string input_path_from_analysisRun_7546_dvcsmc_rec_new = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/rec2000"; //(no bkg merged)
 
   std::string input_path_from_analysisRun_7546_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkgall";
   std::string input_path_from_analysisRun_7546_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg"; //(no bkg merged)
-
-  std::string input_path_from_analysisRun_7546_dvcsmc_bkg_new = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/bkg";
-  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg_new = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/nobkg";
 
   std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/bkg";
   std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg";
@@ -101,17 +95,11 @@ void DISANA_Xplotter2() {
   std::string filename_afterFid_7546_dvcsmc_gen = Form("%s/dfSelected.root", input_path_from_analysisRun_7546_dvcsmc_gen.c_str());
   std::string filename_afterFid_7546_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_rec.c_str());
 
-  std::string filename_afterFid_7546_dvcsmc_gen_new = Form("%s/dfSelected.root", input_path_from_analysisRun_7546_dvcsmc_gen_new.c_str());
-  std::string filename_afterFid_7546_dvcsmc_rec_new = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_rec_new.c_str());
-
   std::string filename_afterFid_7546_dvcsmc_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg.c_str());
   std::string filename_afterFid_7546_dvcsmc_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg.c_str());
 
-  std::string filename_afterFid_7546_dvcsmc_bkg_new = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg_new.c_str());
-  std::string filename_afterFid_7546_dvcsmc_nobkg_new = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg_new.c_str());
-
-  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/radcor/rad.root";
-  std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/radcor/nor.root";
+  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/raddelta0p1Max.root";
+  std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/nor.root";
   
 
   float beam_energy = 7.546;
@@ -123,14 +111,8 @@ void DISANA_Xplotter2() {
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen = InitGenKinematics(filename_afterFid_7546_dvcsmc_gen, "dfSelected", beam_energy);
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec = InitKinematics(filename_afterFid_7546_dvcsmc_rec, "dfSelected_afterFid_afterCorr", beam_energy);
 
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen_new = InitGenKinematics(filename_afterFid_7546_dvcsmc_gen_new, "dfSelected", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec_new = InitKinematics(filename_afterFid_7546_dvcsmc_rec_new, "dfSelected_afterFid_afterCorr", beam_energy);
-
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg = InitKinematics(filename_afterFid_7546_dvcsmc_bkg, "dfSelected_afterFid_afterCorr", beam_energy);
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg = InitKinematics(filename_afterFid_7546_dvcsmc_nobkg, "dfSelected_afterFid_afterCorr", beam_energy);
-
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg_new = InitKinematics(filename_afterFid_7546_dvcsmc_bkg_new, "dfSelected_afterFid_afterCorr", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg_new = InitKinematics(filename_afterFid_7546_dvcsmc_nobkg_new, "dfSelected_afterFid_afterCorr", beam_energy);
 
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad = InitGenKinematics(filename_afterFid_7546_dvcsmc_rad, "MC", beam_energy);
   ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad = InitGenKinematics(filename_afterFid_7546_dvcsmc_norad, "MC", beam_energy);
@@ -150,20 +132,11 @@ void DISANA_Xplotter2() {
   auto df_final_dvcs_7546_dvcsmc_rec = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_rec);
   auto df_final_dvcsPi_rejected_7546_dvcsmc_rec = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_rec, beam_energy);
 
-  auto df_final_dvcs_7546_dvcsmc_rec_new = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_rec_new);
-  auto df_final_dvcsPi_rejected_7546_dvcsmc_rec_new = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_rec_new, beam_energy);
-
   auto df_final_dvcs_7546_dvcsmc_bkg = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_bkg);
   auto df_final_dvcsPi_rejected_7546_dvcsmc_bkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_bkg, beam_energy);
 
-  auto df_final_dvcs_7546_dvcsmc_bkg_new = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_bkg_new);
-  auto df_final_dvcsPi_rejected_7546_dvcsmc_bkg_new = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_bkg_new, beam_energy);
-
   auto df_final_dvcs_7546_dvcsmc_nobkg = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_nobkg);
   auto df_final_dvcsPi_rejected_7546_dvcsmc_nobkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_nobkg, beam_energy);
-
-  auto df_final_dvcs_7546_dvcsmc_nobkg_new = ApplyFinalDVCSSelections(df_afterFid_7546_dvcsmc_nobkg_new);
-  auto df_final_dvcsPi_rejected_7546_dvcsmc_nobkg_new = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_nobkg_new, beam_energy);
 
 
   DISANAcomparer comparer;
@@ -221,20 +194,7 @@ void DISANA_Xplotter2() {
                               df_afterFid_7546_dvcsmc_norad,
                               "RGK 7.5GeV", beam_energy, true, true, true, true, luminosity);
 
-  /*comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
-                              //df_afterFid_7546_dvcsmc_gen_new,
-                              df_final_OnlPi0_7546_data,
-                              df_final_dvcsPi_rejected_7546_pi0MC,
-                              df_final_OnlPi0_7546_pi0MC,
-                              df_afterFid_7546_dvcsmc_gen_new,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_rec_new,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_bkg_new,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_nobkg_new,
-                              df_afterFid_7546_dvcsmc_rad,
-                              df_afterFid_7546_dvcsmc_norad,
-                              "CJ 11.1.0", beam_energy, true, true, true, true);
-
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,
+  /*comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,
                               //df_afterFid_7546_dvcsmc_gen,
                               df_final_OnlPi0_7546_pi0MC,
                               df_final_dvcsPi_rejected_7546_pi0MC,
@@ -509,6 +469,7 @@ ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy) 
   df_ = define_DISCAT_pi0(df_, "DeltaPhi_pi0", &DISANAMath::GetDeltaPhi_pi0, beam_energy);
   df_ = define_DISCAT_pi0(df_, "Theta_epho1", &DISANAMath::GetTheta_epho1, beam_energy);
   df_ = define_DISCAT_pi0(df_, "Theta_epho2", &DISANAMath::GetTheta_epho2, beam_energy);
+  df_ = define_DISCAT_pi0(df_, "Theta_pho1pho2", &DISANAMath::GetTheta_pho1pho2, beam_energy);
   return df_;
 }
 
@@ -638,6 +599,7 @@ ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){
             pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
             pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
           }
+          //pass = true;
         }
         return pass;
       },
