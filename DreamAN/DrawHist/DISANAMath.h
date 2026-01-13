@@ -21,6 +21,39 @@
 #include <utility>
 #include <vector>
 
+#include <cmath>
+#include <limits>
+
+double NormalizeHCorrByMiddle(TH1* hCorr)
+{
+    if (!hCorr) return 1.0;
+
+    const int nb = hCorr->GetNbinsX();
+    if (nb <= 0) return 1.0;
+
+    double mid = 1.0;
+
+    if (nb % 2 == 1) {
+        const int bmid = (nb + 1) / 2;     // e.g. nb=5 -> 3
+        mid = hCorr->GetBinContent(bmid);
+    } else {
+        const int b1 = nb / 2;             // e.g. nb=6 -> 3
+        const int b2 = b1 + 1;             // -> 4
+        const double v1 = hCorr->GetBinContent(b1);
+        const double v2 = hCorr->GetBinContent(b2);
+        mid = 0.5 * (v1 + v2);
+    }
+
+    if (!std::isfinite(mid) || mid == 0.0) {
+        // std::cerr << "Warning: mid is invalid (" << mid << "), skip scaling.\n";
+        return mid;
+    }
+
+    hCorr->Scale(1.0 / mid);
+    return mid;
+}
+
+
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
@@ -907,6 +940,39 @@ class DISANAMath {
           hRatio->SetDirectory(nullptr);  // avoid ROOT ownership surprises
           hRatio->Divide(h_dvcs_norad);   // uses default error propagation
           hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+        }
+      }
+    }
+    return hCorr;
+  }
+
+  std::vector<std::vector<std::vector<TH1D *>>> CalcP1Cut(ROOT::RDF::RNode df_dvcsmc_p1cut, ROOT::RDF::RNode df_dvcsmc_norad, const BinManager &xBins) {
+    const size_t n_t = xBins.GetTBins().size() - 1;
+    const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
+    const size_t n_xb = xBins.GetXBBins().size() - 1;
+
+    DISANAMath P1Corr;
+    auto df_dvcsmc_p1cut_CrossSection = P1Corr.ComputeDVCS_CrossSection(df_dvcsmc_p1cut, xBins, 1);
+    auto df_dvcsmc_norad_CrossSection = P1Corr.ComputeDVCS_CrossSection(df_dvcsmc_norad, xBins, 1);
+    std::vector<std::vector<std::vector<TH1D *>>> hCorr(n_xb, std::vector<std::vector<TH1D *>>(n_q2, std::vector<TH1D *>(n_t, nullptr)));
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          TH1D *h_dvcsmc_p1cut = df_dvcsmc_p1cut_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D *h_dvcsmc_norad = df_dvcsmc_norad_CrossSection[xb_bin][q2_bin][t_bin];
+          if (!h_dvcsmc_p1cut || !h_dvcsmc_norad) {
+            std::cerr << " P1 Cut Corr: Missing histogram for Q² bin " << q2_bin << ", xB bin " << xb_bin << ", t bin " << t_bin << "\n";
+            continue;
+          }
+          TH1D *hRatio = static_cast<TH1D *>(h_dvcsmc_p1cut->Clone(Form("hP1CutCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
+          hRatio->Reset();
+          hRatio->Divide(h_dvcsmc_norad, h_dvcsmc_p1cut);
+          TH1D* hRatioN = hRatio ? (TH1D*)hRatio->Clone("hCorr_norm") : nullptr;
+          if (hRatioN) hRatioN->SetDirectory(nullptr);
+
+          NormalizeHCorrByMiddle(hRatioN);
+
+          hCorr[xb_bin][q2_bin][t_bin] = hRatioN;
         }
       }
     }

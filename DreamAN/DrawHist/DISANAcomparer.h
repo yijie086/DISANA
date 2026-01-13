@@ -50,17 +50,19 @@ class DISANAcomparer {
                            ROOT::RDF::RNode df_dvcsmc_nobkg,
                            ROOT::RDF::RNode df_dvcsmc_rad,
                            ROOT::RDF::RNode df_dvcsmc_norad,
+                           ROOT::RDF::RNode df_dvcsmc_p1cut,
                            const std::string& label,
-                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false, double luminosity = 1.0) {
-    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, luminosity, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad);
+                           double beamEnergy, bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false, bool fP1cut = false, double luminosity = 1.0) {
+    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, luminosity, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad, df_dvcsmc_p1cut);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction 
               << ", Acceptance Correction: " << fAcceptanceCorrection <<  ", Background Merging efficiency: " << fEfficiencyCorrection
-              << ", Radiative Correction: " << fRadiativeCorrection
+              << ", Radiative Correction: " << fRadiativeCorrection << ", P1 cut: " << fP1cut
               << std::endl;
     plotter->SetPlotApplyCorrection(fPi0Correction);
     plotter->SetPlotApplyAcceptanceCorrection(fAcceptanceCorrection);
     plotter->SetPlotApplyEfficiencyCorrection(fEfficiencyCorrection);
     plotter->SetPlotApplyRadiativeCorrection(fRadiativeCorrection);
+    plotter->SetPlotApplyP1Cut(fP1cut);
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
@@ -1212,7 +1214,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     }
   };
 
-  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false, bool meanKinVar = false) {
+  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false, bool plotP1Cut = false, bool meanKinVar = false) {
     if (plotters.empty()) {
       std::cerr << "No models loaded to compare.\n";
       return;
@@ -1225,6 +1227,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allEffCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allRadCorr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allP1Cut;
     // job for chatgpt
     std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
 
@@ -1257,6 +1260,10 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
         auto hrad = p->ComputeRadCorr(fXbins);
         allRadCorr.push_back(std::move(hrad));
       }
+      if (plotP1Cut) {
+        auto hp1 = p->ComputeP1CutEffect(fXbins);
+        allP1Cut.push_back(std::move(hp1));
+      }
       if (meanKinVar) {
         allBSAmeans.push_back(getMeanQ2xBt(fXbins, p));
       }
@@ -1270,6 +1277,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
     if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
     if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.0, 1.5, "pdf", false, true, false, false, meanKinVar);
+    if (plotP1Cut) MakeTiledGridComparison("DIS_P1Cut", "C_{P1}", allP1Cut, &allBSAmeans, 0.0, 1.2, "pdf", false, true, false, false, meanKinVar);
   }
 
   bool file_exists(const char* name) {
@@ -1521,7 +1529,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
               meanLatex->SetTextFont(42);
               meanLatex->Draw();
               dumpHistogram(h, mean_xB, mean_Q2, mean_t, xb_edges[xb_bin], xb_edges[xb_bin + 1], q2_edges[q2_bin], q2_edges[q2_bin + 1],
-                              t_edges[t_bin], t_edges[t_bin + 1], Form("data_%s.txt", observableName.c_str()));
+                              t_edges[t_bin], t_edges[t_bin + 1], Form("datapoint_%s.txt", observableName.c_str()));
             }
           }
           if (!Doplot) {
