@@ -921,7 +921,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     std::replace(cleanName.begin(), cleanName.end(), ' ', '_');
     std::replace(cleanName.begin(), cleanName.end(), ',', '_');
 
-    TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(), cutLabel.c_str(), 1800, 1200);
+    TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(), cutLabel.c_str(), 4800, 3200);
     int cols = 4;
     int rows = (vars.size() + cols - 1) / cols;
     canvas->Divide(cols, rows);
@@ -933,7 +933,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
       gPad->SetTicks();
       styleKin_.StylePad((TPad*)gPad);
 
-      TLegend* legend = new TLegend(0.60, 0.70, 0.88, 0.88);
+      TLegend* legend = new TLegend(0.50, 0.70, 0.88, 0.88);
       legend->SetBorderSize(0);
       legend->SetFillStyle(0);
       legend->SetTextSize(0.040);
@@ -1003,6 +1003,11 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
         double x1 = mean - 3.0 * sigma;
         double x2 = mean + 3.0 * sigma;
 
+        double meanM  = hM->GetMean();
+        double sigmaM = hM->GetStdDev();
+        double x1M = meanM - 3.0 * sigmaM;
+        double x2M = meanM + 3.0 * sigmaM;
+
         double ymax = std::max(hD->GetMaximum(), hM ? hM->GetMaximum() : 0.0);
         TLine* line1 = new TLine(x1, 0.0, x1, ymax * 0.5);
         TLine* line2 = new TLine(x2, 0.0, x2, ymax * 0.5);
@@ -1013,10 +1018,24 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
         line1->Draw("SAME");
         line2->Draw("SAME");
 
+        TLine* line1M = new TLine(x1M, 0.0, x1M, ymax * 0.5);
+        TLine* line2M = new TLine(x2M, 0.0, x2M, ymax * 0.5);
+        line1M->SetLineColor(m + 2);
+        line2M->SetLineColor(m + 2);
+        line1M->SetLineStyle(3);
+        line2M->SetLineStyle(3);
+        line1M->Draw("SAME");
+        line2M->Draw("SAME");
+
         std::ostringstream stats;
-        stats << "#mu = " << std::fixed << std::setprecision(2) << mean
-              << ", #sigma = " << std::fixed << std::setprecision(2) << sigma;
+        stats << "Data #mu = " << std::fixed << std::setprecision(3) << mean
+              << ", #sigma = " << std::fixed << std::setprecision(3) << sigma;
         legend->AddEntry((TObject*)nullptr, stats.str().c_str(), "");
+
+        std::ostringstream statsM;
+        statsM << "MC #mu = " << std::fixed << std::setprecision(3) << meanM
+               << ", #sigma = " << std::fixed << std::setprecision(3) << sigmaM;
+        legend->AddEntry((TObject*)nullptr, statsM.str().c_str(), "");
       }
 
       legend->Draw();

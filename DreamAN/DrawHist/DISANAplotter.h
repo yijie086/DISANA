@@ -353,6 +353,8 @@ void GeneratePi0KinematicHistos(const std::string& type) {
 
                     if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
                     if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
+                    if (c_val <=0.1) val_corr = -1;
+                    if (c_val <=0.1) err_corr = -1; 
                     //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl;
 
                     hNew->SetBinContent(b, val_corr);
@@ -470,6 +472,8 @@ void GeneratePi0KinematicHistos(const std::string& type) {
                         std::pow(xs_val * c_err / (c_val * c_val), 2));
                     if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
                     if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
+                    if ( (b ==1 || b==nb) && (c_val <=0.8) ) val_corr = -1;
+                    if ( (b ==1 || b==nb) && (c_val <=0.8) ) err_corr = -1; 
                     //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl;
                     hNew->SetBinContent(b, val_corr);
                     hNew->SetBinError  (b, err_corr);

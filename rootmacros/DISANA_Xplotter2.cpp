@@ -12,7 +12,9 @@ ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df);
 ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df);
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df);
+ROOT::RDF::RNode DefineGenDVPi0Pass(ROOT::RDF::RNode df);
 ROOT::RDF::RNode ApplyFinalDVPi0Selections(ROOT::RDF::RNode df);
+ROOT::RDF::RNode ApplyFinalGenDVPi0Selections(ROOT::RDF::RNode df);
 
 ROOT::RDF::RNode InitKinematics(const std::string& filename_ = "", const std::string& treename_ = "", float beam_energy = 0);
 ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy = 0);
@@ -100,7 +102,7 @@ void DISANA_Xplotter2() {
   std::string filename_afterFid_7546_dvcsmc_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg.c_str());
   std::string filename_afterFid_7546_dvcsmc_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg.c_str());
 
-  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/raddelta0p1v0p6Max.root";
+  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/raddelta0p1Max.root";
   std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/nor.root";
   std::string filename_afterFid_7546_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/norP1_2.root";
   
@@ -131,7 +133,7 @@ void DISANA_Xplotter2() {
   auto df_final_dvcsPi_rejected_7546_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_7546_pi0MC, beam_energy);
 
   auto df_final_OnlPi0_7546_data = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_7546_data), beam_energy));
-  auto df_final_OnlPi0_7546_pi0MC = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_7546_pi0MC), beam_energy));
+  auto df_final_OnlPi0_7546_pi0MC = ApplyFinalGenDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_7546_pi0MC), beam_energy));
 
   auto df_final_dvcs_7546_dvcsmc_rec = ApplyFinalGenDVCSSelections(df_afterFid_7546_dvcsmc_rec);
   auto df_final_dvcsPi_rejected_7546_dvcsmc_rec = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_rec, beam_energy);
@@ -167,10 +169,10 @@ void DISANA_Xplotter2() {
 
   xBins.SetQ2Bins({1.0, 1.25, 1.5, 1.75, 2.0});
   xBins.SetTBins({0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
-  xBins.SetXBBins({0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
+  xBins.SetXBBins({0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
 
   //xBins.SetQ2Bins({1.0, 1.5, 2.0});
-  //xBins.SetTBins({0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
+  //xBins.SetTBins({0.2, 0.4, 0.6, 1.0});
   //xBins.SetXBBins({0.15, 0.2, 0.25, 0.3});
 
   comparer.SetXBinsRanges(xBins);
@@ -200,7 +202,8 @@ void DISANA_Xplotter2() {
                               df_final_dvcsPi_rejected_7546_dvcsmc_nobkg,
                               df_afterFid_7546_dvcsmc_rad,
                               df_afterFid_7546_dvcsmc_norad,
-                              "RGK 7.5GeV mc", beam_energy, true, true, true, true);*/
+                              df_afterFid_7546_dvcsmc_p1cut,
+                              "RGK 7.5GeV mc", beam_energy, true, true, true, true, true);*/
 
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
                               //df_afterFid_7546_dvcsmc_gen,
@@ -584,53 +587,165 @@ ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df) {
 }
 
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df) {
-  return df
-    .Filter("Emiss < 1.0", "Cut: Missing energy")
-    .Filter("Mx2_ep > -0.20 && Mx2_ep < 0.20", "Cut: MM^2(ep)")
-    .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma");
+  return df;
+  //return df
+  //  .Filter("Emiss < 1.0", "Cut: Missing energy")
+  //  .Filter("Mx2_ep > -0.20 && Mx2_ep < 0.20", "Cut: MM^2(ep)")
+  //  .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma");
 }
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){
   return df.Define("DVPi0_pass",
       [](bool& haspho2, double& mass_pi0, double& mx2_eppi0, double& emiss_pi0, double& mx2_ep_pi0, double& mx2_epi0, double& ptmiss_pi0, double& theta_pi0pi0, double& deltaphi_pi0,
               int& pho_det_region, int& pho2_det_region, double& recpho_p, double& recpho2_p, int& pro_det_region,
-              double& Q2, double& t, double& W) {
+              double& Q2, double& t, double& W,
+              double& Theta_epho1, double& Theta_epho2, double& Theta_pho1pho2) {
         bool pass = false;
         if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
           if (pho_det_region == 0 && pho2_det_region == 0 && pro_det_region ==2) {
-            pass = Inrange(mass_pi0, 0.12, 0.15);
-            pass = pass && Inrange(emiss_pi0, -0.5, 0.3);
-            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.15);
-            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
-            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
-            pass = pass && Inrange(mx2_eppi0, -0.03, 0.03);
-            pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.3);
-            pass = pass && Inrange(mx2_epi0, 0.0, 1.5);
-            //pass = false;
+            pass = Inrange(emiss_pi0, -0.4, 0.4);
+            pass = pass && Inrange(mx2_epi0, 0.5, 2.0);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            pass = pass && Inrange(mx2_eppi0, -0.014, 0.010);
+            pass = pass && Inrange(mx2_ep_pi0, -0.185, 0.299);
+            pass = pass && Inrange(mx2_epi0, 0.522, 1.434);
+            pass = pass && Inrange(emiss_pi0, -0.219, 0.321);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 3.969);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.091);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.472);
+            pass = pass && Inrange(mass_pi0, 0.09, 0.178);
+            //pass = Inrange(mass_pi0, 0.12, 0.15);
+            //pass = pass && Inrange(emiss_pi0, -0.5, 0.3);
+            //pass = pass && Inrange(ptmiss_pi0, 0.0, 0.15);
+            //pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            //pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            //pass = pass && Inrange(mx2_eppi0, -0.03, 0.03);
+            //pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.3);
+            //pass = pass && Inrange(mx2_epi0, 0.0, 1.5);
           } else if (pho_det_region == 1 && pho2_det_region == 1 && pro_det_region ==1) {
-            pass = Inrange(mass_pi0, 0.1, 0.16);
-            pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            pass = Inrange(Theta_epho1, 20.0, 999.0);
+            pass = pass && Inrange(Theta_epho2, 10.0, 999.0);
+            pass = pass && Inrange(Theta_pho1pho2, 2.0, 999.0);
             pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
-            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
-            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
-            pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
-            pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
-            pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
+            pass = pass && Inrange(mx2_eppi0, -0.019, 0.017);
+            pass = pass && Inrange(mx2_ep_pi0, -0.203, 0.401);
+            pass = pass && Inrange(mx2_epi0, 0.458, 1.598);
+            pass = pass && Inrange(emiss_pi0, -0.3, 0.544);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.796);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.149);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 2.107);
+            pass = pass && Inrange(mass_pi0, 0.113, 0.153);
+            //pass = Inrange(mass_pi0, 0.1, 0.16);
+            //pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            //pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            //pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            //pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            //pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
+            //pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
+            //pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
           } else if (pho_det_region == 1 && pho2_det_region == 1 && pro_det_region ==2) {
-            pass = Inrange(mass_pi0, 0.11, 0.15);
-            pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            pass = Inrange(Theta_epho1, 10.0, 999.0);
+            pass = pass && Inrange(Theta_epho2, 10.0, 999.0);
+            pass = pass && Inrange(Theta_pho1pho2, 3.0, 999.0);
             pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
-            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
-            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
-            pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
-            pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
-            pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
+            pass = pass && Inrange(mx2_eppi0, -0.017, 0.015);
+            pass = pass && Inrange(mx2_ep_pi0, -0.165, 0.351);
+            pass = pass && Inrange(mx2_epi0, 0.324, 1.696);
+            pass = pass && Inrange(emiss_pi0, -0.383, 0.565);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 8.065);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.120);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 2.051);
+            pass = pass && Inrange(mass_pi0, 0.114, 0.154);
+            //pass = Inrange(mass_pi0, 0.11, 0.15);
+            //pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            //pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            //pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            //pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            //pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
+            //pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
+            //pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
           }
-          //pass = true;
         }
         return pass;
       },
-      {"hasrecpho2", "Mass_pi0", "Mx2_eppi0", "Emiss_pi0", "Mx2_ep_pi0", "Mx2_epi0", "PTmiss_pi0", "Theta_pi0pi0", "DeltaPhi_pi0","pho_det_region","pho2_det_region", "recpho_p", "recpho2_p", "pro_det_region","Q2","t","W"});
+      {"hasrecpho2", "Mass_pi0", "Mx2_eppi0", "Emiss_pi0", "Mx2_ep_pi0", "Mx2_epi0", "PTmiss_pi0", "Theta_pi0pi0", "DeltaPhi_pi0","pho_det_region","pho2_det_region", "recpho_p", "recpho2_p", "pro_det_region","Q2","t","W", "Theta_epho1", "Theta_epho2", "Theta_pho1pho2"});
+}
+
+ROOT::RDF::RNode DefineGenDVPi0Pass(ROOT::RDF::RNode df){
+  return df.Define("DVPi0_pass",
+      [](bool& haspho2, double& mass_pi0, double& mx2_eppi0, double& emiss_pi0, double& mx2_ep_pi0, double& mx2_epi0, double& ptmiss_pi0, double& theta_pi0pi0, double& deltaphi_pi0,
+              int& pho_det_region, int& pho2_det_region, double& recpho_p, double& recpho2_p, int& pro_det_region,
+              double& Q2, double& t, double& W,
+              double& Theta_epho1, double& Theta_epho2, double& Theta_pho1pho2) {
+        bool pass = false;
+        if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
+          if (pho_det_region == 0 && pho2_det_region == 0 && pro_det_region ==2) {
+            pass = Inrange(emiss_pi0, -0.4, 0.4);
+            pass = pass && Inrange(mx2_epi0, 0.5, 2.0);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            pass = pass && Inrange(mx2_eppi0, -0.007, 0.005);
+            pass = pass && Inrange(mx2_ep_pi0, -0.126, 0.174);
+            pass = pass && Inrange(mx2_epi0, 0.578, 1.214);
+            pass = pass && Inrange(emiss_pi0, -0.180, 0.192);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 1.590);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.044);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 0.689);
+            pass = pass && Inrange(mass_pi0, 0.130, 0.142);
+            //pass = Inrange(mass_pi0, 0.12, 0.15);
+            //pass = pass && Inrange(emiss_pi0, -0.5, 0.3);
+            //pass = pass && Inrange(ptmiss_pi0, 0.0, 0.15);
+            //pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            //pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            //pass = pass && Inrange(mx2_eppi0, -0.03, 0.03);
+            //pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.3);
+            //pass = pass && Inrange(mx2_epi0, 0.0, 1.5);
+          } else if (pho_det_region == 1 && pho2_det_region == 1 && pro_det_region ==1) {
+            pass = Inrange(Theta_epho1, 20.0, 999.0);
+            pass = pass && Inrange(Theta_epho2, 10.0, 999.0);
+            pass = pass && Inrange(Theta_pho1pho2, 2.0, 999.0);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            pass = pass && Inrange(mx2_eppi0, -0.016, 0.012);
+            pass = pass && Inrange(mx2_ep_pi0, -0.190, 0.306);
+            pass = pass && Inrange(mx2_epi0, 0.369, 1.417);
+            pass = pass && Inrange(emiss_pi0, -0.365, 0.399);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 6.577);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.129);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.538);
+            pass = pass && Inrange(mass_pi0, 0.117, 0.153);
+            //pass = Inrange(mass_pi0, 0.1, 0.16);
+            //pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            //pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            //pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            //pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            //pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
+            //pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
+            //pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
+          } else if (pho_det_region == 1 && pho2_det_region == 1 && pro_det_region ==2) {
+            pass = Inrange(Theta_epho1, 10.0, 999.0);
+            pass = pass && Inrange(Theta_epho2, 10.0, 999.0);
+            pass = pass && Inrange(Theta_pho1pho2, 3.0, 999.0);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            pass = pass && Inrange(mx2_eppi0, -0.011, 0.009);
+            pass = pass && Inrange(mx2_ep_pi0, -0.131, 0.209);
+            pass = pass && Inrange(mx2_epi0, 0.315, 1.515);
+            pass = pass && Inrange(emiss_pi0, -0.374, 0.422);
+            pass = pass && Inrange(deltaphi_pi0, 0.0, 5.012);
+            pass = pass && Inrange(ptmiss_pi0, 0.0, 0.093);
+            pass = pass && Inrange(theta_pi0pi0, 0.0, 1.241);
+            pass = pass && Inrange(mass_pi0, 0.117, 0.153);
+            //pass = Inrange(mass_pi0, 0.11, 0.15);
+            //pass = pass && Inrange(emiss_pi0, -0.4, 0.4);
+            //pass = pass && Inrange(ptmiss_pi0, 0.0, 0.2);
+            //pass = pass && Inrange(theta_pi0pi0, 0.0, 1.5);
+            //pass = pass && Inrange(deltaphi_pi0, 0.0, 8.0);
+            //pass = pass && Inrange(mx2_eppi0, -0.02, 0.02);
+            //pass = pass && Inrange(mx2_ep_pi0, -0.2, 0.2);
+            //pass = pass && Inrange(mx2_epi0, 0.5, 1.5);
+          }
+        }
+        return pass;
+      },
+      {"hasrecpho2", "Mass_pi0", "Mx2_eppi0", "Emiss_pi0", "Mx2_ep_pi0", "Mx2_epi0", "PTmiss_pi0", "Theta_pi0pi0", "DeltaPhi_pi0","pho_det_region","pho2_det_region", "recpho_p", "recpho2_p", "pro_det_region","Q2","t","W", "Theta_epho1", "Theta_epho2", "Theta_pho1pho2"});
 }
 
 ROOT::RDF::RNode ApplyFinalDVPi0Selections(ROOT::RDF::RNode df) {
@@ -642,6 +757,18 @@ ROOT::RDF::RNode ApplyFinalDVPi0Selections(ROOT::RDF::RNode df) {
   //    .Filter("W > 2.0", "Cut: W > 1.8 GeV");
       //.Filter("phi > 100.0 && phi < 300 ", "Cut: phi")
   df = DefineDVPi0Pass(df);
+  return df.Filter("DVPi0_pass", "Cut: DVPi0 event selection");
+}
+
+ROOT::RDF::RNode ApplyFinalGenDVPi0Selections(ROOT::RDF::RNode df) {
+  //df = df.Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
+  //    .Filter("t < 1.0", "Cut: t < 1 GeV^2")
+      //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
+
+      // 5. W > 2
+  //    .Filter("W > 2.0", "Cut: W > 1.8 GeV");
+      //.Filter("phi > 100.0 && phi < 300 ", "Cut: phi")
+  df = DefineGenDVPi0Pass(df);
   return df.Filter("DVPi0_pass", "Cut: DVPi0 event selection");
 }
 
