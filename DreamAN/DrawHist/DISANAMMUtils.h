@@ -413,7 +413,46 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                        float E = E1 + E2;
                        return std::sqrt(E * E - (px * px + py * py + pz * pz));
                      },
-                     {"kPlus_px", "kPlus_py", "kPlus_pz", "kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz"});
+                     {"kPlus_px", "kPlus_py", "kPlus_pz", "kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz"})
+                                                // p–K⁻ invariant mass
+             .Define("invMass_pKminus",
+                     [](float p_px, float p_py, float p_pz,
+                        float k_px, float k_py, float k_pz) -> float {
+                       constexpr float mP = 0.938272f;  // Proton mass in GeV/c²
+                       constexpr float mK = 0.493677f;  // Kaon mass in GeV/c²
+
+                       float E_p = std::sqrt(p_px * p_px + p_py * p_py + p_pz * p_pz + mP * mP);
+                       float E_k = std::sqrt(k_px * k_px + k_py * k_py + k_pz * k_pz + mK * mK);
+
+                       float px = p_px + k_px;
+                       float py = p_py + k_py;
+                       float pz = p_pz + k_pz;
+                       float E  = E_p + E_k;
+
+                       return std::sqrt(E * E - (px * px + py * py + pz * pz));
+                     },
+                     {"pro_px", "pro_py", "pro_pz",
+                      "kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz"})
+
+             // p–K⁺ invariant mass
+             .Define("invMass_pKplus",
+                     [](float p_px, float p_py, float p_pz,
+                        float k_px, float k_py, float k_pz) -> float {
+                       constexpr float mP = 0.938272f;  // Proton mass in GeV/c²
+                       constexpr float mK = 0.493677f;  // Kaon mass in GeV/c²
+
+                       float E_p = std::sqrt(p_px * p_px + p_py * p_py + p_pz * p_pz + mP * mP);
+                       float E_k = std::sqrt(k_px * k_px + k_py * k_py + k_pz * k_pz + mK * mK);
+
+                       float px = p_px + k_px;
+                       float py = p_py + k_py;
+                       float pz = p_pz + k_pz;
+                       float E  = E_p + E_k;
+
+                       return std::sqrt(E * E - (px * px + py * py + pz * pz));
+                     },
+                     {"pro_px", "pro_py", "pro_pz",
+                      "kPlus_px", "kPlus_py", "kPlus_pz"});
   // φ mass built from missing K+ and measured K-
   // DISANAMath-driven observables
 *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
@@ -440,6 +479,8 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "Mx2_eKpKm", &DISANAMath::GetMx2_eKpKm, beam_energy);
   *df_ = define_DISCAT(*df_, "Mx2_epKm", &DISANAMath::GetMx2_epKm, beam_energy);
   *df_ = define_DISCAT(*df_, "Mx2_epKp", &DISANAMath::GetMx2_epKp, beam_energy);
+  *df_ = define_DISCAT(*df_, "Mx2_eKp", &DISANAMath::GetMx2_eKp, beam_energy);
+  *df_ = define_DISCAT(*df_, "Mx_eKp",&DISANAMath::GetMx_eKp, beam_energy);
   *df_ = define_DISCAT(*df_, "DeltaPhi", &DISANAMath::GetDeltaPhi, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_g_phimeson", &DISANAMath::GetTheta_g_phimeson, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_e_phimeson", &DISANAMath::GetTheta_e_phimeson, beam_energy);
@@ -447,6 +488,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "Cone_p", &DISANAMath::GetCone_p, beam_energy);
   *df_ = define_DISCAT(*df_, "Cone_Kp", &DISANAMath::GetCone_Kp, beam_energy);
   *df_ = define_DISCAT(*df_, "Cone_Km", &DISANAMath::GetCone_Km, beam_energy);
+  *df_ = define_DISCAT(*df_, "z_phi", &DISANAMath::GetZ_phi, beam_energy);
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
   return *df_;
 }
@@ -701,7 +743,46 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                        float E = E1 + E2;
                        return std::sqrt(E * E - (px * px + py * py + pz * pz));
                      },
-                     {"kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz", "kMinus_px", "kMinus_py", "kMinus_pz"});
+                     {"kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz", "kMinus_px", "kMinus_py", "kMinus_pz"})
+                           // p–K⁻ invariant mass
+             .Define("invMass_pKminus",
+                     [](float p_px, float p_py, float p_pz,
+                        float k_px, float k_py, float k_pz) -> float {
+                       constexpr float mP = 0.938272f;  // Proton mass in GeV/c²
+                       constexpr float mK = 0.493677f;  // Kaon mass in GeV/c²
+
+                       float E_p = std::sqrt(p_px * p_px + p_py * p_py + p_pz * p_pz + mP * mP);
+                       float E_k = std::sqrt(k_px * k_px + k_py * k_py + k_pz * k_pz + mK * mK);
+
+                       float px = p_px + k_px;
+                       float py = p_py + k_py;
+                       float pz = p_pz + k_pz;
+                       float E  = E_p + E_k;
+
+                       return std::sqrt(E * E - (px * px + py * py + pz * pz));
+                     },
+                     {"pro_px", "pro_py", "pro_pz",
+                      "kMinus_px", "kMinus_py", "kMinus_pz"})
+
+             // p–K⁺ invariant mass
+             .Define("invMass_pKplus",
+                     [](float p_px, float p_py, float p_pz,
+                        float k_px, float k_py, float k_pz) -> float {
+                       constexpr float mP = 0.938272f;  // Proton mass in GeV/c²
+                       constexpr float mK = 0.493677f;  // Kaon mass in GeV/c²
+
+                       float E_p = std::sqrt(p_px * p_px + p_py * p_py + p_pz * p_pz + mP * mP);
+                       float E_k = std::sqrt(k_px * k_px + k_py * k_py + k_pz * k_pz + mK * mK);
+
+                       float px = p_px + k_px;
+                       float py = p_py + k_py;
+                       float pz = p_pz + k_pz;
+                       float E  = E_p + E_k;
+
+                       return std::sqrt(E * E - (px * px + py * py + pz * pz));
+                     },
+                     {"pro_px", "pro_py", "pro_pz",
+                      "kPlus_px", "kPlus_py", "kPlus_pz"});
   // φ mass built from missing K+ and measured K-
   // DISANAMath-driven observables
 *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
@@ -728,6 +809,8 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "Mx2_eKpKm", &DISANAMath::GetMx2_eKpKm, beam_energy);
   *df_ = define_DISCAT(*df_, "Mx2_epKm", &DISANAMath::GetMx2_epKm, beam_energy);
   *df_ = define_DISCAT(*df_, "Mx2_epKp", &DISANAMath::GetMx2_epKp, beam_energy);
+  *df_ = define_DISCAT(*df_, "Mx2_eKp", &DISANAMath::GetMx2_eKp, beam_energy);
+  *df_ = define_DISCAT(*df_, "Mx_eKp",&DISANAMath::GetMx_eKp, beam_energy);
   *df_ = define_DISCAT(*df_, "DeltaPhi", &DISANAMath::GetDeltaPhi, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_g_phimeson", &DISANAMath::GetTheta_g_phimeson, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_e_phimeson", &DISANAMath::GetTheta_e_phimeson, beam_energy);
@@ -735,6 +818,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "Cone_p", &DISANAMath::GetCone_p, beam_energy);
   *df_ = define_DISCAT(*df_, "Cone_Kp", &DISANAMath::GetCone_Kp, beam_energy);
   *df_ = define_DISCAT(*df_, "Cone_Km", &DISANAMath::GetCone_Km, beam_energy);
+  *df_ = define_DISCAT(*df_, "z_phi", &DISANAMath::GetZ_phi, beam_energy);
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
   return *df_;
 }
@@ -988,6 +1072,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                        return -1;
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+
              .Define("invMass_KpKm",
                      [](float px1, float py1, float pz1, float px2, float py2, float pz2) -> float {
                        constexpr float mK = 0.493677;  // Kaon mass in GeV/c²
@@ -999,7 +1084,46 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                        float E = E1 + E2;
                        return std::sqrt(E * E - (px * px + py * py + pz * pz));
                      },
-                     {"kPlus_px", "kPlus_py", "kPlus_pz", "kMinus_px", "kMinus_py", "kMinus_pz"});
+                     {"kPlus_px", "kPlus_py", "kPlus_pz", "kMinus_px", "kMinus_py", "kMinus_pz"})
+                                                // p–K⁻ invariant mass
+             .Define("invMass_pKminus",
+                     [](float p_px, float p_py, float p_pz,
+                        float k_px, float k_py, float k_pz) -> float {
+                       constexpr float mP = 0.938272f;  // Proton mass in GeV/c²
+                       constexpr float mK = 0.493677f;  // Kaon mass in GeV/c²
+
+                       float E_p = std::sqrt(p_px * p_px + p_py * p_py + p_pz * p_pz + mP * mP);
+                       float E_k = std::sqrt(k_px * k_px + k_py * k_py + k_pz * k_pz + mK * mK);
+
+                       float px = p_px + k_px;
+                       float py = p_py + k_py;
+                       float pz = p_pz + k_pz;
+                       float E  = E_p + E_k;
+
+                       return std::sqrt(E * E - (px * px + py * py + pz * pz));
+                     },
+                     {"pro_px", "pro_py", "pro_pz",
+                      "kMinus_px", "kMinus_py", "kMinus_pz"})
+
+             // p–K⁺ invariant mass
+             .Define("invMass_pKplus",
+                     [](float p_px, float p_py, float p_pz,
+                        float k_px, float k_py, float k_pz) -> float {
+                       constexpr float mP = 0.938272f;  // Proton mass in GeV/c²
+                       constexpr float mK = 0.493677f;  // Kaon mass in GeV/c²
+
+                       float E_p = std::sqrt(p_px * p_px + p_py * p_py + p_pz * p_pz + mP * mP);
+                       float E_k = std::sqrt(k_px * k_px + k_py * k_py + k_pz * k_pz + mK * mK);
+
+                       float px = p_px + k_px;
+                       float py = p_py + k_py;
+                       float pz = p_pz + k_pz;
+                       float E  = E_p + E_k;
+
+                       return std::sqrt(E * E - (px * px + py * py + pz * pz));
+                     },
+                     {"pro_px", "pro_py", "pro_pz",
+                      "kPlus_px", "kPlus_py", "kPlus_pz"});
 
 
   // DISANAMath-driven observables
@@ -1029,6 +1153,8 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "Mx2_eKpKm", &DISANAMath::GetMx2_eKpKm, beam_energy);
   *df_ = define_DISCAT(*df_, "Mx2_epKm", &DISANAMath::GetMx2_epKm, beam_energy);
   *df_ = define_DISCAT(*df_, "Mx2_epKp", &DISANAMath::GetMx2_epKp, beam_energy);
+  *df_ = define_DISCAT(*df_, "Mx2_eKp", &DISANAMath::GetMx2_eKp, beam_energy);
+  *df_ = define_DISCAT(*df_, "Mx_eKp",&DISANAMath::GetMx_eKp, beam_energy);
   *df_ = define_DISCAT(*df_, "DeltaPhi", &DISANAMath::GetDeltaPhi, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_g_phimeson", &DISANAMath::GetTheta_g_phimeson, beam_energy);
   *df_ = define_DISCAT(*df_, "Theta_e_phimeson", &DISANAMath::GetTheta_e_phimeson, beam_energy);
@@ -1036,6 +1162,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "Cone_p", &DISANAMath::GetCone_p, beam_energy);
   *df_ = define_DISCAT(*df_, "Cone_Kp", &DISANAMath::GetCone_Kp, beam_energy);
   *df_ = define_DISCAT(*df_, "Cone_Km", &DISANAMath::GetCone_Km, beam_energy);
+  *df_ = define_DISCAT(*df_, "z_phi", &DISANAMath::GetZ_phi, beam_energy);
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
   
   return *df_;
@@ -1052,7 +1179,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df,
     "ele_px_org","ele_py_org","ele_pz_org","recel_vz_org",
     "reckMinus_vz","kMinus_px","kMinus_py","kMinus_pz",
     "reckPlus_vz","kPlus_px","kPlus_py","kPlus_pz",
-    "pro_px","pro_py","pro_pz","recpro_vz",
+    "pro_px","pro_py","pro_pz","recpro_vz","REC_Event_helicity",
 
     // Run/event and counting
     "RunNumber","EventNumber","nElectrons","bestEle_idx",
@@ -1071,11 +1198,11 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df,
     "kMinus_det_region","kPlus_det_region","pro_det_region","ele_det_region_org",
 
     // Simple composites
-    "invMass_KpKm",
+    "invMass_KpKm", "invMass_pKminus", "invMass_pKplus",
 
     // DISANAMath-derived
-    "Q2","xB","t","cos_thetaKK","cos_phiKK", "tmin","mtprime","tprime","phi","W","nu","y",
-    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
+    "Q2","xB","t","cos_thetaKK","cos_phiKK", "tmin","mtprime","tprime","phi","W","nu","y", "z_phi",
+    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm","Mx2_eKp","Mx_eKp",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
     "Coplanarity_had_normals_deg"
@@ -1099,7 +1226,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKm(ROOT::RDF::RNode df,
     "REC_Particle_pid", "REC_Particle_pass",
     "ele_px_org","ele_py_org","ele_pz_org","recel_vz_org",
     "reckMinus_vz","reckPlus_vz","kPlus_px","kPlus_py","kPlus_pz",
-    "pro_px","pro_py","pro_pz","recpro_vz",
+    "pro_px","pro_py","pro_pz","recpro_vz","REC_Event_helicity",
 
     // Run/event and counting
     "RunNumber","EventNumber","nElectrons","bestEle_idx",
@@ -1118,11 +1245,11 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKm(ROOT::RDF::RNode df,
     "kMinus_det_region","kPlus_det_region","pro_det_region","ele_det_region_org",
 
     // Simple composites
-    "invMass_KpKm",
+    "invMass_KpKm", "invMass_pKminus", "invMass_pKplus",
 
     // DISANAMath-derived
-    "Q2","xB","t","tmin","cos_thetaKK","cos_phiKK","mtprime", "tprime","phi","W","nu","y",
-    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
+    "Q2","xB","t","tmin","cos_thetaKK","cos_phiKK","mtprime", "tprime","phi","W","nu","y","z_phi",
+    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm","Mx2_eKp","Mx_eKp",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
     "Coplanarity_had_normals_deg"
@@ -1145,7 +1272,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKp(ROOT::RDF::RNode df,
     "REC_Particle_pid", "REC_Particle_pass",
     "ele_px_org","ele_py_org","ele_pz_org","recel_vz_org",
     "reckMinus_vz","kMinus_px","kMinus_py","kMinus_pz",
-    "reckPlus_vz", "pro_px","pro_py","pro_pz","recpro_vz",
+    "reckPlus_vz", "pro_px","pro_py","pro_pz","recpro_vz","REC_Event_helicity",
 
     // Run/event and counting
     "RunNumber","EventNumber","nElectrons","bestEle_idx",
@@ -1164,11 +1291,11 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKp(ROOT::RDF::RNode df,
     "kMinus_det_region","kPlus_det_region","pro_det_region","ele_det_region_org",
 
     // Simple composites
-    "invMass_KpKm",
+    "invMass_KpKm", "invMass_pKminus", "invMass_pKplus",
 
     // DISANAMath-derived
-    "Q2","xB","t","tmin","cos_thetaKK","cos_phiKK","mtprime","tprime","phi","W","nu","y",
-    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm",
+    "Q2","xB","t","tmin","cos_thetaKK","cos_phiKK","mtprime","tprime","phi","W","nu","y", "z_phi",
+    "Mx2_ep","Emiss","PTmiss","Mx2_epKpKm","Mx2_eKpKm","Mx2_eKp","Mx_eKp",
     "Mx2_epKm","Mx2_epKp","DeltaPhi","Theta_g_phimeson",
     "Theta_e_phimeson","DeltaE","Cone_p","Cone_Kp","Cone_Km",
     "Coplanarity_had_normals_deg"
@@ -1212,4 +1339,116 @@ ROOT::RDF::RNode GetSlim_exclusive(ROOT::RDF::RNode src, const std::string& f, c
     std::cout << "Trimming the file " << std::endl;
     return WriteSlimAndReload_exclusive(src, f, t);
   }
+}
+//  Dump one line per event with 26 columns:
+//  1)  RunNumber
+//  2)  EventNumber
+//  3)  helicity state
+//  4–6)  electron   P, theta, phi (Lab)
+//  7–9)  proton     P, theta, phi (Lab)
+// 10–12) K+        P, theta, phi (Lab)
+// 13–15) K-        P, theta, phi (Lab)
+// 16–18) x_B, Q^2, W
+// 19)  phi* (Trento phi of the Phi)
+// 20)  cos(theta)  (K+ angle in Phi rest frame)
+// 21)  cos(varphi) (angle of decay plane)
+// 22)  cone angle between calculated and measured proton
+// 23)  missing mass of e' p X
+// 24)  missing mass of e' K+ K- X
+// 25)  t
+// 26)  t'
+ROOT::RDF::RNode DumpExclusiveTxt(ROOT::RDF::RNode df,
+                                  const std::string &outTxt)
+{
+  std::ofstream out(outTxt);
+  if (!out.is_open()) {
+    throw std::runtime_error("DumpExclusiveTxt: cannot open file " + outTxt);
+  }
+
+  // Header documenting all 26 columns
+  out << "# 1:RunNumber 2:EventNumber 3:Helicity "
+      << "4:ele_p 5:ele_theta 6:ele_phi "
+      << "7:pro_p 8:pro_theta 9:pro_phi "
+      << "10:Kp_p 11:Kp_theta 12:Kp_phi "
+      << "13:Km_p 14:Km_theta 15:Km_phi "
+      << "16:xB 17:Q2 18:W "
+      << "19:phi_star 20:cos_theta 21:cos_varphi "
+      << "22:cone_p 23:MM_ep 24:MM_eKpKm "
+      << "25:t 26:tprime"
+      << "MM_eKp\n";
+
+  df.Foreach(
+      [&](int run,          // RunNumber (int)
+          int evt,          // EventNumber (int)
+          Short_t hel,      // REC_Event_helicity (short)
+          double ele_p,     double ele_theta,     double ele_phi,
+          double pro_p,     double pro_theta,     double pro_phi,
+          double kp_p,      double kp_theta,      double kp_phi,
+          double km_p,      double km_theta,      double km_phi,
+          double xB,        double Q2,            double W,
+          double phi_trento,
+          double cos_theta_Kp,
+          double cos_phi_decay,
+          double cone_p,
+          double Mx2_ep,
+          double Mx2_eKpKm,
+          double t,
+          double tprime,
+          double Mx2_eKp) {
+
+        // 23–24: missing masses from squared values
+        const double MM_ep    = std::sqrt(std::max(0.0, Mx2_ep));
+        const double MM_eKpKm = std::sqrt(std::max(0.0, Mx2_eKpKm));
+        const double MM_eKp = std::sqrt(std::max(0.0, Mx2_eKp));
+
+        out << run << ' '           // 1
+            << evt << ' '           // 2
+            << hel << ' '           // 3
+            << ele_p << ' '         // 4
+            << ele_theta << ' '     // 5
+            << ele_phi << ' '       // 6
+            << pro_p << ' '         // 7
+            << pro_theta << ' '     // 8
+            << pro_phi << ' '       // 9
+            << kp_p  << ' '         // 10
+            << kp_theta  << ' '     // 11
+            << kp_phi  << ' '       // 12
+            << km_p  << ' '         // 13
+            << km_theta  << ' '     // 14
+            << km_phi  << ' '       // 15
+            << xB << ' '            // 16
+            << Q2 << ' '            // 17
+            << W << ' '             // 18
+            << phi_trento << ' '    // 19
+            << cos_theta_Kp << ' '  // 20
+            << cos_phi_decay << ' ' // 21
+            << cone_p << ' '        // 22
+            << MM_ep << ' '         // 23
+            << MM_eKpKm << ' '      // 24
+            << t << ' '             // 25
+            << tprime << ' '        // 26
+            << MM_eKp << ' '      // 27 
+            << '\n';
+      },
+      {
+        "RunNumber",               // 1
+        "EventNumber",             // 2
+        "REC_Event_helicity",      // 3
+        "recel_p", "recel_theta", "recel_phi",          // 4–6
+        "recpro_p", "recpro_theta", "recpro_phi",       // 7–9
+        "reckPlus_p", "reckPlus_theta", "reckPlus_phi", // 10–12
+        "reckMinus_p", "reckMinus_theta", "reckMinus_phi", // 13–15
+        "xB", "Q2", "W",                                // 16–18
+        "phi",                 // 19: phi* (Trento)
+        "cos_thetaKK",         // 20: cos(theta)
+        "cos_phiKK",           // 21: cos(varphi)
+        "Cone_p",              // 22: cone angle (p)
+        "Mx2_ep",              // 23: MM^2(e' p X)
+        "Mx2_eKpKm",           // 24: MM^2(e' K+K- X)
+        "t",                   // 25
+        "tprime",               // 26
+        "Mx2_eKp" 
+      });
+
+  return df;
 }

@@ -1,0 +1,6 @@
+# dataset  total_charge_nC
+rgasp18_inb  0.0
+rgasp18_outb  1.7447073374328613E7
+rgafall18_inb  231169.1686233962
+rgafall18_outb  396374.05838776194
+rgasp19_inb  312863.5809284523

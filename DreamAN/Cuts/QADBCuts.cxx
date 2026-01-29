@@ -119,9 +119,21 @@ void QADBCuts::ResetAccumulatedCharge() {
   GetQADB().ResetAccumulatedCharge();
 }
 
-// ---------- functor implementation ----------
-
-bool QADBCuts::operator()(int run, int ev) const { return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev); }
+// ---------- FIXED functor implementation ----------
+// Now handles vectors from hipo2root - takes first element
+bool QADBCuts::operator()(const std::vector<int>& run_vec, const std::vector<int>& ev_vec) const {
+  // Handle empty vectors - return false (reject event)
+  if (run_vec.empty() || ev_vec.empty()) {
+    return false;
+  }
+  
+  // Extract first element from each vector
+  int run = run_vec[0];
+  int ev = ev_vec[0];
+  
+  // Use existing logic
+  return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev);
+}
 
 // ---------- free helper ----------
 

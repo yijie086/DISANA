@@ -1141,7 +1141,7 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
 
   // phi analysis
   /// For exclusivity cuts, you can use the following function to select one triplet
-  void PlotPhiAnaExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
+  /*void PlotPhiAnaExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
     std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
         {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.8, 1.3},
         {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.07, 0.07},
@@ -1231,6 +1231,29 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
       std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
       delete canvas;
     }
+  };*/
+
+  void PlotPhiAnaExclusivityComparisonByDetectorCases(
+    const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
+  std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
+      {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.8, 1.3},
+      {"Emiss", "Missing Energy", "E_{miss} [GeV]", -1.0, 2.0},
+      {"PTmiss", "Transverse Missing Momentum", "P_{T}^{miss} [GeV/c]", -0.1, 0.5},
+      {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.07, 0.07},
+      {"Mx2_eKpKm", "Invariant Mass Squared (eK^{+}K^{-})", "M^{2}(eK^{+}K^{-}) [GeV^{2}]", -0.5, 3.0},
+      {"Mx2_epKm", "Missing Mass Squared (epK^{-})", "MM^{2}(epK^{-}) [GeV^{2}]", -0.5, 1.5},
+      {"Mx2_epKp", "Missing Mass Squared (epK^{+})", "MM^{2}(epK^{+}) [GeV^{2}]", -0.5, 1.5},
+      {"DeltaPhi", "Coplanarity Angle", "#Delta#phi [deg]", 0.0, 20.0},
+      {"Theta_g_phimeson", "Angle: #gamma - #phi", "#theta(#gamma, #phi) [deg]", 0.0, 10.0},
+      {"Theta_e_phimeson", "Angle: e - #phi", "#theta(e, #phi) [deg]", 0.0, 60.0},
+      {"DeltaE", "Energy Difference", "#DeltaE [GeV]", -1.0, 1.0},
+      {"Cone_p", "Cone Angle (p)", "Cone(p) [deg]", 0.0, 20.0},
+      {"Cone_Kp", "Cone Angle (K^{+})", "Cone(K^{+}) [deg]", 0.0, 20.0},
+      {"Cone_Km", "Cone Angle (K^{-})", "Cone(K^{-}) [deg]", 0.0, 20.0},
+      {"Coplanarity_had_normals_deg", "Coplanarity of Hadronic Normals", "Coplanarity_{had} [deg]", 0.0, 20.0},
+
+      // New: Missing mass of eK+
+      {"Mx_eKp", "Missing Mass (eK^{+})", "MM(eK^{+}) [GeV]", 0.0, 4.0}
   };
 
   void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false, bool plotEffCorr = false, bool plotRadCorr = false, bool plotP1Cut = false, bool meanKinVar = false) {
@@ -1602,6 +1625,20 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
       delete c;
     }
   }
+    // === Add to DISANAcomparer (public): =========================
+  void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
+                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiInvMassPerBin] no models.\n";
+      return;
+    }
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      std::cout << "→ Fitting/drawing per-bin K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << std::endl;
+      (void)plotters[i]->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac,branching);
+    }
+  }
 
   void PlotPhiDSigmaDt_FromCache(bool logy = true) {
     if (plotters.empty()) return;
@@ -1710,21 +1747,443 @@ void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
         delete c;
       }
     }
-  }
-  // === Add to DISANAcomparer (public): =========================
-  void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
-                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0) {
+  };
+// === NEW: A_LU(cos(theta_KK)) workflow (mirrors inv-mass fits + cached dσ/dt pattern) ===
+  void PlotPhiALUCosThetaPerBin_AllModels(const std::string& baseOutDir = "PhiALUCosThetaFits",
+                                         int nMassBins = 200,
+                                         double mMin = 0.9874,
+                                         double mMax = 1.120,
+                                         bool constrainSigma = true,
+                                         double sigmaRef = 0.004,
+                                         double sigmaFrac = 0.30,
+                                         double beamPol = 1.0) {
     if (plotters.empty()) {
-      std::cerr << "[PlotPhiInvMassPerBin] no models.\n";
+      std::cerr << "[PlotPhiALUCosThetaPerBin] no models.\n";
       return;
     }
     gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
     for (size_t i = 0; i < plotters.size(); ++i) {
       const std::string subdir = baseOutDir + "/" + labels[i];
-      std::cout << "→ Fitting/drawing per-bin K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << std::endl;
-      (void)plotters[i]->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac,branching);
+      std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per cos(theta_KK) bin for model: "
+                << labels[i] << " → " << subdir << std::endl;
+      plotters[i]->MakePhiBSAMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax,
+                                                  constrainSigma, sigmaRef, sigmaFrac, beamPol);
     }
   }
+  void PlotPhiALUCosTheta_FromCache(const std::string& outDir = "PhiALUCosTheta") {
+    if (plotters.empty()) return;
+
+    const std::string outBase = outputDir + "/" + outDir;
+    gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w  = fXbins.GetWBins();
+    const bool hasW = !w.empty();
+
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_alu_costh_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
+
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
+
+        double yAbsMax = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiALUCosTheta3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
+        }
+        yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+
+        const TString head = hasW
+            ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq+1], w[iw], w[iw+1])
+            : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq+1]);
+
+        bool first = true;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiALUCosTheta3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("cos#theta_{K^{+}K^{-}}");
+          h->GetYaxis()->SetTitle("A_{LU}");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          h->GetYaxis()->SetRangeUser(-yAbsMax*2.0, yAbsMax*2.0);
+
+          if (first) {
+            h->Draw("E1X0");
+            TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
+            z.SetLineStyle(2);
+            z.SetLineWidth(2);
+            z.Draw("SAME");
+
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+            h->Draw("E1X0 SAME");
+          }
+
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
+        }
+
+        leg->Draw();
+        c->Update();
+
+        TString out = hasW
+            ? Form("%s/BSA_vs_CosKK_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw)
+            : Form("%s/BSA_vs_CosKK_Q%zu.pdf", outBase.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
+      }
+    }
+  }
+
+void PlotPhiBSATrentoPhiPerBin_AllModels(const std::string& baseOutDir = "PhiBSATrentoPhiFits",
+                                        int nMassBins = 200,
+                                        double mMin = 0.9874,
+                                        double mMax = 1.120,
+                                        bool constrainSigma = true,
+                                        double sigmaRef = 0.004,
+                                        double sigmaFrac = 0.30,
+                                        double beamPol = 1.0)
+{
+  if (plotters.empty()) {
+    std::cerr << "[PlotPhiBSATrentoPhiPerBin] no models.\n";
+    return;
+  }
+
+  gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+  for (size_t i = 0; i < plotters.size(); ++i) {
+    const std::string subdir = baseOutDir + "/" + labels[i];
+    std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per Trento-phi bin for model: "
+              << labels[i] << " → " << subdir << std::endl;
+
+    plotters[i]->MakePhiBSATrentoPhiMassFitCanvases3D(
+        fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
+  }
+}
+
+  void PlotPhiBSATrentoPhi_FromCache(const std::string& outDir = "PhiBSATrentoPhi") {
+    if (plotters.empty()) return;
+
+    const std::string outBase = outputDir + "/" + outDir;
+    gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w  = fXbins.GetWBins();
+    const bool hasW = !w.empty();
+
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_bsa_trentophi_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
+
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
+
+        double yAbsMax = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiBSATrentoPhi3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
+        }
+        yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+
+        const TString head = hasW
+            ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq+1], w[iw], w[iw+1])
+            : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq+1]);
+
+        bool first = true;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiBSATrentoPhi3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("#phi_{Trento} [deg]");
+          h->GetYaxis()->SetTitle("A_{LU}");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          h->GetYaxis()->SetRangeUser(-0.750, 0.750);
+
+          if (first) {
+            h->Draw("E1X0");
+            TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
+            z.SetLineStyle(2);
+            z.SetLineWidth(2);
+            z.Draw("SAME");
+
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+            h->Draw("E1X0 SAME");
+          }
+
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
+        }
+
+        leg->Draw();
+        c->Update();
+
+        TString out = hasW
+            ? Form("%s/BSA_vs_trentoPhi_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw)
+            : Form("%s/BSA_vs_trentoPhi_Q%zu.pdf", outBase.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
+      }
+    }
+  }
+
+  // === NEW: A_LU(z_phi) workflow, analogous to cos(theta_KK) ===
+void PlotPhiALUZPhiPerBin_AllModels(const std::string& baseOutDir = "PhiALUZPhiFits",
+                                    int    nMassBins      = 200,
+                                    double mMin           = 0.9874,
+                                    double mMax           = 1.120,
+                                    bool   constrainSigma = true,
+                                    double sigmaRef       = 0.004,
+                                    double sigmaFrac      = 0.30,
+                                    double beamPol        = 1.0) {
+  if (plotters.empty()) {
+    std::cerr << "[PlotPhiALUZPhiPerBin_AllModels] no models.\n";
+    return;
+  }
+
+  gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+
+  for (size_t i = 0; i < plotters.size(); ++i) {
+    const std::string subdir = baseOutDir + "/" + labels[i];
+    std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per z_phi bin for model: "
+              << labels[i] << " → " << subdir << std::endl;
+
+    plotters[i]->MakePhiALUZPhiMassFitCanvases3D(fXbins,
+                                                 subdir,
+                                                 nMassBins,
+                                                 mMin, mMax,
+                                                 constrainSigma,
+                                                 sigmaRef, sigmaFrac,
+                                                 beamPol);
+  }
+}
+
+void PlotPhiALUZPhi_FromCache(const std::string& outDir = "PhiALUZPhi") {
+  if (plotters.empty()) return;
+
+  const std::string outBase = outputDir + "/" + outDir;
+  gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+
+  const auto& q2   = fXbins.GetQ2Bins();
+  const auto& w    = fXbins.GetWBins();
+  const bool  hasW = !w.empty();
+
+  const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+  const size_t nW = hasW ? (w.size() - 1) : 1;
+
+  for (size_t iq = 0; iq < nQ; ++iq) {
+    for (size_t iw = 0; iw < nW; ++iw) {
+      auto c = new TCanvas(Form("c_phi_alu_zphi_Q%zu_W%zu", iq, iw), "", 1200, 900);
+      styleCrossSection_.StylePad((TPad*)gPad);
+      gPad->SetFillStyle(4000);
+      gPad->SetTicks(1, 1);
+
+      TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+      leg->SetBorderSize(0);
+      leg->SetFillStyle(0);
+      leg->SetTextSize(0.035);
+
+      double yAbsMax = 0.0;
+      for (size_t im = 0; im < plotters.size(); ++im) {
+        const auto& alu3D = plotters[im]->GetPhiALUZPhi3D();
+        if (iq >= alu3D.size() || iw >= alu3D[iq].size()) continue;
+        TH1D* h = alu3D[iq][iw];
+        if (!h) continue;
+        yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
+        yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
+      }
+      yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+
+      const TString head = hasW
+          ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]",
+                 q2[iq], q2[iq+1], w[iw], w[iw+1])
+          : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq+1]);
+
+      bool first = true;
+
+      for (size_t im = 0; im < plotters.size(); ++im) {
+        const auto& alu3D = plotters[im]->GetPhiALUZPhi3D();
+        if (iq >= alu3D.size() || iw >= alu3D[iq].size()) continue;
+        TH1D* h = alu3D[iq][iw];
+        if (!h) continue;
+
+        styleCrossSection_.StyleTH1(h);
+        auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+        const int colorIdx = 4000 + int(im) * 20;
+        if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+        h->SetLineColor(colorIdx);
+        h->SetMarkerColor(colorIdx);
+        h->SetMarkerStyle(20);
+        h->SetMarkerSize(1.0);
+        h->SetLineWidth(1);
+
+        h->SetTitle("");
+        h->GetXaxis()->SetTitle("z_{#phi}");
+        h->GetYaxis()->SetTitle("A_{LU}");
+        h->GetXaxis()->CenterTitle(true);
+        h->GetYaxis()->CenterTitle(true);
+        h->GetXaxis()->SetNdivisions(505);
+        h->GetYaxis()->SetNdivisions(510);
+        h->GetYaxis()->SetRangeUser(-yAbsMax, yAbsMax);
+
+        if (first) {
+          h->Draw("E1X0");
+          TLine z(h->GetXaxis()->GetXmin(), 0.0,
+                  h->GetXaxis()->GetXmax(), 0.0);
+          z.SetLineStyle(2);
+          z.SetLineWidth(2);
+          z.Draw("SAME");
+
+          TLatex latex;
+          latex.SetNDC();
+          latex.SetTextFont(42);
+          latex.SetTextSize(0.040);
+          latex.DrawLatex(0.14, 0.93, head);
+        } else {
+          h->Draw("E1X0 SAME");
+        }
+
+        leg->AddEntry(h, labels[im].c_str(), "lep");
+        first = false;
+      }
+
+      leg->Draw();
+      c->Update();
+
+      TString out = hasW
+          ? Form("%s/ALU_vs_zphi_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw)
+          : Form("%s/ALU_vs_zphi_Q%zu.pdf",       outBase.c_str(), iq);
+      c->SaveAs(out);
+
+      delete leg;
+      delete c;
+    }
+  }
+}
+
+// === A_LU^{sin(phi_Trento)}(cos(theta_KK)) using the moment method ===
+// Uses the invariant-mass window [mMin, mMax] instead of mass fits.
+void PlotPhiALUCosThetaPerBin_AllModels_SinPhiMoment(
+    const std::string& baseOutDir = "PhiALUCosTheta_SinPhiMoment",
+    double mMin = 0.9874,
+    double mMax = 1.120,
+    double beamPol = 1.0)
+{
+  if (plotters.empty()) {
+    std::cerr << "[PlotPhiALUCosThetaPerBin_AllModels_SinPhiMoment] no models.\n";
+    return;
+  }
+
+  gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+
+  for (size_t i = 0; i < plotters.size(); ++i) {
+    const std::string subdir = baseOutDir + "/" + labels[i];
+
+    std::cout << "→ Computing A_{LU}^{sin#phi}(cos#theta_{KK}) via sin(phi_Trento) moment "
+              << "in m(K^{+}K^{-}) ∈ [" << mMin << ", " << mMax << "]"
+              << " for model: " << labels[i]
+              << " → " << subdir << std::endl;
+
+    plotters[i]->MakePhiALUCosThetaSinPhiMoment3D(
+        fXbins, subdir, mMin, mMax, beamPol);
+  }
+}
+
+// A_LU(cos(theta_KK)) using a fit A*sin(phi)/(1 + b cos(phi))
+// in each cos(theta_KK) bin. Uses invMass_KpKm window [mMin, mMax].
+void PlotPhiALUCosThetaPerBin_AllModels_SinOver1PlusbCosFit(
+    const std::string& baseOutDir = "PhiALUCosTheta_SinOver1PlusbCosFit",
+    double mMin = 1.01,
+    double mMax = 1.03,
+    double beamPol = 1.0)
+{
+  if (plotters.empty()) {
+    std::cerr << "[PlotPhiALUCosThetaPerBin_AllModels_SinOver1PlusbCosFit] no models.\n";
+    return;
+  }
+
+  gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+
+  for (size_t i = 0; i < plotters.size(); ++i) {
+    const std::string subdir = baseOutDir + "/" + labels[i];
+
+    std::cout << "→ Computing A_{LU}(cos#theta_{KK}) via fit "
+              << "A*sin(#phi)/(1 + b cos(#phi)) "
+              << "in m(K^{+}K^{-}) ∈ [" << mMin << ", " << mMax << "]"
+              << " for model: " << labels[i]
+              << " → " << subdir << std::endl;
+
+    plotters[i]->MakePhiALUCosTheta_SinOver1PlusbCosFit3D(
+        fXbins, subdir, mMin, mMax, beamPol);
+  }
+}
 
 
  private:

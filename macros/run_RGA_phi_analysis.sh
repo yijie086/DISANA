@@ -1,0 +1,1 @@
+/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi /cache/clas12/rg-a/production/recon/spring2019/torus-1/pass2/dst/train/DVKpKmP/ 3 1 /w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/source/macros/results/rgasp19_inb/ "rgasp19_inb"

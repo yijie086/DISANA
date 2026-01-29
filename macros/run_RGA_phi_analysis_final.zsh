@@ -88,6 +88,13 @@ EOF
       NFILE="$2"
       shift 2
       ;;
+    -t)
+      (( $# < 2 )) && die "ERROR: -t/--threads requires an integer"
+      THREADS="$2"
+      [[ "$THREADS" == <-> ]] || die "ERROR: threads must be an integer (got: $THREADS)"
+      (( THREADS >= 1 )) || die "ERROR: threads must be >= 1 (got: $THREADS)"
+      shift 2
+      ;;
     -x)
       (( $# < 2 )) && die "ERROR: -x requires a path"
       EXECUTABLE="$2"
@@ -123,10 +130,10 @@ echo "[$me] Start: $(date)"
 
 # ---- decide OUT_BASE now that MISSING_KM is known ----
 if (( MISSING_KM )); then
-  OUT_BASE="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/source/macros/results_nSidis_missing"
+  OUT_BASE="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/source/macros/n_sidis_wagon_missing/"
   echo "[$me] Running for Kaon Missing case (nSidis inputs)"
 else
-  OUT_BASE="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/source/macros/results_DVKpKm"
+  OUT_BASE="/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/source/macros/NewCached_KpKm/"
   echo "[$me] Running for Exclusive Kaon case (DVKpKmP inputs)"
 fi
 echo "[$me] OUT_BASE = $OUT_BASE"
@@ -218,6 +225,10 @@ for cfg in "${RUN_LIST[@]}"; do
   (( REPROC ))     && flags+=( --reproc )
   (( MINIMAL ))    && flags+=( --minimal )
   (( MISSING_KM )) && flags+=( --missingKm )
+  # Add inbending flag automatically based on config name
+  if (("$cfg" == *_inb )); then
+   flags+=( --inbending )
+  fi
 
   echo "------------------------------------------------------------------"
   echo " Config   : $cfg"

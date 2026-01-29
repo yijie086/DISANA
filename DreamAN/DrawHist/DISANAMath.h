@@ -99,6 +99,9 @@ class BinManager {
     tprime_bins_ = {0.0, 10.0};
     xb_bins_ = {0.1, 0.2, 0.4, 0.6};
     W_bins_ = {0.1, 10.0};
+    cos_thetaKK_bins_ = {-1.0, 1.0};
+    trento_phi_bins_ = {-180.0, 180.0};
+    z_phi_bins_      = {0.0, 0.2, 0.4, 0.6, 0.8, 1.0};  // example, change as you like
   }
 
   const std::vector<double> &GetQ2Bins() const { return q2_bins_; }
@@ -106,11 +109,17 @@ class BinManager {
   const std::vector<double> &GetXBBins() const { return xb_bins_; }
   const std::vector<double> &GetWBins() const { return W_bins_; }
   const std::vector<double> &GetTprimeBins() const { return tprime_bins_; }
+  const std::vector<double>& GetCosThetaKKBins() const { return cos_thetaKK_bins_; }
+  const std::vector<double>& GetTrentoPhiBins() const { return trento_phi_bins_; }
+  const std::vector<double>& GetZPhiBins() const { return z_phi_bins_; }
   void SetQ2Bins(const std::vector<double> &v) { q2_bins_ = v; }
   void SetTBins(const std::vector<double> &v) { t_bins_ = v; }
   void SetXBBins(const std::vector<double> &v) { xb_bins_ = v; }
   void SetWBins(const std::vector<double> &v) { W_bins_ = v; }
   void SetTprimeBins(const std::vector<double> &v) { tprime_bins_ = v; }
+  void SetCosThetaKKBins(const std::vector<double>& v) { cos_thetaKK_bins_ = v; }
+  void SetTrentoPhiBins(const std::vector<double>& v) { trento_phi_bins_ = v; }
+  void SetZPhiBins(const std::vector<double>& v) { z_phi_bins_ = v; }
 
   std::vector<double> ComputeAxisEdges2D(const TH2 *h, bool alongX, int nDesiredBins) {
     std::vector<double> edges;
@@ -264,7 +273,7 @@ class BinManager {
   };
 
  private:
-  std::vector<double> q2_bins_, t_bins_, xb_bins_, W_bins_, tprime_bins_;
+  std::vector<double> q2_bins_, t_bins_, xb_bins_, W_bins_, tprime_bins_, cos_thetaKK_bins_,trento_phi_bins_,  z_phi_bins_;  
 };
 
 // -----------------------------------------------------------------------------
@@ -274,7 +283,7 @@ struct Pi0Tag {};
 class DISANAMath {
  private:
   // Kinematics
-  double Q2_{}, xB_{}, t_{}, phi_deg_{}, W_{}, nu_{}, y_{}, cosTheta_KK_{}, cosPhi_KK_{};
+  double Q2_{}, xB_{}, t_{}, phi_deg_{}, W_{}, nu_{}, y_{}, cosTheta_KK_{}, cosPhi_KK_{}, z_phi_{};
 
   // Exclusivity
   double mx2_ep_{};
@@ -286,6 +295,7 @@ class DISANAMath {
   double theta_gg_{};
   double theta_gphi_{};
   double mx2_egamma_{};
+  double mx2_eKp_{};
   double mx2_eKpKm_{};
   double mx2_epKp_{-1.};
   double mx2_epKm_{};
@@ -379,6 +389,7 @@ class DISANAMath {
   double Gety() const { return y_; }
   double GetCosTheta_KK() const { return cosTheta_KK_; }
   double GetCosPhi_KK() const { return cosPhi_KK_; }
+  double GetZ_phi() const { return z_phi_; }
 
   double GetMx2_ep() const { return mx2_ep_; }
   double GetEmiss() const { return emiss_; }
@@ -389,6 +400,8 @@ class DISANAMath {
   double GetTheta_gamma_gamma() const { return theta_gg_; }
   double GetMx2_egamma() const { return mx2_egamma_; }
   double GetMx2_eKpKm() const { return mx2_eKpKm_; }
+  double GetMx2_eKp() const { return mx2_eKp_; }
+  double GetMx_eKp() const { return std::sqrt(mx2_eKp_); }
   double GetMx2_epKp() const { return mx2_epKp_; }
   double GetMx2_epKm() const { return mx2_epKm_; }
   double GetTheta_e_gamma() const { return Theta_e_gamma_; }
@@ -521,6 +534,7 @@ class DISANAMath {
     xB_ = Q2_ / (2.0 * proton_in.Dot(q));
     t_ = std::abs((proton_in - proton_out).Mag2());
     tmin_ = tmin_phi_from_Q2_xB(Q2_, xB_);
+    z_phi_=1-t_*xB_/Q2_;
 
     TVector3 nL = electron_in.Vect().Cross(electron_out.Vect()).Unit();
     TVector3 nH = q.Vect().Cross(proton_out.Vect()).Unit();
@@ -555,6 +569,7 @@ class DISANAMath {
     mx2_eKpKm_ = (electron_in + proton_in - electron_out - phi).Mag2();
     mx2_epKp_ = (electron_in + proton_in - electron_out - kPlus - proton_out).Mag2();
     mx2_epKm_ = (electron_in + proton_in - electron_out - kMinus - proton_out).Mag2();
+    mx2_eKp_ = (electron_in + proton_in - electron_out - kPlus).Mag2();
 
     Theta_e_phimeson_ = electron_out.Angle(phi.Vect()) * 180. / pi;
     DeltaE_ = (electron_in.E() + proton_in.E()) - (electron_out.E() + proton_out.E() + phi.E());

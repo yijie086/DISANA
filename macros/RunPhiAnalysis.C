@@ -76,10 +76,12 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
     // inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/inb/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/";
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/";
+    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_skiming/build/resutls/skims/sp2019_inb/n_sidis_missingKm/";
+    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/HIPO_test/newhipo2root/hipo-utils/test_outputs/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/outb/";
-    inputRootFileName = "dfSelected.root";
-    inputRootTreeName = "dfSelected";
+    inputRootFileName = "DVKpKm.root";
+    //inputRootTreeName = "dfSelected";
+    inputRootTreeName = "hipo";
   }
 
   AnalysisTaskManager mgr;
@@ -420,18 +422,16 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
   eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
   
-  if (IsMissingKm && IsInbending){
-     eventCuts->AddParticleCut("Pos Kaon", kPos);   
-    }else{
-    eventCuts->AddParticleCut("Neg Kaon", kMinus);    // Applies defaults automatically
-    eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
-  }
-//// in the case of missing kaon and inbending only one kaon is detected
-  if (IsMissingKm && !IsInbending){
-     eventCuts->AddParticleCut("Neg Kaon", kMinus);   
-    }else{
-    eventCuts->AddParticleCut("Neg Kaon", kMinus);    // Applies defaults automatically
-    eventCuts->AddParticleCut("Pos Kaon", kPos);      // Applies defaults automatically
+  if (IsMissingKm && IsInbending) {
+    std::cout << "Adding missing K+ particle cut.\n";
+    eventCuts->AddParticleCut("Pos Kaon", kPos);
+  } else if (IsMissingKm && !IsInbending) {
+    std::cout << "Adding missing K- particle cut.\n";
+    eventCuts->AddParticleCut("Neg Kaon", kMinus);
+  } else {
+    std::cout << "Adding missing K- and K+ particle cut.\n";
+    eventCuts->AddParticleCut("Neg Kaon", kMinus);  // Applies defaults automatically
+    eventCuts->AddParticleCut("Pos Kaon", kPos);    // Applies defaults automatically
   }
   // Task
   auto PhiTask = std::make_unique<PhiAnalysis>(IsMC, IsreprocRootFile, IsMinimalBook);

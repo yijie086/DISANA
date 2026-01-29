@@ -16,8 +16,9 @@ class QADBCuts {
   QADBCuts(const QADBCuts& other);
   ~QADBCuts();
 
-  // Functor used by RDataFrame: returns true if event passes QA.
-  bool operator()(int run, int ev) const;
+  // FIXED: Functor now handles vectors from hipo2root conversion
+  // Takes the first element of each vector
+  bool operator()(const std::vector<int>& run_vec, const std::vector<int>& ev_vec) const;
 
   // ---- configuration (call from RunDVCSAnalysis.C, etc.) ----
 
