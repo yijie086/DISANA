@@ -39,8 +39,6 @@ void QADBCuts::SetDefects(const std::vector<std::string>& defects) {
   std::set<std::string>& defset = GetDefectSet();
   QA::QADB& qa = GetQADB();
 
-  // Add new defects; we do NOT try to remove old ones (QADB has no "unset").
-  // Intended: call once at startup with your full list.
   for (const auto& d : defects) {
     if (defset.insert(d).second) {
       qa.CheckForDefect(d.c_str());
@@ -76,21 +74,16 @@ void QADBCuts::SetAccumulateCharge(bool on) { fAccumulateCharge = on; }
 // ---------- static QA / charge helpers ----------
 
 bool QADBCuts::Pass(int run, int ev) {
-  // no charge accumulation
   if (GetExcludedRuns().count(run)) return false;
   if (run <= 0 || ev <= 0) return true;  // permissive on missing meta
   std::lock_guard<std::mutex> lock(GetMutex());
   return GetQADB().Pass(run, ev);
 }
 
-// Set runs for which the 'Misc' bit is allowed.
 void QADBCuts::SetAllowedMiscRuns(const std::vector<int>& runs) {
   std::lock_guard<std::mutex> lock(GetMutex());
   QA::QADB& qa = GetQADB();
-
-  for (int run : runs) {
-    qa.AllowMiscBit(run);
-  }
+  for (int run : runs) qa.AllowMiscBit(run);
 }
 
 bool QADBCuts::PassAndAccumulate(int run, int ev) {
@@ -119,25 +112,60 @@ void QADBCuts::ResetAccumulatedCharge() {
   GetQADB().ResetAccumulatedCharge();
 }
 
-// ---------- FIXED functor implementation ----------
-// Now handles vectors from hipo2root - takes first element
-bool QADBCuts::operator()(const std::vector<int>& run_vec, const std::vector<int>& ev_vec) const {
-  // Handle empty vectors - return false (reject event)
-  if (run_vec.empty() || ev_vec.empty()) {
-    return false;
-  }
-  
-  // Extract first element from each vector
-  int run = run_vec[0];
-  int ev = ev_vec[0];
-  
-  // Use existing logic
+// ---------- helpers for "scalar-like" vectors ----------
+
+int QADBCuts::FirstOrMinus1(const std::vector<int>& v) {
+  return v.empty() ? -1 : v.front();
+}
+
+int QADBCuts::FirstOrMinus1(const ROOT::VecOps::RVec<int>& v) {
+  return v.empty() ? -1 : v[0];
+}
+
+int QADBCuts::FirstOrMinus1(const std::vector<Long64_t>& v) {
+  return v.empty() ? -1 : static_cast<int>(v.front());
+}
+
+int QADBCuts::FirstOrMinus1(const ROOT::VecOps::RVec<Long64_t>& v) {
+  return v.empty() ? -1 : static_cast<int>(v[0]);
+}
+
+// ---------- functor overloads (RDataFrame compatible) ----------
+
+bool QADBCuts::operator()(int run, int ev) const {
+  return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev);
+}
+
+bool QADBCuts::operator()(const std::vector<int>& run_vec,
+                          const std::vector<int>& ev_vec) const {
+  const int run = FirstOrMinus1(run_vec);
+  const int ev  = FirstOrMinus1(ev_vec);
+  return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev);
+}
+
+bool QADBCuts::operator()(const ROOT::VecOps::RVec<int>& run_vec,
+                          const ROOT::VecOps::RVec<int>& ev_vec) const {
+  const int run = FirstOrMinus1(run_vec);
+  const int ev  = FirstOrMinus1(ev_vec);
+  return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev);
+}
+
+bool QADBCuts::operator()(const std::vector<Long64_t>& run_vec,
+                          const std::vector<Long64_t>& ev_vec) const {
+  const int run = FirstOrMinus1(run_vec);
+  const int ev  = FirstOrMinus1(ev_vec);
+  return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev);
+}
+
+bool QADBCuts::operator()(const ROOT::VecOps::RVec<Long64_t>& run_vec,
+                          const ROOT::VecOps::RVec<Long64_t>& ev_vec) const {
+  const int run = FirstOrMinus1(run_vec);
+  const int ev  = FirstOrMinus1(ev_vec);
   return fAccumulateCharge ? PassAndAccumulate(run, ev) : Pass(run, ev);
 }
 
 // ---------- free helper ----------
 
 bool QAOk(int run, int ev) {
-  // By default, don't accumulate charge in this helper.
   return QADBCuts::Pass(run, ev);
 }

@@ -31,7 +31,9 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     const std::string dataconfig,
                     bool IsMC, bool IsreprocRootFile,
                     bool IsInbending, bool IsMinimalBook,
-                    bool IsMissingKm);
+                    bool IsMissingKm,
+                    const std::string& reprocRootFile = "",
+                    const std::string& reprocTreeName = "");
 
 // ----------------------------------------------------------------------
 static void print_usage(const char* prog) {
@@ -40,6 +42,7 @@ R"(Usage:
   # Flag form (recommended)
   )" << prog << R"( -i <inputDir> [-n <nfile>] [-t <nthreads>] [-o <outputDir>]
                 [-c <dataconfig>] [--mc] [--reproc] [--inbending] [--minimal] [--missingKm]
+                [--reproc-file <filename>] [--reproc-tree <treename>]
 
   # Positional form (quick & dirty; anything omitted uses defaults)
   )" << prog << R"( [inputDir] [nfile] [nthreads] [outputDir] [dataconfig]
@@ -49,9 +52,15 @@ Defaults:
   inputDir="."      nfile=-1 (all)        nthreads=0 (auto)
   outputDir="./out" dataconfig="rgasp18_outb"
   mc/reproc/inbending/minimal/missingKm = false
+  reprocFile=""     reprocTree=""
+
+New Options for Reprocessed Files:
+  --reproc-file <filename>   : Specify custom ROOT filename (e.g., "MyData.root")
+  --reproc-tree <treename>   : Specify custom tree name (e.g., "myTree", "dfSelected")
 
 Examples:
   )" << prog << R"( -i /data/phi/rgasp18_outb -n 200 -t 8 -o results -c rgasp18_outb
+  )" << prog << R"( -i /data --reproc --reproc-file MyData.root --reproc-tree dfSelected
   )" << prog << R"( /data 100 0 ./out rgasp18_outb 0 0 1 0 1
 )" << std::endl;
 }
@@ -94,6 +103,10 @@ int main(int argc, char* argv[]) {
   bool IsMinimalBook    = false;
   bool IsMissingKm      = false;
 
+  // New options for reprocessed files
+  std::string reprocRootFile = "";
+  std::string reprocTreeName = "";
+
   // Help / no args
   if (argc == 1) {
     print_usage(argv[0]);
@@ -115,7 +128,7 @@ int main(int argc, char* argv[]) {
     saw_flag = true;
 
     if (a == "-i" || a == "--input") {
-      if (i + 1 >= argc) { std::cerr << "ERROR: missing value\n"; return 2; }
+      if (i + 1 >= argc) { std::cerr << "ERROR: missing value for " << a << "\n"; return 2; }
       inputDir = argv[++i];
 
     } else if (a == "-n" || a == "--nfile") {
@@ -129,12 +142,20 @@ int main(int argc, char* argv[]) {
       }
 
     } else if (a == "-o" || a == "--out") {
-      if (i + 1 >= argc) { std::cerr << "ERROR: missing value\n"; return 2; }
+      if (i + 1 >= argc) { std::cerr << "ERROR: missing value for " << a << "\n"; return 2; }
       outputDir = argv[++i];
 
     } else if (a == "-c" || a == "--config") {
-      if (i + 1 >= argc) { std::cerr << "ERROR: missing value\n"; return 2; }
+      if (i + 1 >= argc) { std::cerr << "ERROR: missing value for " << a << "\n"; return 2; }
       dataconfig = argv[++i];
+
+    } else if (a == "--reproc-file") {
+      if (i + 1 >= argc) { std::cerr << "ERROR: missing value for " << a << "\n"; return 2; }
+      reprocRootFile = argv[++i];
+
+    } else if (a == "--reproc-tree") {
+      if (i + 1 >= argc) { std::cerr << "ERROR: missing value for " << a << "\n"; return 2; }
+      reprocTreeName = argv[++i];
 
     } else if (a == "--mc") {
       IsMC = true;
@@ -184,6 +205,11 @@ int main(int argc, char* argv[]) {
     nthreads = 0;
   }
 
+  // Validate reproc options
+  if (IsreprocRootFile && reprocRootFile.empty()) {
+    std::cerr << "WARN: --reproc is set but no --reproc-file specified. Using default from RunPhiAnalysis.\n";
+  }
+
   // ------------------------------------------------------------
   // Show configuration
   std::cout << "------------------------------------------------------------\n";
@@ -197,6 +223,12 @@ int main(int argc, char* argv[]) {
             << " inbending="   << (IsInbending ? "1" : "0")
             << " minimal="     << (IsMinimalBook ? "1" : "0")
             << " missingKm="   << (IsMissingKm ? "1" : "0") << "\n";
+  if (!reprocRootFile.empty()) {
+    std::cout << " reprocFile  : " << reprocRootFile << "\n";
+  }
+  if (!reprocTreeName.empty()) {
+    std::cout << " reprocTree  : " << reprocTreeName << "\n";
+  }
   std::cout << "------------------------------------------------------------\n";
 
   // ------------------------------------------------------------
@@ -206,7 +238,8 @@ int main(int argc, char* argv[]) {
   RunPhiAnalysis(inputDir, nfile, nthreads,
                  outputDir, dataconfig,
                  IsMC, IsreprocRootFile, IsInbending,
-                 IsMinimalBook, IsMissingKm);
+                 IsMinimalBook, IsMissingKm,
+                 reprocRootFile, reprocTreeName);
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;

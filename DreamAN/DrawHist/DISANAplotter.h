@@ -99,25 +99,15 @@ for (auto& row : phi_alu_zphi_QW_)      for (auto* h : row) delete h;
   void SetPlotApplyAcceptanceCorrection(bool apply) { doacceptcorr = apply; }
   void SetPlotApplyEfficiencyCorrection(bool apply) { doefficiencycorr = apply; }
   void SetPlotApplyRadiativeCorrection(bool apply) { doradiativecorr = apply; }
+  void SetPlotApplyP1Cut(bool apply) {dop1cut = apply;}
   bool getDoPi0Corr() const { return dopi0corr; }
     // --- in public: add a const accessor ---
   const std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() const { return phi_dsdt_QW_; }
   std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() { return phi_dsdt_QW_; }  // (optional mutable)
 
-using AccEffProvider = std::function<double(double q2lo, double q2hi, double wlo, double whi, double tlo, double thi)>;
-// Default A×ε = 1.0 everywhere
-void SetAccEffProvider(AccEffProvider f) { accEffProvider_ = std::move(f); }
-void SetPlotApplyCorrection(bool apply) {dopi0corr = apply;}
-void SetPlotApplyAcceptanceCorrection(bool apply) {doacceptcorr = apply;}
-void SetPlotApplyEfficiencyCorrection(bool apply) {doefficiencycorr = apply;}
-void SetPlotApplyRadiativeCorrection(bool apply) {doradiativecorr = apply;}
-void SetPlotApplyP1Cut(bool apply) {dop1cut = apply;}
-bool getDoPi0Corr() const { return dopi0corr; }
   // --- in public: add a const accessor ---
-const std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() const { return phi_dsdt_QW_; }
-std::vector<std::vector<TH1D*>>& GetPhiDSigmaDt3D() { return phi_dsdt_QW_; } // (optional mutable)
-const std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() const { return phi_bsa_trentophi_QW_; }
-std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() { return phi_bsa_trentophi_QW_; }
+  const std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() const { return phi_bsa_trentophi_QW_; }
+  std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() { return phi_bsa_trentophi_QW_; }
 
   const std::vector<std::vector<TH1D*>>& GetPhiALUCosTheta3D() const { return phi_alu_cos_QW_; }
   std::vector<std::vector<TH1D*>>& GetPhiALUCosTheta3D() { return phi_alu_cos_QW_; }
@@ -337,34 +327,43 @@ std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() { return phi_bsa_trentop
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> UseAccCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
-                                                                const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+                                                                  const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
     if (xs3D.size() != corr3D.size()) {
-      std::cerr << "[UseAccCorrection] Dimension mismatch (level-0)\n";
-      return {};
+        std::cerr << "[UseAccCorrection] Dimension mismatch (level-0)\n";
+        return {};
     }
     std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
     for (size_t iq = 0; iq < xs3D.size(); ++iq) {
-      if (xs3D[iq].size() != corr3D[iq].size()) {
-        std::cerr << "[UseAccCorrection] Dimension mismatch (level-1)\n";
-        return {};
-      }
-      xsCorr3D[iq].resize(xs3D[iq].size());
-      for (size_t it = 0; it < xs3D[iq].size(); ++it) {
-        if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
-          std::cerr << "[UseAccCorrection] Dimension mismatch (level-2)\n";
-          return {};
+        if (xs3D[iq].size() != corr3D[iq].size()) {
+            std::cerr << "[UseAccCorrection] Dimension mismatch (level-1)\n";
+            return {};
         }
-        xsCorr3D[iq][it].resize(xs3D[iq][it].size());
-        for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
-          TH1D* hXS = xs3D[iq][it][ix];      // σ_uncorr
-          TH1D* hCorr = corr3D[iq][it][ix];  //     c
+        xsCorr3D[iq].resize(xs3D[iq].size());
+        for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+            if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+                std::cerr << "[UseAccCorrection] Dimension mismatch (level-2)\n";
+                return {};
+            }
+            xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+            for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+                TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+                TH1D* hCorr = corr3D[iq][it][ix];   //     c
+              
+                if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+                
+                TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
 
-          if (!hXS) {
-            xsCorr3D[iq][it][ix] = nullptr;
-            continue;
-          }
+                const int nb = hXS->GetNbinsX();
+                for (int b = 1; b <= nb; ++b) {
+                    const double xs_val = hXS->GetBinContent(b);
+                    const double xs_err = hXS->GetBinError  (b);
+                    const double c_val  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinContent(b) : 1.0;
+                    const double c_err  = (hCorr||hCorr->GetBinContent(b)==0) ? hCorr->GetBinError  (b) : 0.0;
 
-          TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
+                    double val_corr = xs_val/(c_val);
+                    double err_corr = std::sqrt(
+                        std::pow(xs_err / c_val, 2) +
+                        std::pow(xs_val * c_err / (c_val * c_val), 2));
 
                     if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
                     if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
@@ -372,21 +371,13 @@ std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() { return phi_bsa_trentop
                     if (c_val <=0.1) err_corr = -1; 
                     //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl;
 
-            double val_corr = xs_val / (c_val);
-            double err_corr = std::sqrt(std::pow(xs_err / c_val, 2) + std::pow(xs_val * c_err / (c_val * c_val), 2));
+                    hNew->SetBinContent(b, val_corr);
+                    hNew->SetBinError  (b, err_corr);
+                }
 
-            if (c_val == 0.0 || c_err == 0.0) val_corr = xs_val;
-            if (c_val == 0.0 || c_err == 0.0) err_corr = xs_err;
-            // std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr <<
-            // std::endl;
-
-            hNew->SetBinContent(b, val_corr);
-            hNew->SetBinError(b, err_corr);
-          }
-
-          xsCorr3D[iq][it][ix] = hNew;
+                xsCorr3D[iq][it][ix] = hNew;
+            }
         }
-      }
     }
     return xsCorr3D;
   }
@@ -459,27 +450,31 @@ std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() { return phi_bsa_trentop
     return kinCalc.CalcRadiativeCorr(*rdf_dvcsmc_rad, *rdf_dvcsmc_norad, bins);
   }
   std::vector<std::vector<std::vector<TH1D*>>> UseRadCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
-                                                                const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
+                                                                  const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
     if (xs3D.size() != corr3D.size()) {
-      std::cerr << "[UseRadCorrection] Dimension mismatch (level-0)\n";
-      return {};
+        std::cerr << "[UseRadCorrection] Dimension mismatch (level-0)\n";
+        return {};
     }
     std::vector<std::vector<std::vector<TH1D*>>> xsCorr3D(xs3D.size());
     for (size_t iq = 0; iq < xs3D.size(); ++iq) {
-      if (xs3D[iq].size() != corr3D[iq].size()) {
-        std::cerr << "[UseRadCorrection] Dimension mismatch (level-1)\n";
-        return {};
-      }
-      xsCorr3D[iq].resize(xs3D[iq].size());
-      for (size_t it = 0; it < xs3D[iq].size(); ++it) {
-        if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
-          std::cerr << "[UseRadCorrection] Dimension mismatch (level-2)\n";
-          return {};
+        if (xs3D[iq].size() != corr3D[iq].size()) {
+            std::cerr << "[UseRadCorrection] Dimension mismatch (level-1)\n";
+            return {};
         }
-        xsCorr3D[iq][it].resize(xs3D[iq][it].size());
-        for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
-          TH1D* hXS = xs3D[iq][it][ix];      // σ_uncorr
-          TH1D* hCorr = corr3D[iq][it][ix];  //     c
+        xsCorr3D[iq].resize(xs3D[iq].size());
+        for (size_t it = 0; it < xs3D[iq].size(); ++it) {
+            if (xs3D[iq][it].size() != corr3D[iq][it].size()) {
+                std::cerr << "[UseRadCorrection] Dimension mismatch (level-2)\n";
+                return {};
+            }
+            xsCorr3D[iq][it].resize(xs3D[iq][it].size());
+            for (size_t ix = 0; ix < xs3D[iq][it].size(); ++ix) {
+                TH1D* hXS   = xs3D  [iq][it][ix];   // σ_uncorr
+                TH1D* hCorr = corr3D[iq][it][ix];   //     c
+              
+                if (!hXS) { xsCorr3D[iq][it][ix] = nullptr; continue; }
+                
+                TH1D* hNew = dynamic_cast<TH1D*>(hXS->Clone(Form("%s_corr", hXS->GetName())));
 
                 const int nb = hXS->GetNbinsX();
                 for (int b = 1; b <= nb; ++b) {
@@ -560,7 +555,6 @@ std::vector<std::vector<TH1D*>>& GetPhiBSATrentoPhi3D() { return phi_bsa_trentop
             }
         }
       }
-    }
     return xsCorr3D;
   }
 

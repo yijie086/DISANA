@@ -6,23 +6,42 @@
 #include <string>
 #include <vector>
 
+// For Long64_t
+#include "RtypesCore.h"
+
+// Needed for ROOT::VecOps::RVec (common with hipoDS + RDataFrame)
+#include "ROOT/RVec.hxx"
+
 #include "QADB.h"  // or "qadb/QADB.h"
 
 // QADB-based event filter with configurable defects and run veto.
-// Internally uses a single shared QA::QADB instance (static).
+// Compatible with:
+//   - hipo2root output (branches are std::vector<T>)
+//   - hipoDS direct RDF (often ROOT::VecOps::RVec<T>, sometimes scalars)
+//
+// Important: ROOT's RDataFrame CallableTraits cannot deduce return types from
+// a purely-templated operator(). Therefore we provide concrete overloads for
+// the common column types.
 class QADBCuts {
  public:
   QADBCuts();
   QADBCuts(const QADBCuts& other);
   ~QADBCuts();
 
-  // FIXED: Functor now handles vectors from hipo2root conversion
-  // Takes the first element of each vector
-  bool operator()(const std::vector<int>& run_vec, const std::vector<int>& ev_vec) const;
+  // --- Functor overloads for RDataFrame ---
+  bool operator()(int run, int ev) const;
 
-  // ---- configuration (call from RunDVCSAnalysis.C, etc.) ----
+  bool operator()(const std::vector<int>& run_vec,
+                  const std::vector<int>& ev_vec) const;
+  bool operator()(const ROOT::VecOps::RVec<int>& run_vec,
+                  const ROOT::VecOps::RVec<int>& ev_vec) const;
 
-  // Replace the entire set of defects to check (intended to be called once).
+  bool operator()(const std::vector<Long64_t>& run_vec,
+                  const std::vector<Long64_t>& ev_vec) const;
+  bool operator()(const ROOT::VecOps::RVec<Long64_t>& run_vec,
+                  const ROOT::VecOps::RVec<Long64_t>& ev_vec) const;
+
+  // --- Configuration ---
   void SetDefects(const std::vector<std::string>& defects);
 
   // Convenience overload for const char* array:
@@ -30,50 +49,42 @@ class QADBCuts {
   void SetDefects(const char* const (&defs)[N]) {
     std::vector<std::string> v;
     v.reserve(N);
-    for (std::size_t i = 0; i < N; ++i) {
-      v.emplace_back(defs[i]);
-    }
+    for (std::size_t i = 0; i < N; ++i) v.emplace_back(defs[i]);
     SetDefects(v);
   }
 
-  // Add one more defect to check (on top of those already configured).
   void AddDefect(const std::string& name);
-
-  // Exclude a specific run entirely.
   void AddExcludedRun(int run);
-
-  // Replace the full set of excluded runs.
   void SetExcludedRuns(const std::set<int>& runs);
-
-  // Clear all excluded runs.
   void ClearExcludedRuns();
 
-  // Set runs for which the 'Misc' bit defect should be explicitly allowed to pass.
-  // This is equivalent to calling QA::QADB::allowMiscBit() for each run.
-  static void SetAllowedMiscRuns(const std::vector<int>& runs); // sometimes misc are allowed
+  // Allow misc-bit for runs
+  static void SetAllowedMiscRuns(const std::vector<int>& runs);
 
-  // Control whether successful events also accumulate charge.
   void SetAccumulateCharge(bool on);
   bool GetAccumulateCharge() const { return fAccumulateCharge; }
-
-  // ---- global charge helpers for the shared QADB instance ----
 
   static double GetAccumulatedCharge();
   static void ResetAccumulatedCharge();
 
-  // Static QA helpers (if you prefer to call them directly).
   static bool Pass(int run, int ev);               // no charge
   static bool PassAndAccumulate(int run, int ev);  // with charge
   static void AccumulateCharge();
 
  private:
-  bool fAccumulateCharge;  // if true, operator() also accumulates charge
+  bool fAccumulateCharge{true};
 
-  // Internal helpers to access shared state.
   static QA::QADB& GetQADB();
   static std::set<int>& GetExcludedRuns();
   static std::set<std::string>& GetDefectSet();
   static std::mutex& GetMutex();
+
+  // Helpers to interpret "scalar-like" vectors (size 0 or 1 typical).
+  // Empty -> -1, then Pass() remains permissive (as your code intended).
+  static int FirstOrMinus1(const std::vector<int>& v);
+  static int FirstOrMinus1(const ROOT::VecOps::RVec<int>& v);
+  static int FirstOrMinus1(const std::vector<Long64_t>& v);
+  static int FirstOrMinus1(const ROOT::VecOps::RVec<Long64_t>& v);
 };
 
 // Optional helper, similar to the old QAOk(run,ev) style.

@@ -1,10 +1,94 @@
 #include "DVCSAnalysis.h"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
 #include "AnalysisTaskManager.h"
 #include "PerRunCounter.h"
+#include "ROOT/RVec.hxx"
+
+static inline std::pair<std::string, std::string> PickRunEventCols(ROOT::RDF::RNode df) {
+  auto cols = df.GetColumnNames();
+  auto has = [&](const std::string& n) { return std::find(cols.begin(), cols.end(), n) != cols.end(); };
+
+  if (has("RUN_config_run") && has("RUN_config_event")) return {"RUN_config_run", "RUN_config_event"};
+
+  if (has("RUN::config.run") && has("RUN::config.event")) return {"RUN::config.run", "RUN::config.event"};
+
+  throw std::runtime_error("QADB: cannot find run/event columns");
+}
+#include "ROOT/RVec.hxx"
+
+// helper: detect substring
+static inline bool has_substr(const std::string& s, const std::string& sub) {
+  return s.find(sub) != std::string::npos;
+}
+
+static inline ROOT::RDF::RNode
+DefineRunEventScalars(ROOT::RDF::RNode df, const std::string& runCol, const std::string& evCol) {
+  const auto runType = df.GetColumnType(runCol);
+  const auto evType  = df.GetColumnType(evCol);
+
+  // ----- scalar cases -----
+  auto is_scalar_int = [&](const std::string& t){
+    return t=="int" || t=="Int_t" || t=="unsigned int" || t=="UInt_t";
+  };
+  auto is_scalar_long = [&](const std::string& t){
+    return t=="Long64_t" || t=="long" || t=="long long" || t=="ULong64_t" || t=="unsigned long long";
+  };
+  auto is_scalar_short = [&](const std::string& t){
+    return t=="short" || t=="Short_t" || t=="unsigned short" || t=="UShort_t";
+  };
+
+  if (is_scalar_int(runType) && is_scalar_int(evType)) {
+    return df.Define("RUN_run",  [](int r){ return r; }, {runCol})
+             .Define("RUN_event",[](int e){ return e; }, {evCol});
+  }
+  if (is_scalar_long(runType) && is_scalar_long(evType)) {
+    return df.Define("RUN_run",  [](Long64_t r){ return (int)r; }, {runCol})
+             .Define("RUN_event",[](Long64_t e){ return (int)e; }, {evCol});
+  }
+  if (is_scalar_short(runType) && is_scalar_short(evType)) {
+    return df.Define("RUN_run",  [](Short_t r){ return (int)r; }, {runCol})
+             .Define("RUN_event",[](Short_t e){ return (int)e; }, {evCol});
+  }
+
+  // ----- RVec cases -----
+  auto is_rvec = [&](const std::string& t){ return has_substr(t, "ROOT::VecOps::RVec"); };
+
+  // RVec<int> / RVec<Int_t> / etc (match by substring)
+  if (is_rvec(runType) && is_rvec(evType) && (has_substr(runType,"<int") || has_substr(runType,"<Int_t"))) {
+    return df.Define("RUN_run",  [](const ROOT::VecOps::RVec<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
+             .Define("RUN_event",[](const ROOT::VecOps::RVec<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
+  }
+  if (is_rvec(runType) && is_rvec(evType) && (has_substr(runType,"<Long64_t") || has_substr(runType,"<long long") || has_substr(runType,"<long"))) {
+    return df.Define("RUN_run",  [](const ROOT::VecOps::RVec<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
+             .Define("RUN_event",[](const ROOT::VecOps::RVec<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
+  }
+  if (is_rvec(runType) && is_rvec(evType) && (has_substr(runType,"<Short_t") || has_substr(runType,"<short"))) {
+    return df.Define("RUN_run",  [](const ROOT::VecOps::RVec<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
+             .Define("RUN_event",[](const ROOT::VecOps::RVec<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
+  }
+
+  // ----- std::vector cases -----
+  auto is_stdvec = [&](const std::string& t){ return has_substr(t, "std::vector") || has_substr(t, "vector<"); };
+
+  if (is_stdvec(runType) && is_stdvec(evType) && (has_substr(runType,"<int") || has_substr(runType,"<Int_t"))) {
+    return df.Define("RUN_run",  [](const std::vector<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
+             .Define("RUN_event",[](const std::vector<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
+  }
+  if (is_stdvec(runType) && is_stdvec(evType) && (has_substr(runType,"<Long64_t") || has_substr(runType,"<long long") || has_substr(runType,"<long"))) {
+    return df.Define("RUN_run",  [](const std::vector<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
+             .Define("RUN_event",[](const std::vector<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
+  }
+  if (is_stdvec(runType) && is_stdvec(evType) && (has_substr(runType,"<Short_t") || has_substr(runType,"<short"))) {
+    return df.Define("RUN_run",  [](const std::vector<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
+             .Define("RUN_event",[](const std::vector<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
+  }
+
+  throw std::runtime_error("QADB: unsupported run/event types: run=" + runType + " ev=" + evType);
+}
 
 DVCSAnalysis::DVCSAnalysis(bool IsMC, bool IsReproc, bool IsMinBook) : IsMC(IsMC), IsReproc(IsReproc), IsMinBooking(IsMinBook), fHistPhotonP(nullptr) {}
 DVCSAnalysis::~DVCSAnalysis() {}
@@ -37,10 +121,14 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   // QADB cuts should be place in the first to reduce the computation load
   if (fIsQADBCut && fQADBCuts) {
     std::cout << "Applying QADB cut..." << std::endl;
-    dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_QADB_pass",
-                                      *fQADBCuts,  // <-- use the configured functor instance
-                                      {"RUN_config_run", "RUN_config_event"});
-    dfDefsWithTraj = dfDefsWithTraj.Filter("REC_QADB_pass", "QADB pass");
+
+    auto [runCol, evCol] = PickRunEventCols(dfDefsWithTraj);
+
+    dfDefsWithTraj = DefineRunEventScalars(dfDefsWithTraj, runCol, evCol);
+
+    auto qadb = *fQADBCuts;
+    dfDefsWithTraj =
+        dfDefsWithTraj.Define("REC_QADB_pass", [qadb](int run, int ev) mutable { return qadb(run, ev); }, {"RUN_run", "RUN_event"}).Filter("REC_QADB_pass", "QADB pass");
   }
 
   auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
@@ -127,12 +215,15 @@ void DVCSAnalysis::SaveOutput() {
   }
 
   if (!IsReproc && !IsMinBooking) SafeSnapshot(*dfSelected, "dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
+  if (IsReproc) SafeSnapshot(*dfSelected, "dfSelected_reproc", Form("%s/%s", fOutputDir.c_str(), "dfSelected_reproc.root"));
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
     std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
     const std::string csvpath = fOutputDir + "/events_per_run_afterFid.csv";
-    auto items = CountPerRunAndWriteCSV<int>(*dfSelected_afterFid, "RUN_config_run", csvpath);
+    auto [runCol, evCol] = PickRunEventCols(*dfSelected_afterFid);
+    auto items = CountPerRunAndWriteCSV<int>(*dfSelected_afterFid, runCol, csvpath);
+
     std::cout << "[INFO] Wrote per-run counts to " << csvpath << " (unique runs = " << items.size() << ")\n";
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));

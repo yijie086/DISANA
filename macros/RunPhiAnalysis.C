@@ -16,7 +16,9 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     bool IsMC, bool IsreprocRootFile,
                     bool IsInbending /* you can ignore and derive from dataconfig if you like */,
                     bool IsMinimalBook,
-                    bool IsMissingKm) {
+                    bool IsMissingKm,
+                    const std::string& reprocRootFile = "",
+                    const std::string& reprocTreeName = "") {
   // Determine the number of threads to use.
   if (nthreads <= 0) {
     const auto hc = std::thread::hardware_concurrency();
@@ -72,16 +74,30 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   }
 
   if (IsreprocRootFile) {
-    // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
-    // inputFileDir = "/w/hallb-scshelf2102/clas12/yijie/clas12ana/analysis316/DISANA/build/rgk7546dataSFCorr/";
-    // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/inb/";
-    // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/fall2018/inb/DVKpKm_wagon/";
-    //inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_skiming/build/resutls/skims/sp2019_inb/n_sidis_missingKm/";
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/HIPO_test/newhipo2root/hipo-utils/test_outputs/";
-    // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/data_repo/phi_analysis/skim/fall2018/nsidis_wagon/outb/";
-    inputRootFileName = "DVKpKm.root";
-    //inputRootTreeName = "dfSelected";
-    inputRootTreeName = "hipo";
+    // Use custom paths if provided, otherwise use defaults
+    if (!reprocRootFile.empty()) {
+      inputRootFileName = reprocRootFile;
+      std::cout << "[RunPhiAnalysis] Using custom reproc file: " << inputRootFileName << std::endl;
+    } else {
+      // Default filename if not specified
+      inputRootFileName = "DVKpKm.root";
+      std::cout << "[RunPhiAnalysis] Using default reproc file: " << inputRootFileName << std::endl;
+    }
+
+    if (!reprocTreeName.empty()) {
+      inputRootTreeName = reprocTreeName;
+      std::cout << "[RunPhiAnalysis] Using custom tree name: " << inputRootTreeName << std::endl;
+    } else {
+      // Default tree name if not specified
+      inputRootTreeName = "hipo";
+      std::cout << "[RunPhiAnalysis] Using default tree name: " << inputRootTreeName << std::endl;
+    }
+
+    // If inputDir was not changed from default, use a default reprocessed data path
+    if (inputFileDir == ".") {
+      inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/HIPO_test/newhipo2root/hipo-utils/test_outputs/";
+      std::cout << "[RunPhiAnalysis] No input dir specified for reproc, using default: " << inputFileDir << std::endl;
+    }
   }
 
   AnalysisTaskManager mgr;
@@ -150,174 +166,65 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   trackCuts->AddPCalFiducialRange(11, 5, "lv", 0.0, 13.5);
   trackCuts->AddPCalFiducialRange(11, 6, "lw", 0.0, 13.5);
   trackCuts->AddPCalFiducialRange(11, 6, "lv", 0.0, 13.5);
-  // End of edge fiducial cuts
-  // Sector 1, PCal args PID, sector, side, min, max
-  trackCuts->AddPCalFiducialRange(11, 1, "lw", 72.0, 94.5);
-  trackCuts->AddPCalFiducialRange(11, 1, "lw", 211.5, 234.0);
-  if (dataconfig == "rgasp19_inb" || dataconfig == "rgafall18_inb" || dataconfig == "rgafall18_outb") {
-    trackCuts->AddPCalFiducialRange(11, 2, "lv", 99.0, 117.5);
-  }
-  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb" || dataconfig == "rgasp19_inb") {
-    trackCuts->AddPCalFiducialRange(11, 2, "lv", 31.5, 49.5);
-  }
-  trackCuts->AddPCalFiducialRange(11, 3, "lv", 346.5, 378.0);
-  trackCuts->AddPCalFiducialRange(11, 4, "lv", 0.0, 13.5);
-  trackCuts->AddPCalFiducialRange(11, 4, "lv", 229.5, 243.0);
-  trackCuts->AddPCalFiducialRange(11, 6, "lw", 166.5, 193.5);
-  // Sector 1, ECin only, sector, side, min, max
-  trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
-  trackCuts->AddECinFiducialRange(11, 4, "lw", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(11, 5, "lv", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(11, 6, "lw", 0.0, 23.5);
-  trackCuts->AddECoutFiducialRange(11, 1, "lv", 0.0, 40.5);
-  trackCuts->AddECoutFiducialRange(11, 5, "lv", 193.5, 216.0);
 
-  /// set sampling fraction for the particle in detector
-  trackCuts->SetMinECALEnergyCut(11, 1, 0.06);  // Electron PCal layer 1
-  // apply sampling fraction and diagolal cuts tbd!!
-  trackCuts->SetSFCut(true, 11, 0.19, 4.9);  // Set to true if you want to apply sampling fraction cut
-  // 3 sigma cuts for electron in rga sp18 in
+  // momentum correction
+  std::shared_ptr<MomentumCorrection> corr = std::make_shared<MomentumCorrection>();
+
+  // Spring 2018
   if (dataconfig == "rgasp18_inb") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.160145, 0.0121428, -0.00130927);    // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.288592, 0.00348667, -6.33249e-05);  // Electro sector 1
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.135106, 0.0249842, -0.00270237);    // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.331777, -0.0134885, 0.00144937);    // Electronsector 2
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.135934, 0.0294809, -0.00307425);    // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.324863, -0.0116574, 0.00104596);    // Electro sector 3
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.145492, 0.0211262, -0.00191841);    // Electronsector 4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.325025, -0.0139604, 0.00143415);    // Electronsector 4
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.158792, 0.0159181, -0.00139627);    // Electronsector 5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.310616, -0.00565024, 0.000488421);  // Electronsector 5
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.154587, 0.0202241, -0.00200259);    // Electronsector 6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.315009, -0.00725113, 0.000452379);  // Electro sector 6
-  }
-  if (dataconfig == "rgasp18_outb") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.153109, 0.018688, -0.00156815);      // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.27668, 0.00393487, -0.000495404);    // Electro sector 1
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.156875, 0.0164895, -0.00139281);     // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.285319, 0.000615206, 7.59911e-06);   // Electronsector 2
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.159718, 0.0176749, -0.00147327);     // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.280747, 0.00494729, -0.00071406);    // Electro sector 3
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.158643, 0.0173334, -0.00137467);     // Electronsector 4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.279673, 0.00510175, -0.00068517);    // Electronsector 4
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.155656, 0.0166533, -0.0012774);      // Electronsector 5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.285419, 1.77522e-05, -8.01094e-05);  // Electronsector 5
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.151147, 0.0212032, -0.00181402);     // Electronsector6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.281681, 0.00402848, -0.000666406);   // Electro sector 6
-  }
-
-  // // rga fall18 in
-  if (dataconfig == "rgafall18_inb") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.182257, 0.007442, -0.000758);   // Electron sector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.304421, -0.002123, -0.000286);  // Electron sector 1
-
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.179615, 0.009837, -0.000981);   // Electron sector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.306626, -0.001156, -0.000418);  // Electron sector 2
-
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.179768, 0.011258, -0.001113);  // Electron sector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.304496, 0.000808, -0.000712);  // Electron sector 3
-
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.179226, 0.010001, -0.000851);   // Electron sector 4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.310082, -0.002499, -0.000111);  // Electron sector 4
-
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.174914, 0.011152, -0.001008);  // Electron sector 5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.315217, -0.006281, 0.000256);  // Electron sector 5
-
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.182785, 0.008533, -0.000850);   // Electron sector 6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.307112, -0.000586, -0.000559);  // Electron sector 6
-  }
-
-  // RGA Fall 2018 Outbending
-  if (dataconfig == "rgafall18_outb") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.186279, 0.006740, -0.000434);  // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.303829, -0.003178, 0.000029);  // Electro sector 1
-
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.186446, 0.006058, -0.000374);   // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.298393, -0.001543, -0.000090);  // Electronsector 2
-
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.186023, 0.008322, -0.000555);   // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.300515, -0.000776, -0.000302);  // Electro sector 3
-
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.186014, 0.006690, -0.000387);   // Electronsector 4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.299888, -0.001181, -0.000234);  // Electronsector 4
-
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.187277, 0.004536, -0.000115);  // Electronsector 5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.297246, -0.002602, 0.000075);  // Electronsector 5
-
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.181060, 0.008314, -0.000519);   // Electronsector 6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.297379, -0.000577, -0.000283);  // Electro sector 6
-  }
-
-  //// RGA Spring 2019 Inbending
-  if (dataconfig == "rgasp19_inb") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.166035, 0.017046, -0.001806);  // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.323043, -0.010838, 0.000676);  // Electro sector 1
-
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.187470, 0.004908, -0.000521);  // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.296504, 0.004220, -0.001003);  // Electronsector 2
-
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.178773, 0.012186, -0.001253);  // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.302329, 0.001279, -0.000800);  // Electro sector 3
-
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.176627, 0.011507, -0.001057);  // Electronsector 4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.293717, 0.003929, -0.000917);  // Electronsector 4
-
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.173851, 0.012135, -0.001183);  // Electronsector 5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.300202, 0.001455, -0.000786);  // Electronsector 5
-
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.183544, 0.007833, -0.000789);  // Electronsector 6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.303698, 0.000896, -0.000796);  // Electro sector 6
-  }
-
-  auto corr = std::make_shared<MomentumCorrection>();
-  /// Momentum correction for the proton
-  if (dataconfig == "rgasp18_inb") {
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 inb
-        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
-          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-          float A_p = -0.229055 + 0.00924571 * theta - 9.09927e-05 * theta * theta;
-          float B_p = 0.371002 - 0.0146818 * theta + 0.000146548 * theta * theta;
-          float C_p = -0.174565 + 0.00680452 * theta - 6.9e-05 * theta * theta;
-          return p + (A_p + B_p * p + C_p * p * p);
-        });
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 inb
-        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
-          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-          float A_p = 0.0146275 - 0.00124929 * theta + 3.64154e-05 * theta * theta;
-          float B_p = -0.00743169 + 0.000458648 * theta - 6.45703e-06 * theta * theta;
-          float C_p = 0.0175282 - 0.00128554 * theta + 3.5249e-05 * theta * theta;
-
-          return p + (A_p + B_p / p + C_p / (p * p));
-        });
-  }
-  if (dataconfig == "rgasp18_outb") {
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGK sp18 out
-        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
-          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-          float A_p = -0.204359 + 0.00857339 * theta - 8.79867e-05 * theta * theta;
-          float B_p = 0.402543 - 0.0168624 * theta + 0.000178539 * theta * theta;
-          float C_p = -0.217865 + 0.00908787 * theta - 9.77617e-05 * theta * theta;
-          return p + (A_p + B_p * p + C_p * p * p);
-        });
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 out
-        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
-          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-          float A_p = 0.00523188 - 9.43614e-05 * theta;
-          float B_p = -0.00887291 + 0.000759277 * theta;
-          float C_p = 0;
-
-          return p + (A_p + B_p / p + C_p / (p * p));
-        });
-  }
-  // ---------- Fall 2018 (inb) ----------
-  if (dataconfig == "rgafall18_inb") {
-    // CD branch (central detector)
+    // CD branch
     corr->AddPiecewiseCorrection(2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD},
                                  [](double p, double theta, double /*phi*/) {
                                    theta = theta * 180.0 / M_PI;  // degrees
-                                   double A_p = -0.2383991 + 0.0124992 * theta - 0.0001646 * theta * theta;
-                                   double B_p = 0.60123885 - 0.03128464 * theta + 0.00041314 * theta * theta;
-                                   double C_p = -0.44080146 + 0.02209857 * theta - 0.00028224 * theta * theta;
+                                   double A_p = -0.2399996 + 0.0124935 * theta - 0.0001621 * theta * theta;
+                                   double B_p = 0.62191181 - 0.03248928 * theta + 0.00042729 * theta * theta;
+                                   double C_p = -0.45094157 + 0.02272091 * theta - 0.00028791 * theta * theta;
+                                   return p + (A_p + B_p * p + C_p * p * p);
+                                 });
+
+    // FD branch
+    corr->AddPiecewiseCorrection(2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD},
+                                 [](double p, double theta, double /*phi*/) {
+                                   theta = theta * 180.0 / M_PI;  // degrees
+                                   double A_p = 0.0089759 - 0.0001757 * theta - 0.0000031 * theta * theta;
+                                   double B_p = -0.01186058 + 0.00023068 * theta + 0.00001345 * theta * theta;
+                                   double C_p = 0.01162939 - 0.00047203 * theta + 0.00000630 * theta * theta;
+                                   return p + (A_p + B_p / p + C_p / (p * p));
+                                 });
+  }
+
+  // Spring 2018 Outbending
+  if (dataconfig == "rgasp18_outb") {
+    // CD branch
+    corr->AddPiecewiseCorrection(2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD},
+                                 [](double p, double theta, double /*phi*/) {
+                                   theta = theta * 180.0 / M_PI;  // degrees
+                                   double A_p = -0.1998669 + 0.0102981 * theta - 0.0001355 * theta * theta;
+                                   double B_p = 0.47190846 - 0.02474115 * theta + 0.00033280 * theta * theta;
+                                   double C_p = -0.35149154 + 0.01764687 * theta - 0.00022812 * theta * theta;
+                                   return p + (A_p + B_p * p + C_p * p * p);
+                                 });
+
+    // FD branch
+    corr->AddPiecewiseCorrection(2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD},
+                                 [](double p, double theta, double /*phi*/) {
+                                   theta = theta * 180.0 / M_PI;  // degrees
+                                   double A_p = 0.0130398 - 0.0005187 * theta;
+                                   double B_p = -0.01972407 + 0.00113010 * theta;
+                                   double C_p = 0.0;
+                                   return p + (A_p + B_p / p + C_p / (p * p));
+                                 });
+  }
+
+  // ---------- Fall 2018 (inb) ----------
+  if (dataconfig == "rgafall18_inb") {
+    // CD branch
+    corr->AddPiecewiseCorrection(2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD},
+                                 [](double p, double theta, double /*phi*/) {
+                                   theta = theta * 180.0 / M_PI;  // degrees
+                                   double A_p = -0.1904655 + 0.0099100 * theta - 0.0001281 * theta * theta;
+                                   double B_p = 0.46119797 - 0.02395829 * theta + 0.00031211 * theta * theta;
+                                   double C_p = -0.34158626 + 0.01713694 * theta - 0.00021835 * theta * theta;
                                    return p + (A_p + B_p * p + C_p * p * p);
                                  });
 
@@ -454,14 +361,31 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
 
   if (IsMC) {
     PhiTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
-  } else if (dataconfig == "rgasp18_inb") {
-    PhiTask->SetDoQADBCuts(false);  // for data we usually apply QADB false rejection
   } else {
     PhiTask->SetDoQADBCuts(true);  // for RGA sp18 inb data we skip QADB cuts due to missing QA info
   }
 
   mgr.AddTask(std::move(PhiTask));
   // Processor
+    // --------------------------------------------------
+  // Print summary of input arguments
+  // --------------------------------------------------
+  std::cout << "\n================ RunPhiAnalysis INPUT ARGUMENTS ================\n";
+  std::cout << "inputDir            : " << (inputDir.empty() ? "<empty>" : inputDir) << "\n";
+  std::cout << "nfile               : " << nfile << "\n";
+  std::cout << "nthreads (requested): " << nthreads << "\n";
+  std::cout << "outputDir           : " << outputDir << "\n";
+  std::cout << "dataconfig          : " << dataconfig << "\n";
+  std::cout << "IsMC                : " << (IsMC ? "true" : "false") << "\n";
+  std::cout << "IsreprocRootFile    : " << (IsreprocRootFile ? "true" : "false") << "\n";
+  std::cout << "IsInbending (arg)   : " << (IsInbending ? "true" : "false") << "\n";
+  std::cout << "IsMinimalBook       : " << (IsMinimalBook ? "true" : "false") << "\n";
+  std::cout << "IsMissingKm         : " << (IsMissingKm ? "true" : "false") << "\n";
+  std::cout << "reprocRootFile      : " 
+            << (reprocRootFile.empty() ? "<default>" : reprocRootFile) << "\n";
+  std::cout << "reprocTreeName      : " 
+            << (reprocTreeName.empty() ? "<default>" : reprocTreeName) << "\n";
+  std::cout << "================================================================\n\n";
   EventProcessor processor(mgr, inputFileDir, outputFileDir, IsreprocRootFile, inputRootTreeName, inputRootFileName, nfile, nthreads);
   processor.ProcessEvents();
 }
