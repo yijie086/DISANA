@@ -19,7 +19,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     std::cout << "[RunPhiAnalysis] IMT disabled (single thread mode).\n";
   }
   bool IsMC = false;              // Set to true if you want to run on MC data
-  bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
+  bool IsreprocRootFile = true;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = false;
   // std::string dataconfig = "rgasp18_inb";
@@ -57,8 +57,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/CrossSectionAN/RGA_spring2018_Analysis/fromDVCS_wagon/Inb/";
     /// DVCSGen RGA
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/accept_all/";
-    inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
-    // inputFileDir = "./";
+    // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
+    inputFileDir = "/work/clas12/yijie/clas12ana/hipo2root/hipo-utils/build/";
     inputRootFileName = "dfSelected.root";
     inputRootTreeName = "dfSelected";
   }

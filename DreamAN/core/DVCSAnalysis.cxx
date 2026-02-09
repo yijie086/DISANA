@@ -221,8 +221,9 @@ void DVCSAnalysis::SaveOutput() {
     std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
     std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
     const std::string csvpath = fOutputDir + "/events_per_run_afterFid.csv";
-    auto [runCol, evCol] = PickRunEventCols(*dfSelected_afterFid);
-    auto items = CountPerRunAndWriteCSV<int>(*dfSelected_afterFid, runCol, csvpath);
+    auto tmp = *dfSelected_afterFid;
+    auto [runCol, evCol] = PickRunEventCols(tmp);
+    auto items = CountPerRunAndWriteCSV<int>(tmp, "RUN_run", csvpath);
 
     std::cout << "[INFO] Wrote per-run counts to " << csvpath << " (unique runs = " << items.size() << ")\n";
     if (IsReproc && dfSelected_afterFid.has_value()) {
