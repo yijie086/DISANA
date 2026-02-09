@@ -359,7 +359,7 @@ inline PhiMassWindow FitAndDrawPhiMassHistogram(TH1D* hist,
     // params: [0]=Abkg(scale), [1]=alpha, [2]=lambda, [3]=Nsig(yield), [4]=mu, [5]=sigma
     fitTotal->SetParameters(100, 0.9, 2, 100, 1.02, 0.010);
     fitTotal->SetParLimits(4, .89, 1.05);
-    fitTotal->SetParLimits(5, 0.0001, 0.06);
+    fitTotal->SetParLimits(5, 0.00001, 0.06);
     fitTotal->SetLineColor(kRed + 1);
     fitTotal->SetLineWidth(3);
     hist->Fit(fitTotal, "R0QL");

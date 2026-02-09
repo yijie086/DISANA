@@ -121,6 +121,12 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All());
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi", RECParticlephi(), RECParticle::All());
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_p", RECParticleP(), RECParticle::All());
+  // needed for mc truth matching
+  dfDefs = DefineOrRedefine(dfDefs,"num_events",  [](ULong64_t e) { return e; },  {"rdfentry_"});
+
+
+
+
   dforginal = dfDefs;
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
@@ -215,7 +221,7 @@ void PhiAnalysis::SaveOutput() {
         "dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
         {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
          "MC_Event_pbeam",  // include if this exists
-         "MC_Event_ptarget", "MC_Event_ebeam"});
+         "MC_Event_ptarget", "MC_Event_ebeam","num_events"});
   }
 
   if (!dfSelected.has_value()) {

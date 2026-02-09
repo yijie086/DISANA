@@ -64,7 +64,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 {
   bool runExclusive = true;
   bool runMissingMass = false;
-  ROOT::EnableImplicitMT();
+  ROOT::EnableImplicitMT(20);
 
   // -----------------------------
   // Input locations
@@ -85,6 +85,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 /// MC path for exclusivity fits
   // MC RECONSTRUCTED GEMC
   std::string input_path_from_analysisRun_SP18inb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main_sims/build/sp2018inb_mc/";
+  std::string input_path_from_analysisRun_SP19inb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/larger_phi_reprocessed/exclusive/reprocessed_final/rgasp19_inb/";
 
   std::string input_path_from_analysisRun_SP18inb_data_qadb = Form("%s/rgasp18_inb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_SP18outb_data_qadb = Form("%s/rgasp18_outb", input_result_folder_excl.c_str());
@@ -132,6 +133,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   
   // MC files for exclusivity fits
   std::string filename_afterFid_SP18inb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18inb_MC.c_str());
+  std::string filename_afterFid_SP19inb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_MC.c_str());
   // Beam energies
   float beam_energy_sp2018 = 10.5940f;
   float beam_energy_fall2018 = 10.6000f;
@@ -199,7 +201,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     // MC RECONSTRUCTED GEMC
     ROOT::RDF::RNode df_afterFid_sp18inb_MC_init = InitKinematics(filename_afterFid_SP18inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
     auto df_afterFid_sp18inb_MC = GetSlim_exclusive(df_afterFid_sp18inb_MC_init, "slim_sp18_MC_exclusive_qadb.root", "slim_sp18_MC_exclusive_qadb");  
-
+    ROOT::RDF::RNode df_afterFid_sp19inb_MC_init = InitKinematics(filename_afterFid_SP19inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
+    auto df_afterFid_sp19inb_MC = GetSlim_exclusive(df_afterFid_sp19inb_MC_init, "slim_sp19_MC_exclusive_qadb.root", "slim_sp19_MC_exclusive_qadb");  
 
     auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive_qadb.root", "slim_sp19_exlcusive_qadb");
     auto df_afterFid_sp18inb_data = GetSlim_exclusive(df_afterFid_sp18inb_data_init, "slim_sp18inb_exlcusive_qadb.root", "slim_sp18inb_exlcusive_qadb");
@@ -217,6 +220,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto df_sp19inb_all = SelectExclusivePhiEvent(df_afterFid_sp19inb_data);
     // Apply final selections MC  
     auto df_sp18inb_all_MC = SelectExclusivePhiEvent(df_afterFid_sp18inb_MC);
+    auto df_sp19inb_all_MC = SelectExclusivePhiEvent(df_afterFid_sp19inb_MC);
 
     auto df_sp18inb_phi = ApplyFinalDVEPSelections(df_sp18inb_all);
     //auto df_sp18outb_phi_noqadb = ApplyFinalDVEPSelections(df_sp18outb_all_noqadb);
@@ -226,6 +230,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto df_sp19inb_phi = ApplyFinalDVEPSelections(df_sp19inb_all);
     /// MC
     auto df_sp18inb_phi_MC = ApplyFinalDVEPSelections(df_sp18inb_all_MC);
+    auto df_sp19inb_phi_MC = ApplyFinalDVEPSelections(df_sp19inb_all_MC);
 
     // PlotEventOverview(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm", "exclusiveKpKm");
     DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8,
@@ -244,8 +249,10 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     // MC RECONSTRUCTED
     DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi_MC, "PhiMassPlots/spring2018/inb/MC_reconstructed/DVKpKm/", "Sp18 INB DVKpKm MC Reconstructed", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8,
                                           /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);    
+    DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi_MC, "PhiMassPlots/spring2019/inb/MC_reconstructed/DVKpKm/", "Sp19 INB DVKpKm MC Reconstructed", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8,
+                                          /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);    
 
-    
+    return;
     // Add any datasets you want to compare
     // Binning setup for phi analysis
 
@@ -260,6 +267,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
                                                       60, 1.0, 8.0},                                                                // y:  Q^2 range
                                                      "mtprime", "Q2"                                                                // x var, y var
     );  
+  
     auto *hptr = hQ2t_fall18outb.GetPtr();
     std::cout << "[DEBUG] hQ2t_fall18outb entries = " << hptr->GetEntries() << " integral = " << hptr->Integral() << std::endl;
 
@@ -282,20 +290,22 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     comparer.SetXBinsRanges(xBins);
 
     // outb
-    //comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
-    //DumpExclusiveTxt(df_fall18outb_phi, "exclusive_events_dump_fall2018_outb.txt");
-    //comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
-    //DumpExclusiveTxt(df_sp18outb_phi, "exclusive_events_dump_sp2018_outb.txt");
-    // inb
-    //comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb);
-    //DumpExclusiveTxt(df_sp19inb_phi, "exclusive_events_dump_sp2019_inb.txt");
-    //comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb);
-    //DumpExclusiveTxt(df_fall18inb_phi, "exclusive_events_dump_fall2018_inb.txt");
+    /*comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
+    DumpExclusiveTxt(df_fall18outb_phi, "exclusive_events_dump_fall2018_outb.txt");
+    comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
+    DumpExclusiveTxt(df_sp18outb_phi, "exclusive_events_dump_sp2018_outb.txt");
+    */// inb
+    comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb);
+    DumpExclusiveTxt(df_sp19inb_phi, "exclusive_events_dump_sp2019_inb.txt");
+    /*comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb);
+    DumpExclusiveTxt(df_fall18inb_phi, "exclusive_events_dump_fall2018_inb.txt");
     comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb);
-    //DumpExclusiveTxt(df_sp18inb_phi, "exclusive_events_dump_sp2018_inb.txt");
-    
+    DumpExclusiveTxt(df_sp18inb_phi, "exclusive_events_dump_sp2018_inb.txt");
+    */
     // MC RECONSTRUCTED
-    comparer.AddModelPhi(df_sp18inb_phi_MC, "Sp18 inb MC Recon", beam_energy_sp2018, luminosity_rga_sp18_inb);
+    //comparer.AddModelPhi(df_sp18inb_phi_MC, "Sp18 inb MC Recon", beam_energy_sp2018, luminosity_rga_sp18_inb);
+    comparer.AddModelPhi(df_sp19inb_phi_MC, "Sp19inb MC Rec", beam_energy_sp2019, luminosity_rga_sp19_inb);
+    //DumpExclusiveTxt(df_sp18inb_phi_MC, "exclusive_events_dump_sp2018_inb_MC_reconstructed.txt");
     //DumpExclusiveTxt(df_sp19inb_phi_MC, "exclusive_events_dump_sp2019_inb_MC_reconstructed.txt");
   
   }
