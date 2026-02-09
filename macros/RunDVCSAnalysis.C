@@ -401,7 +401,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     qadbCuts->SetDefects(qaDefects);
   }
 
-  if (dataconfig == "rgkfa18_6535" || dataconfig == "rgasp18_inb") {
+  if (dataconfig == "rgkfa18_7546" || dataconfig == "rgkfa18_6535" || dataconfig == "rgasp18_inb") {
     const char* qaDefects[] = {"TotalOutlier",      "TerminalOutlier",   "MarginalOutlier", "SectorLoss",     "LowLiveTime",   "Misc",          "TotalOutlierFT",
                                "TerminalOutlierFT", "MarginalOutlierFT", "LossFT",          "BSAWrong",       "BSAUnknown",    "TSAWrong",      "TSAUnknown",
                                "DSAWrong",          "DSAUnknown",        "ChargeHigh",      "ChargeNegative", "ChargeUnknown", "PossiblyNoBeam"};

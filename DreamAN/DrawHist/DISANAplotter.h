@@ -367,8 +367,6 @@ for (auto& row : phi_alu_zphi_QW_)      for (auto* h : row) delete h;
 
                     if (c_val == 0.0||c_err == 0.0) val_corr = xs_val;
                     if (c_val == 0.0||c_err == 0.0) err_corr = xs_err;
-                    if (c_val <=0.1) val_corr = -1;
-                    if (c_val <=0.1) err_corr = -1; 
                     //std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr << std::endl;
 
                     hNew->SetBinContent(b, val_corr);
