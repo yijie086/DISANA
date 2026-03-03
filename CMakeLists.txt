@@ -10,7 +10,7 @@ if(NOT DEFINED ENV{CLAS12ROOT})
 endif()
 
 # Set the HIPO4 path
-# set(HIPO4 "/u/scigroup/cvmfs/hallb/clas12/sw/almalinux9-gcc11/local/hipo/4.2.0")
+# set(HIPO4 "/u/scigroup/cvmfs/hallb/clas12/sw/almalinux9-gcc11/local/hipo/4.3.0")
 
 # Include ROOT headers using the flags from root-config (if necessary)
 execute_process(

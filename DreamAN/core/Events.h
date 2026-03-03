@@ -41,10 +41,6 @@ private:
 
   std::vector<std::string> inputFiles;
   std::unique_ptr<RHipoDS> dataSource;
-  std::shared_ptr<ROOT::RDF::RNode> dfNodePtr;
-  
-  // NEW: Store paths to temporary files for cleanup
-  std::vector<std::string> fTempRootFiles_;
 };
 
 #endif // EVENTS_H

@@ -7,7 +7,10 @@
 #include <sys/stat.h>
 // STL headers
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -47,8 +50,8 @@ class DISANAcomparer {
                            ROOT::RDF::RNode df_dvcsmc_rad, ROOT::RDF::RNode df_dvcsmc_norad, ROOT::RDF::RNode df_dvcsmc_p1cut, const std::string& label, double beamEnergy,
                            bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false,
                            bool fP1cut = false, double luminosity = 1.0) {
-    auto plotter = std::make_unique<DISANAplotter>(df_dvcs_data, beamEnergy, luminosity, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg,
-                                                   df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad, df_dvcsmc_p1cut);
+    auto plotter = std::make_unique<DISANAplotter>(DVCSModeTag{}, df_dvcs_data, beamEnergy, luminosity, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc,
+                                                   df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad, df_dvcsmc_p1cut);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction
               << ", Acceptance Correction: " << fAcceptanceCorrection << ", Background Merging efficiency: " << fEfficiencyCorrection
               << ", Radiative Correction: " << fRadiativeCorrection << ", P1 cut: " << fP1cut << std::endl;
@@ -69,7 +72,7 @@ class DISANAcomparer {
   }
 
   void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, double luminosity = 1.0) {
-    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy, luminosity);
+    auto plotter = std::make_unique<DISANAplotter>(DVCSModeTag{}, df, beamEnergy, luminosity);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV without Pi0 Correction" << std::endl;
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
@@ -78,16 +81,46 @@ class DISANAcomparer {
     plotters.push_back(std::move(plotter));
   }
 
-  void AddModelPhi(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, double luminosity = 1.0) {
-    auto plotter = std::make_unique<DISANAplotter>(df, beamEnergy, luminosity);
-    std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " Luminosity is" << luminosity << std::endl;
+
+void AddModelPhi(ROOT::RDF::RNode df_data,
+                 const std::string& label,
+                 double beamEnergy,
+                 double luminosity)
+{
+  auto plotter = std::make_unique<DISANAplotter>(
+      PhiModeTag{}, df_data, beamEnergy, luminosity);
+  labels.push_back(label);
     plotter->GeneratePhiKinematicHistos("el");
     plotter->GeneratePhiKinematicHistos("pro");
     plotter->GeneratePhiKinematicHistos("kMinus");
     plotter->GeneratePhiKinematicHistos("kPlus");
-    labels.push_back(label);
-    plotters.push_back(std::move(plotter));
-  }
+  plotters.push_back(std::move(plotter));
+}
+
+void AddModelPhi(ROOT::RDF::RNode df_data,
+                 const std::string& label,
+                 double beamEnergy,
+                 double luminosity,
+                 ROOT::RDF::RNode df_gen,
+                 ROOT::RDF::RNode df_rec,
+                 ROOT::RDF::RNode df_radRatio,
+                 bool fAcc=false, bool fEff=false, bool fRad=false)
+{
+  auto plotter = std::make_unique<DISANAplotter>(
+      PhiModeTag{}, df_data, beamEnergy, luminosity,
+      df_gen, df_rec, df_radRatio);
+    plotter->GeneratePhiKinematicHistos("el");
+    plotter->GeneratePhiKinematicHistos("pro");
+    plotter->GeneratePhiKinematicHistos("kMinus");
+    plotter->GeneratePhiKinematicHistos("kPlus");
+  plotter->SetPlotApplyAcceptanceCorrection(fAcc);
+  plotter->SetPlotApplyEfficiencyCorrection(fEff);
+  plotter->SetPlotApplyRadiativeCorrection(fRad);
+
+  labels.push_back(label);
+  plotters.push_back(std::move(plotter));
+}
+
 
   // Set the output directory for saving plots
   void SetOutputDir(const std::string& outdir) {
@@ -1184,990 +1217,1333 @@ class DISANAcomparer {
     }
   };*/
 
-  void PlotPhiAnaExclusivityComparisonByDetectorCases(
-    const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
-  std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
-      {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.8, 1.3},
-      {"Emiss", "Missing Energy", "E_{miss} [GeV]", -1.0, 2.0},
-      {"PTmiss", "Transverse Missing Momentum", "P_{T}^{miss} [GeV/c]", -0.1, 0.5},
-      {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.07, 0.07},
-      {"Mx2_eKpKm", "Invariant Mass Squared (eK^{+}K^{-})", "M^{2}(eK^{+}K^{-}) [GeV^{2}]", -0.5, 3.0},
-      {"Mx2_epKm", "Missing Mass Squared (epK^{-})", "MM^{2}(epK^{-}) [GeV^{2}]", -0.5, 1.5},
-      {"Mx2_epKp", "Missing Mass Squared (epK^{+})", "MM^{2}(epK^{+}) [GeV^{2}]", -0.5, 1.5},
-      {"DeltaPhi", "Coplanarity Angle", "#Delta#phi [deg]", 0.0, 20.0},
-      {"Theta_g_phimeson", "Angle: #gamma - #phi", "#theta(#gamma, #phi) [deg]", 0.0, 10.0},
-      {"Theta_e_phimeson", "Angle: e - #phi", "#theta(e, #phi) [deg]", 0.0, 60.0},
-      {"DeltaE", "Energy Difference", "#DeltaE [GeV]", -1.0, 1.0},
-      {"Cone_p", "Cone Angle (p)", "Cone(p) [deg]", 0.0, 20.0},
-      {"Cone_Kp", "Cone Angle (K^{+})", "Cone(K^{+}) [deg]", 0.0, 20.0},
-      {"Cone_Km", "Cone Angle (K^{-})", "Cone(K^{-}) [deg]", 0.0, 20.0},
-      {"Coplanarity_had_normals_deg", "Coplanarity of Hadronic Normals", "Coplanarity_{had} [deg]", 0.0, 20.0},
+  void PlotPhiAnaExclusivityComparisonByDetectorCases(const std::vector<std::pair<std::string, std::string>>& detectorCuts) {
+    std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
+        {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", 0.8, 1.3},
+        {"Emiss", "Missing Energy", "E_{miss} [GeV]", -1.0, 2.0},
+        {"PTmiss", "Transverse Missing Momentum", "P_{T}^{miss} [GeV/c]", -0.1, 0.5},
+        {"Mx2_epKpKm", "Missing Mass Squared (epK^{+}K^{-})", "MM^{2}(epK^{+}K^{-}) [GeV^{2}]", -0.07, 0.07},
+        {"Mx2_eKpKm", "Invariant Mass Squared (eK^{+}K^{-})", "M^{2}(eK^{+}K^{-}) [GeV^{2}]", -0.5, 3.0},
+        {"Mx2_epKm", "Missing Mass Squared (epK^{-})", "MM^{2}(epK^{-}) [GeV^{2}]", -0.5, 1.5},
+        {"Mx2_epKp", "Missing Mass Squared (epK^{+})", "MM^{2}(epK^{+}) [GeV^{2}]", -0.5, 1.5},
+        {"DeltaPhi", "Coplanarity Angle", "#Delta#phi [deg]", 0.0, 20.0},
+        {"Theta_g_phimeson", "Angle: #gamma - #phi", "#theta(#gamma, #phi) [deg]", 0.0, 10.0},
+        {"Theta_e_phimeson", "Angle: e - #phi", "#theta(e, #phi) [deg]", 0.0, 60.0},
+        {"DeltaE", "Energy Difference", "#DeltaE [GeV]", -1.0, 1.0},
+        {"Cone_p", "Cone Angle (p)", "Cone(p) [deg]", 0.0, 20.0},
+        {"Cone_Kp", "Cone Angle (K^{+})", "Cone(K^{+}) [deg]", 0.0, 20.0},
+        {"Cone_Km", "Cone Angle (K^{-})", "Cone(K^{-}) [deg]", 0.0, 20.0},
+        {"Coplanarity_had_normals_deg", "Coplanarity of Hadronic Normals", "Coplanarity_{had} [deg]", 0.0, 20.0},
 
-      // New: Missing mass of eK+
-      {"Mx_eKp", "Missing Mass (eK^{+})", "MM(eK^{+}) [GeV]", 0.0, 4.0}
-  };
+        // New: Missing mass of eK+
+        {"Mx_eKp", "Missing Mass (eK^{+})", "MM(eK^{+}) [GeV]", 0.0, 4.0}};
 
-  for (const auto& [cutExpr, cutLabel] : detectorCuts) {
-    std::string cleanName = cutLabel;
-    std::replace(cleanName.begin(), cleanName.end(), ' ', '_');
-    std::replace(cleanName.begin(), cleanName.end(), ',', '_');
+    for (const auto& [cutExpr, cutLabel] : detectorCuts) {
+      std::string cleanName = cutLabel;
+      std::replace(cleanName.begin(), cleanName.end(), ' ', '_');
+      std::replace(cleanName.begin(), cleanName.end(), ',', '_');
 
-    // 4 columns now
-    int cols = 4;
-    int rows = (vars.size() + cols - 1) / cols;
-    TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(),
-                                  cutLabel.c_str(), 2000, 1200);
-    canvas->Divide(cols, rows);
+      // 4 columns now
+      int cols = 4;
+      int rows = (vars.size() + cols - 1) / cols;
+      TCanvas* canvas = new TCanvas(("c_" + cleanName).c_str(), cutLabel.c_str(), 2000, 1200);
+      canvas->Divide(cols, rows);
 
-    for (size_t i = 0; i < vars.size(); ++i) {
-      canvas->cd(i + 1);
-      const auto& [var, title, xlabel, xmin, xmax] = vars[i];
-      gPad->SetTicks();
-      styleKin_.StylePad((TPad*)gPad);
+      for (size_t i = 0; i < vars.size(); ++i) {
+        canvas->cd(i + 1);
+        const auto& [var, title, xlabel, xmin, xmax] = vars[i];
+        gPad->SetTicks();
+        styleKin_.StylePad((TPad*)gPad);
 
-      TLegend* legend = new TLegend(0.6, 0.55, 0.88, 0.88);
-      legend->SetBorderSize(0);
-      legend->SetFillStyle(0);
-      legend->SetTextSize(0.04);
+        TLegend* legend = new TLegend(0.6, 0.55, 0.88, 0.88);
+        legend->SetBorderSize(0);
+        legend->SetFillStyle(0);
+        legend->SetTextSize(0.04);
 
-      bool first = true;
+        bool first = true;
 
-      for (size_t m = 0; m < plotters.size(); ++m) {
-        auto rdf_cut = plotters[m]->GetRDF().Filter(cutExpr, cutLabel);
-        if (!rdf_cut.HasColumn(var)) continue;
+        for (size_t m = 0; m < plotters.size(); ++m) {
+          auto rdf_cut = plotters[m]->GetRDF().Filter(cutExpr, cutLabel);
+          if (!rdf_cut.HasColumn(var)) continue;
 
-        auto h = rdf_cut.Histo1D(
-            {Form("h_%s_%s_%zu", var.c_str(), cleanName.c_str(), m),
-             (title + ";" + xlabel + ";Counts").c_str(),
-             100, xmin, xmax},
-            var);
-        h.GetValue();
+          auto h = rdf_cut.Histo1D({Form("h_%s_%s_%zu", var.c_str(), cleanName.c_str(), m), (title + ";" + xlabel + ";Counts").c_str(), 100, xmin, xmax}, var);
+          h.GetValue();
 
-        TH1D* h_clone = (TH1D*)h.GetPtr()->Clone();
-        h_clone->SetDirectory(0);
-        NormalizeHistogram(h_clone);
+          TH1D* h_clone = (TH1D*)h.GetPtr()->Clone();
+          h_clone->SetDirectory(0);
+          NormalizeHistogram(h_clone);
 
-        styleKin_.StyleTH1(h_clone);
-        h_clone->SetLineColorAlpha(m + 4, 0.8);
-        auto [cr, cg, cb] = modelShades[m % modelShades.size()];
-        const int colorIdx = 4000 + int(m) * 20;
-        if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
-        h_clone->SetMarkerColor(colorIdx);
-        h_clone->SetLineColorAlpha(colorIdx, 0.8);
-        h_clone->SetLineWidth(1);
+          styleKin_.StyleTH1(h_clone);
+          h_clone->SetLineColorAlpha(m + 4, 0.8);
+          auto [cr, cg, cb] = modelShades[m % modelShades.size()];
+          const int colorIdx = 4000 + int(m) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h_clone->SetMarkerColor(colorIdx);
+          h_clone->SetLineColorAlpha(colorIdx, 0.8);
+          h_clone->SetLineWidth(1);
 
-        double mean  = h_clone->GetMean();
-        double sigma = h_clone->GetStdDev();
-        double x1    = mean - 3 * sigma;
-        double x2    = mean + 3 * sigma;
+          double mean = h_clone->GetMean();
+          double sigma = h_clone->GetStdDev();
+          double x1 = mean - 3 * sigma;
+          double x2 = mean + 3 * sigma;
 
-        TLine* line1 = new TLine(x1, 0, x1, h_clone->GetMaximum() * 0.5);
-        TLine* line2 = new TLine(x2, 0, x2, h_clone->GetMaximum() * 0.5);
-        line1->SetLineColorAlpha(colorIdx, 0.8);
-        line2->SetLineColorAlpha(colorIdx, 0.8);
-        line1->SetLineStyle(2);  // Dashed
-        line2->SetLineStyle(2);
+          TLine* line1 = new TLine(x1, 0, x1, h_clone->GetMaximum() * 0.5);
+          TLine* line2 = new TLine(x2, 0, x2, h_clone->GetMaximum() * 0.5);
+          line1->SetLineColorAlpha(colorIdx, 0.8);
+          line2->SetLineColorAlpha(colorIdx, 0.8);
+          line1->SetLineStyle(2);  // Dashed
+          line2->SetLineStyle(2);
 
-        if (first) {
-          h_clone->Draw("HIST");
-          first = false;
-        } else {
-          h_clone->Draw("HIST SAME");
+          if (first) {
+            h_clone->Draw("HIST");
+            first = false;
+          } else {
+            h_clone->Draw("HIST SAME");
+          }
+
+          legend->AddEntry(h_clone, labels[m].c_str(), "l");
+          std::ostringstream stats;
+          stats << "#mu = " << std::fixed << std::setprecision(2) << mean << ", #sigma = " << std::fixed << std::setprecision(2) << sigma;
+          legend->AddEntry((TObject*)0, stats.str().c_str(), "");
+          line1->Draw("SAME");
+          line2->Draw("SAME");
         }
 
-        legend->AddEntry(h_clone, labels[m].c_str(), "l");
-        std::ostringstream stats;
-        stats << "#mu = " << std::fixed << std::setprecision(2) << mean
-              << ", #sigma = " << std::fixed << std::setprecision(2) << sigma;
-        legend->AddEntry((TObject*)0, stats.str().c_str(), "");
-        line1->Draw("SAME");
-        line2->Draw("SAME");
+        legend->Draw();
       }
 
-      legend->Draw();
+      std::string outpath = outputDir + "/Exclusivity_Phi_Ana" + cleanName + ".pdf";
+      canvas->SaveAs(outpath.c_str());
+      std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
+      delete canvas;
     }
-
-    std::string outpath = outputDir + "/Exclusivity_Phi_Ana" + cleanName + ".pdf";
-    canvas->SaveAs(outpath.c_str());
-    std::cout << "Saved detector-specific comparison to: " << outpath << "\n";
-    delete canvas;
   }
-}
 
+  void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false,
+                                                    bool plotEffCorr = false, bool plotRadCorr = false, bool plotP1Cut = false, bool meanKinVar = false) {
+    if (plotters.empty()) {
+      std::cerr << "No models loaded to compare.\n";
+      return;
+    }
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffmc;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffexp;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allEffCorr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allRadCorr;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allP1Cut;
+    // job for chatgpt
+    std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
 
-    void PlotDIS_BSA_Cross_Section_AndCorr_Comparison(double pol = 1.0, bool plotBSA = true, bool plotDVCSCross = false, bool plotPi0Corr = false, bool plotAccCorr = false,
-                                                      bool plotEffCorr = false, bool plotRadCorr = false, bool plotP1Cut = false, bool meanKinVar = false) {
-      if (plotters.empty()) {
-        std::cerr << "No models loaded to compare.\n";
-        return;
+    for (auto& p : plotters) {
+      if (plotBSA) {
+        auto h = p->ComputeBSA(fXbins, pol);
+        allBSA.push_back(std::move(h));
       }
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffmc;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffexp;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allEffCorr;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allRadCorr;
-      std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allP1Cut;
-      // job for chatgpt
-      std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
-
-      for (auto& p : plotters) {
-        if (plotBSA) {
-          auto h = p->ComputeBSA(fXbins, pol);
-          allBSA.push_back(std::move(h));
-        }
-        if (plotDVCSCross) {
-          auto hists = p->ComputeDVCS_CrossSection(fXbins);
-          allDVCSCross.push_back(std::move(hists));
-        }
-        if (plotPi0Corr) {
-          auto hcorr = p->ComputePi0Corr(fXbins);
-          auto hpi0dvcsdiffmc = p->ComputePi0DVCSdiffmc(fXbins);
-          auto hpi0dvcsdiffexp = p->ComputePi0DVCSdiffexp(fXbins);
-          allPi0Corr.push_back(std::move(hcorr));
-          allPi0DVCSdiffmc.push_back(std::move(hpi0dvcsdiffmc));
-          allPi0DVCSdiffexp.push_back(std::move(hpi0dvcsdiffexp));
-        }
-        if (plotAccCorr) {
-          auto hacc = p->ComputeAccCorr(fXbins);
-          allAccCorr.push_back(std::move(hacc));
-        }
-        if (plotEffCorr) {
-          auto heff = p->ComputeEffCorr(fXbins);
-          allEffCorr.push_back(std::move(heff));
-        }
-        if (plotRadCorr) {
-          auto hrad = p->ComputeRadCorr(fXbins);
-          allRadCorr.push_back(std::move(hrad));
-        }
-        if (plotP1Cut) {
-          auto hp1 = p->ComputeP1CutEffect(fXbins);
-          allP1Cut.push_back(std::move(hp1));
-        }
-        if (meanKinVar) {
-          allBSAmeans.push_back(getMeanQ2xBt(fXbins, p));
-        }
+      if (plotDVCSCross) {
+        auto hists = p->ComputeDVCS_CrossSection(fXbins);
+        allDVCSCross.push_back(std::move(hists));
       }
-
-      if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
-      if (plotDVCSCross)
-        MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
-      if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
-      if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
-      if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
-      if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
-      if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
-      if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.0, 1.5, "pdf", false, true, false, false, meanKinVar);
-      if (plotP1Cut) MakeTiledGridComparison("DIS_P1Cut", "C_{P1}", allP1Cut, &allBSAmeans, 0.0, 1.2, "pdf", false, true, false, false, meanKinVar);
+      if (plotPi0Corr) {
+        auto hcorr = p->ComputePi0Corr(fXbins);
+        auto hpi0dvcsdiffmc = p->ComputePi0DVCSdiffmc(fXbins);
+        auto hpi0dvcsdiffexp = p->ComputePi0DVCSdiffexp(fXbins);
+        allPi0Corr.push_back(std::move(hcorr));
+        allPi0DVCSdiffmc.push_back(std::move(hpi0dvcsdiffmc));
+        allPi0DVCSdiffexp.push_back(std::move(hpi0dvcsdiffexp));
+      }
+      if (plotAccCorr) {
+        auto hacc = p->ComputeAccCorr(fXbins);
+        allAccCorr.push_back(std::move(hacc));
+      }
+      if (plotEffCorr) {
+        auto heff = p->ComputeEffCorr(fXbins);
+        allEffCorr.push_back(std::move(heff));
+      }
+      if (plotRadCorr) {
+        auto hrad = p->ComputeRadCorr(fXbins);
+        allRadCorr.push_back(std::move(hrad));
+      }
+      if (plotP1Cut) {
+        auto hp1 = p->ComputeP1CutEffect(fXbins);
+        allP1Cut.push_back(std::move(hp1));
+      }
+      if (meanKinVar) {
+        allBSAmeans.push_back(getMeanQ2xBt(fXbins, p));
+      }
     }
 
-    bool file_exists(const char* name) {
-      struct stat buffer;
-      return (stat(name, &buffer) == 0);
+    if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
+    if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
+    if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
+    if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
+    if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.0, 1.5, "pdf", false, true, false, false, meanKinVar);
+    if (plotP1Cut) MakeTiledGridComparison("DIS_P1Cut", "C_{P1}", allP1Cut, &allBSAmeans, 0.0, 1.2, "pdf", false, true, false, false, meanKinVar);
+  }
+
+  bool file_exists(const char* name) {
+    struct stat buffer;
+    return (stat(name, &buffer) == 0);
+  }
+
+  void dumpHistogram(TH1D* h, double xB, double Q2, double t, double xBmin, double xBmax, double Q2min, double Q2max, double tmin, double tmax,
+                     const char* filename = "h_data.txt") {
+    bool exists = file_exists(filename);
+
+    std::ofstream fout(filename, std::ios::out | std::ios::app);
+    if (!fout.is_open()) {
+      std::cerr << "cannot open " << filename << " to write!\n";
+      return;
     }
 
-    void dumpHistogram(TH1D * h, double xB, double Q2, double t, double xBmin, double xBmax, double Q2min, double Q2max, double tmin, double tmax,
-                       const char* filename = "h_data.txt") {
-      bool exists = file_exists(filename);
-
-      std::ofstream fout(filename, std::ios::out | std::ios::app);
-      if (!fout.is_open()) {
-        std::cerr << "cannot open " << filename << " to write!\n";
-        return;
-      }
-
-      if (!exists) {
-        fout << "# xB\tQ2\t-t\tphi\tvalue\terror\txBmin\txBmax\tQ2min\tQ2max\ttmin\ttmax\n";
-      }
-      for (int ibin = 1; ibin <= h->GetNbinsX(); ++ibin) {
-        double phi = h->GetBinCenter(ibin);
-        double value = h->GetBinContent(ibin);
-        double err = h->GetBinError(ibin);
-        fout << xB << "\t" << Q2 << "\t" << t << "\t" << phi << "\t" << value << "\t" << err << "\t" << xBmin << "\t" << xBmax << "\t" << Q2min << "\t" << Q2max << "\t" << tmin
-             << "\t" << tmax << "\n";
-      }
-
-      fout.close();
-      std::cout << "Data " << h->GetName() << " written into " << filename << (exists ? " (appended)" : "") << "\n";
+    if (!exists) {
+      fout << "# xB\tQ2\t-t\tphi\tvalue\terror\txBmin\txBmax\tQ2min\tQ2max\ttmin\ttmax\n";
+    }
+    for (int ibin = 1; ibin <= h->GetNbinsX(); ++ibin) {
+      double phi = h->GetBinCenter(ibin);
+      double value = h->GetBinContent(ibin);
+      double err = h->GetBinError(ibin);
+      fout << xB << "\t" << Q2 << "\t" << t << "\t" << phi << "\t" << value << "\t" << err << "\t" << xBmin << "\t" << xBmax << "\t" << Q2min << "\t" << Q2max << "\t" << tmin
+           << "\t" << tmax << "\n";
     }
 
-    void MakeTiledGridComparison(const std::string& observableName, const std::string& yAxisTitle, const std::vector<std::vector<std::vector<std::vector<TH1D*>>>>& histograms,
-                                 const std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>>* meanValues, double yMin, double yMax,
-                                 const std::string& suffix = "png", bool fitSinusoid = false, bool setManualYrange = false, bool setLogY = false, bool fixlineYrang = true,
-                                 bool showMeanKin = false) {
-      if (histograms.empty() || histograms[0].empty() || histograms[0][0].empty() || histograms[0][0][0].empty()) {
-        std::cerr << "No histograms to compare.\n";
-        return;
-      }
-      const auto& q2_edges = fXbins.GetQ2Bins();
-      const auto& t_edges = fXbins.GetTBins();
-      const auto& xb_edges = fXbins.GetXBBins();
+    fout.close();
+    std::cout << "Data " << h->GetName() << " written into " << filename << (exists ? " (appended)" : "") << "\n";
+  }
 
-      const size_t n_q2 = q2_edges.size() - 1;
-      const size_t n_t = t_edges.size() - 1;
-      const size_t n_xb = xb_edges.size() - 1;
+  void MakeTiledGridComparison(const std::string& observableName, const std::string& yAxisTitle, const std::vector<std::vector<std::vector<std::vector<TH1D*>>>>& histograms,
+                               const std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>>* meanValues, double yMin, double yMax,
+                               const std::string& suffix = "png", bool fitSinusoid = false, bool setManualYrange = false, bool setLogY = false, bool fixlineYrang = true,
+                               bool showMeanKin = false) {
+    if (histograms.empty() || histograms[0].empty() || histograms[0][0].empty() || histograms[0][0][0].empty()) {
+      std::cerr << "No histograms to compare.\n";
+      return;
+    }
+    const auto& q2_edges = fXbins.GetQ2Bins();
+    const auto& t_edges = fXbins.GetTBins();
+    const auto& xb_edges = fXbins.GetXBBins();
 
-      const int rows = n_q2;
-      const int cols = n_xb;
+    const size_t n_q2 = q2_edges.size() - 1;
+    const size_t n_t = t_edges.size() - 1;
+    const size_t n_xb = xb_edges.size() - 1;
 
-      bool Doplot = true;
-      int first_perbin_xb = 0;
-      bool first_perbin_q2 = true;
-      bool first_first_perbin_q2 = true;
-      double fixlineYMin = 0.00001;
-      double fixlineYMax = 1.0;
+    const int rows = n_q2;
+    const int cols = n_xb;
 
-      for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
-        TString cname = Form("DIS_BSA_t[%zu]", t_bin);
-        TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
-        first_perbin_xb = 0;
-        first_first_perbin_q2 = true;
-        double canvasBorderX = 0.06;
-        double canvasBorderY = 0.08;
-        double gpad_margin_ratio = 0.2;
+    bool Doplot = true;
+    int first_perbin_xb = 0;
+    bool first_perbin_q2 = true;
+    bool first_first_perbin_q2 = true;
+    double fixlineYMin = 0.00001;
+    double fixlineYMax = 1.0;
 
-        double cellW = (1 - 2 * canvasBorderX) / cols, cellH = (1 - 2 * canvasBorderY) / rows;
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      TString cname = Form("DIS_BSA_t[%zu]", t_bin);
+      TCanvas* c = new TCanvas(cname, cname, 2200, 1600);
+      first_perbin_xb = 0;
+      first_first_perbin_q2 = true;
+      double canvasBorderX = 0.06;
+      double canvasBorderY = 0.08;
+      double gpad_margin_ratio = 0.2;
 
-        for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
-          first_perbin_q2 = true;
+      double cellW = (1 - 2 * canvasBorderX) / cols, cellH = (1 - 2 * canvasBorderY) / rows;
 
-          /// xbin loop
-          for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
-            int visualRow = rows - 1 - q2_bin;
-            int pad = visualRow * cols + xb_bin + 1;
-            c->cd();
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        first_perbin_q2 = true;
 
-            bool first = true;
-            gStyle->SetCanvasPreferGL(true);
+        /// xbin loop
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+          int visualRow = rows - 1 - q2_bin;
+          int pad = visualRow * cols + xb_bin + 1;
+          c->cd();
 
-            TLegend* leg = new TLegend(0.35, 0.85, 0.85, 0.95);
-            leg->SetBorderSize(0);
-            leg->SetFillStyle(0);
-            leg->SetTextSize(0.08);
+          bool first = true;
+          gStyle->SetCanvasPreferGL(true);
 
-            TLegend* legParams = new TLegend(0.35, 0.16, 0.85, 0.32);  // Bottom legend for a₁
-            legParams->SetBorderSize(0);
-            legParams->SetFillStyle(0);
-            legParams->SetTextSize(0.08);
+          TLegend* leg = new TLegend(0.35, 0.85, 0.85, 0.95);
+          leg->SetBorderSize(0);
+          leg->SetFillStyle(0);
+          leg->SetTextSize(0.08);
 
-            TPad* thisPad = new TPad(Form("%zu_%zu", xb_bin, q2_bin), Form("%zu_%zu", xb_bin, q2_bin), cellW * xb_bin + canvasBorderX, cellH * (q2_bin) + canvasBorderY,
-                                     cellW * (xb_bin + 1) + canvasBorderX, cellH * (q2_bin + 1) + canvasBorderY);
-            double l = 0.00, r = 0.00, b = 0.00, t = 0.00;
-            Doplot = false;
+          TLegend* legParams = new TLegend(0.35, 0.16, 0.85, 0.32);  // Bottom legend for a₁
+          legParams->SetBorderSize(0);
+          legParams->SetFillStyle(0);
+          legParams->SetTextSize(0.08);
 
-            for (size_t m = 0; m < histograms.size(); ++m) {
-              // if(q2_bin == 2 && xb_bin == 2) continue; // save first per bin xb
-              //  Pad margins
-              /*
-              double l = (first_perbin_q2) ? 0.2 : 0.00;
-              double r = (!first_perbin_q2) ? 0.00 : 0.00;
-              double b = (xb_bin == first_perbin_xb) ? 0.16 : 0.00;
-              double t = (visualRow == 0) ? 0.000 : 0.00;
-              */
+          TPad* thisPad = new TPad(Form("%zu_%zu", xb_bin, q2_bin), Form("%zu_%zu", xb_bin, q2_bin), cellW * xb_bin + canvasBorderX, cellH * (q2_bin) + canvasBorderY,
+                                   cellW * (xb_bin + 1) + canvasBorderX, cellH * (q2_bin + 1) + canvasBorderY);
+          double l = 0.00, r = 0.00, b = 0.00, t = 0.00;
+          Doplot = false;
 
-              // const int idx = q2_bin * (n_t * n_xb) + t_bin * n_xb + xb_bin;
+          for (size_t m = 0; m < histograms.size(); ++m) {
+            // if(q2_bin == 2 && xb_bin == 2) continue; // save first per bin xb
+            //  Pad margins
+            /*
+            double l = (first_perbin_q2) ? 0.2 : 0.00;
+            double r = (!first_perbin_q2) ? 0.00 : 0.00;
+            double b = (xb_bin == first_perbin_xb) ? 0.16 : 0.00;
+            double t = (visualRow == 0) ? 0.000 : 0.00;
+            */
 
-              TH1D* h = histograms[m][xb_bin][q2_bin][t_bin];
+            // const int idx = q2_bin * (n_t * n_xb) + t_bin * n_xb + xb_bin;
 
-              styleBSA_.StyleTH1(h);
+            TH1D* h = histograms[m][xb_bin][q2_bin][t_bin];
 
-              auto [r, g, b] = modelShades[m % modelShades.size()];
+            styleBSA_.StyleTH1(h);
 
-              int colorIdx = 3000 + m * 20;  // Avoid low TColor indices
+            auto [r, g, b] = modelShades[m % modelShades.size()];
 
-              if (!gROOT->GetColor(colorIdx)) {
-                new TColor(colorIdx, r, g, b);
-              }
+            int colorIdx = 3000 + m * 20;  // Avoid low TColor indices
 
-              h->SetLineColor(colorIdx);
-              h->SetMarkerColor(colorIdx);
-              h->SetFillColorAlpha(colorIdx, 1.0);
+            if (!gROOT->GetColor(colorIdx)) {
+              new TColor(colorIdx, r, g, b);
+            }
 
-              h->SetLineColor(colorIdx);
-              h->SetMarkerColor(colorIdx);
-              h->SetFillColorAlpha(colorIdx, 1.0);
-              h->SetLineWidth(1);
-              h->SetMarkerStyle(20);
-              h->SetMarkerSize(1.0);
-              h->SetStats(0);
+            h->SetLineColor(colorIdx);
+            h->SetMarkerColor(colorIdx);
+            h->SetFillColorAlpha(colorIdx, 1.0);
 
-              if (first) {
-                l = (first_perbin_q2) ? (gpad_margin_ratio) / (1 + gpad_margin_ratio) : 0.00;
-                r = (xb_bin == first_perbin_xb) ? (gpad_margin_ratio) / (1 + gpad_margin_ratio) : 0.00;
-                b = (xb_bin == first_perbin_xb) ? (gpad_margin_ratio) / (1 + gpad_margin_ratio) : 0.00;
-                t = (visualRow == 0) ? 0.000 : 0.00;
+            h->SetLineColor(colorIdx);
+            h->SetMarkerColor(colorIdx);
+            h->SetFillColorAlpha(colorIdx, 1.0);
+            h->SetLineWidth(1);
+            h->SetMarkerStyle(20);
+            h->SetMarkerSize(1.0);
+            h->SetStats(0);
 
-                l = (first_perbin_q2 && xb_bin == first_perbin_xb) ? (gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio) : l;
-                r = (xb_bin == first_perbin_xb && first_perbin_q2) ? (gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio) : r;
+            if (first) {
+              l = (first_perbin_q2) ? (gpad_margin_ratio) / (1 + gpad_margin_ratio) : 0.00;
+              r = (xb_bin == first_perbin_xb) ? (gpad_margin_ratio) / (1 + gpad_margin_ratio) : 0.00;
+              b = (xb_bin == first_perbin_xb) ? (gpad_margin_ratio) / (1 + gpad_margin_ratio) : 0.00;
+              t = (visualRow == 0) ? 0.000 : 0.00;
 
-                styleBSA_.StylePad(thisPad, l, r, b, t);
-                thisPad->SetTicks(1, 0);
-                thisPad->SetFillStyle(4000);
-                // std::cout << "xb_bin: " << xb_bin << ", q2_bin: " << q2_bin << ", first_perbin_xb: " << first_perbin_xb << ", first_perbin_q2: " << first_perbin_q2 << ",
-                // first_first_perbin_q2: " <<first_first_perbin_q2<< std::endl;
+              l = (first_perbin_q2 && xb_bin == first_perbin_xb) ? (gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio) : l;
+              r = (xb_bin == first_perbin_xb && first_perbin_q2) ? (gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio) : r;
 
-                h->GetXaxis()->SetTitle((xb_bin == first_perbin_xb) ? "#phi [deg]" : "");
-                h->GetYaxis()->SetTitle((first_perbin_q2) ? yAxisTitle.c_str() : "");
-                h->GetXaxis()->SetLabelSize((xb_bin == first_perbin_xb) ? 0.085 : 0.0);
-                h->GetXaxis()->SetTitleSize((xb_bin == first_perbin_xb) ? 0.095 : 0.0);
-                h->GetYaxis()->SetLabelSize((first_perbin_q2) ? 0.085 : 0.0);
-                h->GetYaxis()->SetTitleSize((first_perbin_q2) ? 0.1 : 0.0);
-                if (xb_bin == first_perbin_xb && first_perbin_q2) {
-                  h->GetYaxis()->SetLabelSize(0.085 * (1 + gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio));
-                  h->GetYaxis()->SetTitleSize(0.1 * (1 + gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio));
-                }
-              }
+              styleBSA_.StylePad(thisPad, l, r, b, t);
+              thisPad->SetTicks(1, 0);
+              thisPad->SetFillStyle(4000);
+              // std::cout << "xb_bin: " << xb_bin << ", q2_bin: " << q2_bin << ", first_perbin_xb: " << first_perbin_xb << ", first_perbin_q2: " << first_perbin_q2 << ",
+              // first_first_perbin_q2: " <<first_first_perbin_q2<< std::endl;
 
-              h->GetXaxis()->SetTitleOffset((xb_bin == first_perbin_xb) ? 0.82 : 0.0);
-              h->GetYaxis()->SetTitleOffset((first_perbin_q2) ? 0.82 : 0.0);
-
-              h->GetXaxis()->SetNdivisions(4, false);
-              h->GetYaxis()->SetNdivisions(6, true);
-              if (setManualYrange) h->GetYaxis()->SetRangeUser(yMin, yMax);
-              if (fixlineYrang && first_perbin_q2 && h->GetMinimum() > 0) {
-                fixlineYMin = h->GetMinimum() * 0.3;
-                fixlineYMax = h->GetMaximum() * 3;
-                h->GetYaxis()->SetRangeUser(fixlineYMin, fixlineYMax);
-              }
-              if (fixlineYrang && !first_perbin_q2) {
-                h->GetYaxis()->SetRangeUser(fixlineYMin, fixlineYMax);
-              }
-              h->GetXaxis()->SetRangeUser(0, 360);
-
-              h->GetXaxis()->CenterTitle(true);
-              h->GetYaxis()->CenterTitle(true);
-              Doplot = !(!h || h->GetBinContent(5) == 0) || Doplot;
-              if (!h || h->GetBinContent(5) == 0) {
-                continue;
-              }
-
-              if (first) {
-                if (xb_bin == first_perbin_xb && first_perbin_q2) {
-                  thisPad->SetPad(cellW * (xb_bin - gpad_margin_ratio) + canvasBorderX, cellH * (q2_bin - gpad_margin_ratio) + canvasBorderY,
-                                  cellW * (xb_bin + 1 + gpad_margin_ratio) + canvasBorderX, cellH * (q2_bin + 1) + canvasBorderY);
-                } else if (xb_bin == first_perbin_xb && !first_perbin_q2) {
-                  h->GetXaxis()->ChangeLabel(1, -1, 0, -1, -1, -1, "");  // blank it out
-                  thisPad->SetPad(cellW * (xb_bin) + canvasBorderX, cellH * (q2_bin - gpad_margin_ratio) + canvasBorderY, cellW * (xb_bin + 1 + gpad_margin_ratio) + canvasBorderX,
-                                  cellH * (q2_bin + 1) + canvasBorderY);
-                } else if (first_perbin_q2 && xb_bin != first_perbin_xb) {
-                  thisPad->SetPad(cellW * (xb_bin - gpad_margin_ratio) + canvasBorderX, cellH * (q2_bin) + canvasBorderY, cellW * (xb_bin + 1) + canvasBorderX,
-                                  cellH * (q2_bin + 1) + canvasBorderY);
-                } else if (!first_perbin_q2 && xb_bin != first_perbin_xb) {
-                  thisPad->SetPad(cellW * (xb_bin) + canvasBorderX, cellH * (q2_bin) + canvasBorderY, cellW * (xb_bin + 1) + canvasBorderX, cellH * (q2_bin + 1) + canvasBorderY);
-                }
-              }
-
-              if (first) thisPad->Draw();
-              thisPad->cd();
-              if (setLogY) thisPad->SetLogy();
-              h->Draw(first ? "E1X0" : "E1X0 SAME");
-              first = false;
-              first_perbin_q2 = false;
-
-              // Fit function and extract a₁
-              if (fitSinusoid) {
-                TF1* fitFunc = new TF1(Form("fit_%zu_%zu_%zu_%zu", m, t_bin, q2_bin, xb_bin), "[0] + ([1]*sin(x*TMath::DegToRad())) / (1 + [2]*cos(x*TMath::DegToRad()))", 0, 360);
-                fitFunc->SetParameters(0.0, 0.2, 0.1);
-                fitFunc->SetFillColorAlpha(colorIdx, 0.5);
-                fitFunc->SetLineColorAlpha(colorIdx, 0.5);
-                fitFunc->SetLineStyle(2);
-                fitFunc->SetLineWidth(1);
-                h->Fit(fitFunc, "Q0");
-                fitFunc->Draw("SAME");
-
-                double a1 = fitFunc->GetParameter(1);
-                double a1e = fitFunc->GetParError(1);
-                TString a1label = Form("a_{1} = %.2f #pm %.2f", a1, a1e);
-                legParams->AddEntry(fitFunc, a1label, "l");
-              }
-              leg->AddEntry(h, labels[m].c_str(), "p");
-              // auto [mean_xB, mean_Q2, mean_t] = meanValues[m][xb_bin][q2_bin][t_bin];
-              if (showMeanKin) {
-                auto [mean_xB, mean_Q2, mean_t] = (*meanValues)[m][xb_bin][q2_bin][t_bin];
-                TString meanText = Form("<x_{B}> = %.2f, <Q^{2}> = %.2f, <|t|> = %.2f", mean_xB, mean_Q2, mean_t);
-                TLatex* meanLatex = new TLatex(0.25, 0.78 - m * 0.10, meanText.Data());
-                meanLatex->SetTextSize(0.05);
-                meanLatex->SetNDC();
-                meanLatex->SetTextFont(42);
-                meanLatex->Draw();
-                dumpHistogram(h, mean_xB, mean_Q2, mean_t, xb_edges[xb_bin], xb_edges[xb_bin + 1], q2_edges[q2_bin], q2_edges[q2_bin + 1], t_edges[t_bin], t_edges[t_bin + 1],
-                              Form("datapoint_%s.txt", observableName.c_str()));
+              h->GetXaxis()->SetTitle((xb_bin == first_perbin_xb) ? "#phi [deg]" : "");
+              h->GetYaxis()->SetTitle((first_perbin_q2) ? yAxisTitle.c_str() : "");
+              h->GetXaxis()->SetLabelSize((xb_bin == first_perbin_xb) ? 0.085 : 0.0);
+              h->GetXaxis()->SetTitleSize((xb_bin == first_perbin_xb) ? 0.095 : 0.0);
+              h->GetYaxis()->SetLabelSize((first_perbin_q2) ? 0.085 : 0.0);
+              h->GetYaxis()->SetTitleSize((first_perbin_q2) ? 0.1 : 0.0);
+              if (xb_bin == first_perbin_xb && first_perbin_q2) {
+                h->GetYaxis()->SetLabelSize(0.085 * (1 + gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio));
+                h->GetYaxis()->SetTitleSize(0.1 * (1 + gpad_margin_ratio) / (1 + 2 * gpad_margin_ratio));
               }
             }
-            if (!Doplot) {
-              if (first_first_perbin_q2) first_perbin_xb++;
-              std::cout << "No data for this bin combination, skipping...\n";
+
+            h->GetXaxis()->SetTitleOffset((xb_bin == first_perbin_xb) ? 0.82 : 0.0);
+            h->GetYaxis()->SetTitleOffset((first_perbin_q2) ? 0.82 : 0.0);
+
+            h->GetXaxis()->SetNdivisions(4, false);
+            h->GetYaxis()->SetNdivisions(6, true);
+            if (setManualYrange) h->GetYaxis()->SetRangeUser(yMin, yMax);
+            if (fixlineYrang && first_perbin_q2 && h->GetMinimum() > 0) {
+              fixlineYMin = h->GetMinimum() * 0.3;
+              fixlineYMax = h->GetMaximum() * 3;
+              h->GetYaxis()->SetRangeUser(fixlineYMin, fixlineYMax);
+            }
+            if (fixlineYrang && !first_perbin_q2) {
+              h->GetYaxis()->SetRangeUser(fixlineYMin, fixlineYMax);
+            }
+            h->GetXaxis()->SetRangeUser(0, 360);
+
+            h->GetXaxis()->CenterTitle(true);
+            h->GetYaxis()->CenterTitle(true);
+            Doplot = !(!h || h->GetBinContent(5) == 0) || Doplot;
+            if (!h || h->GetBinContent(5) == 0) {
               continue;
             }
-            /*
-                      // Annotate bin ranges
-                      double xB_low = xb_edges[xb_bin], xB_high = xb_edges[xb_bin + 1];
-                      double Q2_low = q2_edges[q2_bin], Q2_high = q2_edges[q2_bin + 1];
-                      TString labelText = Form("x_{B} #in [%.2f, %.2f], Q^{2} #in [%.1f, %.1f]", xB_low, xB_high, Q2_low, Q2_high);
-                      TLatex* latex = new TLatex(0.25, 0.82, labelText.Data());
-                      latex->SetTextSize(0.055);
-                      latex->SetNDC();
-                      latex->SetTextFont(42);
-                      latex->Draw();
-            */
-            leg->Draw();
-            if (fitSinusoid) legParams->Draw();
 
-            thisPad->Modified();
-            thisPad->Update();
-            c->Modified();
-            c->Update();
+            if (first) {
+              if (xb_bin == first_perbin_xb && first_perbin_q2) {
+                thisPad->SetPad(cellW * (xb_bin - gpad_margin_ratio) + canvasBorderX, cellH * (q2_bin - gpad_margin_ratio) + canvasBorderY,
+                                cellW * (xb_bin + 1 + gpad_margin_ratio) + canvasBorderX, cellH * (q2_bin + 1) + canvasBorderY);
+              } else if (xb_bin == first_perbin_xb && !first_perbin_q2) {
+                h->GetXaxis()->ChangeLabel(1, -1, 0, -1, -1, -1, "");  // blank it out
+                thisPad->SetPad(cellW * (xb_bin) + canvasBorderX, cellH * (q2_bin - gpad_margin_ratio) + canvasBorderY, cellW * (xb_bin + 1 + gpad_margin_ratio) + canvasBorderX,
+                                cellH * (q2_bin + 1) + canvasBorderY);
+              } else if (first_perbin_q2 && xb_bin != first_perbin_xb) {
+                thisPad->SetPad(cellW * (xb_bin - gpad_margin_ratio) + canvasBorderX, cellH * (q2_bin) + canvasBorderY, cellW * (xb_bin + 1) + canvasBorderX,
+                                cellH * (q2_bin + 1) + canvasBorderY);
+              } else if (!first_perbin_q2 && xb_bin != first_perbin_xb) {
+                thisPad->SetPad(cellW * (xb_bin) + canvasBorderX, cellH * (q2_bin) + canvasBorderY, cellW * (xb_bin + 1) + canvasBorderX, cellH * (q2_bin + 1) + canvasBorderY);
+              }
+            }
 
-            if (first_first_perbin_q2 && xb_bin == first_perbin_xb) {
-              first_perbin_xb++;
-              first_first_perbin_q2 = false;
-              // std::cout<< "1"<<std::endl;
-            } else if (!first_first_perbin_q2 && xb_bin == first_perbin_xb) {
-              first_perbin_xb++;
-              // std::cout<< "2"<<std::endl;
-            } else if (first_first_perbin_q2 && xb_bin != first_perbin_xb) {
-              first_perbin_xb++;
-              // std::cout<< "3"<<std::endl;
-            } else if (!first_first_perbin_q2 && xb_bin != first_perbin_xb) {
-              // std::cout<< "4"<<std::endl;
+            if (first) thisPad->Draw();
+            thisPad->cd();
+            if (setLogY) thisPad->SetLogy();
+            h->Draw(first ? "E1X0" : "E1X0 SAME");
+            first = false;
+            first_perbin_q2 = false;
+
+            // Fit function and extract a₁
+            if (fitSinusoid) {
+              TF1* fitFunc = new TF1(Form("fit_%zu_%zu_%zu_%zu", m, t_bin, q2_bin, xb_bin), "[0] + ([1]*sin(x*TMath::DegToRad())) / (1 + [2]*cos(x*TMath::DegToRad()))", 0, 360);
+              fitFunc->SetParameters(0.0, 0.2, 0.1);
+              fitFunc->SetFillColorAlpha(colorIdx, 0.5);
+              fitFunc->SetLineColorAlpha(colorIdx, 0.5);
+              fitFunc->SetLineStyle(2);
+              fitFunc->SetLineWidth(1);
+              h->Fit(fitFunc, "Q0");
+              fitFunc->Draw("SAME");
+
+              double a1 = fitFunc->GetParameter(1);
+              double a1e = fitFunc->GetParError(1);
+              TString a1label = Form("a_{1} = %.2f #pm %.2f", a1, a1e);
+              legParams->AddEntry(fitFunc, a1label, "l");
+            }
+            leg->AddEntry(h, labels[m].c_str(), "p");
+            // auto [mean_xB, mean_Q2, mean_t] = meanValues[m][xb_bin][q2_bin][t_bin];
+            if (showMeanKin) {
+              auto [mean_xB, mean_Q2, mean_t] = (*meanValues)[m][xb_bin][q2_bin][t_bin];
+              TString meanText = Form("<x_{B}> = %.2f, <Q^{2}> = %.2f, <|t|> = %.2f", mean_xB, mean_Q2, mean_t);
+              TLatex* meanLatex = new TLatex(0.25, 0.78 - m * 0.10, meanText.Data());
+              meanLatex->SetTextSize(0.05);
+              meanLatex->SetNDC();
+              meanLatex->SetTextFont(42);
+              meanLatex->Draw();
+              dumpHistogram(h, mean_xB, mean_Q2, mean_t, xb_edges[xb_bin], xb_edges[xb_bin + 1], q2_edges[q2_bin], q2_edges[q2_bin + 1], t_edges[t_bin], t_edges[t_bin + 1],
+                            Form("datapoint_%s.txt", observableName.c_str()));
             }
           }
+          if (!Doplot) {
+            if (first_first_perbin_q2) first_perbin_xb++;
+            std::cout << "No data for this bin combination, skipping...\n";
+            continue;
+          }
+          /*
+                    // Annotate bin ranges
+                    double xB_low = xb_edges[xb_bin], xB_high = xb_edges[xb_bin + 1];
+                    double Q2_low = q2_edges[q2_bin], Q2_high = q2_edges[q2_bin + 1];
+                    TString labelText = Form("x_{B} #in [%.2f, %.2f], Q^{2} #in [%.1f, %.1f]", xB_low, xB_high, Q2_low, Q2_high);
+                    TLatex* latex = new TLatex(0.25, 0.82, labelText.Data());
+                    latex->SetTextSize(0.055);
+                    latex->SetNDC();
+                    latex->SetTextFont(42);
+                    latex->Draw();
+          */
+          leg->Draw();
+          if (fitSinusoid) legParams->Draw();
+
+          thisPad->Modified();
+          thisPad->Update();
+          c->Modified();
+          c->Update();
+
+          if (first_first_perbin_q2 && xb_bin == first_perbin_xb) {
+            first_perbin_xb++;
+            first_first_perbin_q2 = false;
+            // std::cout<< "1"<<std::endl;
+          } else if (!first_first_perbin_q2 && xb_bin == first_perbin_xb) {
+            first_perbin_xb++;
+            // std::cout<< "2"<<std::endl;
+          } else if (first_first_perbin_q2 && xb_bin != first_perbin_xb) {
+            first_perbin_xb++;
+            // std::cout<< "3"<<std::endl;
+          } else if (!first_first_perbin_q2 && xb_bin != first_perbin_xb) {
+            // std::cout<< "4"<<std::endl;
+          }
         }
-        TString outfile = Form("%s/%s_t_%.2f-%.2f.%s", outputDir.c_str(), observableName.c_str(), t_edges[t_bin], t_edges[t_bin + 1], suffix.c_str());
-        c->SaveAs(outfile);
+      }
+      TString outfile = Form("%s/%s_t_%.2f-%.2f.%s", outputDir.c_str(), observableName.c_str(), t_edges[t_bin], t_edges[t_bin + 1], suffix.c_str());
+      c->SaveAs(outfile);
 
-        // std::cout << "Saved: " << outfile << '\n';
+      // std::cout << "Saved: " << outfile << '\n';
 
+      delete c;
+    }
+  }
+  // === Add to DISANAcomparer (public): =========================
+  void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
+                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0, bool doAcceptanceCorr = false, bool doRadCorr = false) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiInvMassPerBin_AllModels] no models.\n";
+      return;
+    }
+
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      DISANAplotter* p = plotters[i].get();
+      if (!p) continue;
+
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      gSystem->Exec(Form("mkdir -p %s", subdir.c_str()));
+
+      std::cout << "→ Fitting/drawing per-bin K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << "  (AccCorr=" << (doAcceptanceCorr ? "ON" : "OFF")
+                << ", RadCorr=" << (doRadCorr ? "ON" : "OFF") << ")\n";
+
+      if (doAcceptanceCorr) {
+        p->MakePhiAcceptanceCorrection3D(fXbins, subdir + "/acc/");
+      }
+      if (doRadCorr) {
+        p->MakePhiRadiativeCorrection3D_FromRatio( fXbins, subdir + "/rad/", "rad_corr", "mtprime" );
+
+      }
+
+      p->SetPlotApplyAcceptanceCorrection(doAcceptanceCorr);
+      p->SetPlotApplyRadiativeCorrection(doRadCorr);
+
+      (void)p->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, branching);
+    }
+  }
+
+  void PlotPhiDSigmaDt_FromCache(bool plotData = true, bool plotAcc = false, bool plotRadCorr = false, bool writeCSV = true) {
+    if (plotters.empty()) return;
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w  = fXbins.GetWBins();
+    const auto& t_edges  = fXbins.GetTBins();       // |t| bin edges (may be empty)
+    const bool hasW      = !w.empty();
+    const bool hasT      = (t_edges.size() > 1);
+
+    const size_t nQ = (q2.size() > 1) ? (q2.size() - 1) : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    // -----------------------------------------------------------------------
+    //  CSV helper – writes one CSV per (model, Q2-bin, W-bin)
+    //  Columns: tprime_center, tprime_lo, tprime_hi,
+    //           Q2_center, Q2_lo, Q2_hi,
+    //           t_center, t_lo, t_hi,       (only when t-bins exist)
+    //           W_center, W_lo, W_hi,        (only when W-bins exist)
+    //           CrossSection, Mean, Err,
+    //           Acceptance, RadCorr
+    // -----------------------------------------------------------------------
+    auto writeCSVForBin = [&](size_t im, size_t iq, size_t iw) {
+      // --- gather the three histograms (xs mandatory, acc/rad optional) ---
+      TH1D* hXS   = nullptr;
+      TH1D* hAcc  = nullptr;
+      TH1D* hRad  = nullptr;
+      TH1D* hNsig = nullptr;
+
+      {
+        auto& H = plotters[im]->GetPhiDSigmaDt3D();
+        if (iq < H.size() && iw < H[iq].size()) hXS = H[iq][iw];
+      }
+      {
+        auto& A = plotters[im]->GetPhiAcceptance3D();
+        if (iq < A.size() && iw < A[iq].size()) hAcc = A[iq][iw];
+      }
+      {
+        auto& R = plotters[im]->GetPhiRadCorr3D();
+        if (iq < R.size() && iw < R[iq].size()) hRad = R[iq][iw];
+      }
+      {
+        auto& N = plotters[im]->GetPhiRawCounts3D();
+        if (iq < N.size() && iw < N[iq].size()) hNsig = N[iq][iw];
+      }
+
+      if (!hXS) return;  // nothing to write
+
+      // --- build output path: CSVs/<ModelName>/ ---
+      // Sanitise label for use as directory name (replace spaces / slashes)
+      std::string safeLabel = labels[im];
+      for (char& ch : safeLabel)
+        if (ch == ' ' || ch == '/' || ch == '\\') ch = '_';
+
+      const std::string csvDir = outputDir + "/CSVs/" + safeLabel;
+      gSystem->Exec(Form("mkdir -p \"%s\"", csvDir.c_str()));
+
+      // One CSV per (Q2-bin, W-bin)
+      std::string fname;
+      if (hasW)
+        fname = Form("%s/dsdt_Q%zu_W%zu.csv", csvDir.c_str(), iq, iw);
+      else
+        fname = Form("%s/dsdt_Q%zu.csv", csvDir.c_str(), iq);
+
+      std::ofstream csv(fname);
+      if (!csv.is_open()) {
+        std::cerr << "[writeCSV] Cannot open " << fname << "\n";
+        return;
+      }
+
+      // --- convenience bin-centre/edge values for outer axes ---
+      const double q2_lo  = q2[iq];
+      const double q2_hi  = q2[iq + 1];
+      const double q2_cen = 0.5 * (q2_lo + q2_hi);
+
+      const double w_lo   = hasW ? w[iw]       : std::numeric_limits<double>::quiet_NaN();
+      const double w_hi   = hasW ? w[iw + 1]   : std::numeric_limits<double>::quiet_NaN();
+      const double w_cen  = hasW ? 0.5*(w_lo + w_hi) : std::numeric_limits<double>::quiet_NaN();
+
+      // --- write header ---
+      csv << "tprime_center,tprime_lo,tprime_hi"
+          << ",t_center,t_lo,t_hi"
+          << ",Q2_center,Q2_lo,Q2_hi";
+      if (hasW) csv << ",W2_center,W2_lo,W2_hi,W_center,W_lo,W_hi";
+
+      // NEW mean-kin columns (per (Q2,W,t') bin)
+      csv << ",xB_mean,W_mean,GammaV_mean";
+
+      csv << ",CrossSection,CrossSection_Err,tprime_mean"
+          << ",Acceptance,RadCorr"
+          << ",RawCounts,RawCounts_Err\n";
+      csv << std::setprecision(6) << std::scientific;
+
+      const int nBins = hXS->GetNbinsX();
+      for (int ib = 1; ib <= nBins; ++ib) {
+        const double tp_cen = hXS->GetBinCenter(ib);
+        const double tp_lo  = hXS->GetBinLowEdge(ib);
+        const double tp_hi  = hXS->GetBinLowEdge(ib + 1);
+
+        // |t| from t-edges array if available, else fall back to tprime bin
+        double t_cen, t_lo_val, t_hi_val;
+        if (hasT && (ib - 1) < (int)(t_edges.size() - 1)) {
+          t_lo_val = t_edges[ib - 1];
+          t_hi_val = t_edges[ib];
+          t_cen    = 0.5 * (t_lo_val + t_hi_val);
+        } else {
+          // tprime = t - t_min; without t_min info just report tprime values
+          t_cen    = tp_cen;
+          t_lo_val = tp_lo;
+          t_hi_val = tp_hi;
+        }
+
+        const double xs  = hXS->GetBinContent(ib);
+        const double err = hXS->GetBinError(ib);
+        // Use the histogram's stored mean for this bin (GetBinCenter is bin centre;
+        // the statistical mean within the bin is not directly stored in TH1 – we
+        // report GetBinCenter as "mean" which is the standard cross-section convention)
+        const double mean_val = tp_cen;  // bin-centre as representative mean
+
+        const double acc  = hAcc  ? hAcc->GetBinContent(ib)  : std::numeric_limits<double>::quiet_NaN();
+        const double rad  = hRad  ? hRad->GetBinContent(ib)  : std::numeric_limits<double>::quiet_NaN();
+        const double nsig = hNsig ? hNsig->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double nsig_err = hNsig ? hNsig->GetBinError(ib) : std::numeric_limits<double>::quiet_NaN();
+        const int ib0 = ib - 1; // convert TH1 bin (1..nBins) -> 0-based index for your getter
+
+        const double xBmean = plotters[im]->GetPhiMeanXB(iq, iw, ib0);
+        const double Wmean  = plotters[im]->GetPhiMeanW(iq, iw, ib0);
+        const double Gvmean = plotters[im]->GetPhiMeanGammaV(iq, iw, ib0);
+
+        
+
+        csv << tp_cen    << "," << tp_lo  << "," << tp_hi
+            << "," << t_cen   << "," << t_lo_val << "," << t_hi_val
+            << "," << q2_cen  << "," << q2_lo    << "," << q2_hi;
+
+        if (hasW)
+          csv << "," << w_cen*w_cen << "," << w_lo*w_lo << "," << w_hi*w_hi
+              << "," << w_cen       << "," << w_lo       << "," << w_hi;
+
+        // NEW means
+        csv << "," << xBmean
+            << "," << Wmean
+            << "," << Gvmean;
+
+        csv << "," << xs << "," << err << "," << mean_val
+            << "," << acc << "," << rad
+            << "," << nsig << "," << nsig_err << "\n";
+      }
+
+      csv.close();
+      std::cout << "[CSV] Written → " << fname << "\n";
+    };
+
+    // -----------------------------------------------------------------------
+    //  Main plotting lambda (unchanged from original)
+    // -----------------------------------------------------------------------
+    auto doOne = [&](const TString& tag, const TString& yTitle, double yMin, double yMax, std::function<TH1D*(DISANAplotter*, size_t, size_t)> getHist) {
+      for (size_t iq = 0; iq < nQ; ++iq)
+        for (size_t iw = 0; iw < nW; ++iw) {
+          TCanvas* c = new TCanvas(Form("c_%s_Q%zu_W%zu", tag.Data(), iq, iw), "", 1200, 900);
+          styleCrossSection_.StylePad((TPad*)gPad);
+          gPad->SetTicks(1, 1);
+
+          TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+          leg->SetBorderSize(0);
+          leg->SetFillStyle(0);
+          leg->SetTextSize(0.035);
+
+          TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+
+          bool first = true;
+
+          for (size_t im = 0; im < plotters.size(); ++im) {
+            TH1D* h = getHist(plotters[im].get(), iq, iw);
+            if (!h) continue;
+
+            styleCrossSection_.StyleTH1(h);
+
+            auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+            const int colorIdx = 5000 + int(im) * 20;
+            if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+
+            h->SetLineColor(colorIdx);
+            h->SetMarkerColor(colorIdx);
+            h->SetMarkerStyle(20);
+            h->SetMarkerSize(1.0);
+
+            h->SetTitle("");
+            h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
+            h->GetYaxis()->SetTitle(yTitle);
+            if (yTitle == "d#sigma/dt' [nb/GeV^{2}]"){
+              gPad->SetLogy();
+            }
+
+            if (first) {
+              h->Draw("E1X0");
+              TLatex latex;
+              latex.SetNDC();
+              latex.SetTextFont(42);
+              latex.SetTextSize(0.040);
+              latex.DrawLatex(0.14, 0.93, head);
+              first = false;
+            } else {
+              h->Draw("E1X0 SAME");
+            }
+
+            leg->AddEntry(h, labels[im].c_str(), "lep");
+          }
+
+          leg->Draw();
+
+          TString out = hasW ? Form("%s/%s_Q%zu_W%zu.pdf", outputDir.c_str(), tag.Data(), iq, iw) : Form("%s/%s_Q%zu.pdf", outputDir.c_str(), tag.Data(), iq);
+
+          c->SaveAs(out);
+
+          delete leg;
+          delete c;
+        }
+    };
+
+    // ---- Run enabled plot types ----
+    if (plotData) {
+      doOne("phi_dsdt", "d#sigma/dt' [nb/GeV^{2}]", 0.0, 10.0,
+            [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+              auto& H = P->GetPhiDSigmaDt3D();
+              if (iq >= H.size() || iw >= H[iq].size()) return nullptr;
+              return H[iq][iw];
+            });
+    }
+
+    if (plotAcc) {
+      doOne("phi_accept", "Acceptance", 0.0, .05, [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+        auto& A = P->GetPhiAcceptance3D();
+        if (iq >= A.size() || iw >= A[iq].size()) return nullptr;
+        return A[iq][iw];
+      });
+    }
+
+    if (plotRadCorr) {
+      doOne("phi_radCorr", "C_{rad}", 0.5, 1.5, [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+        auto& R = P->GetPhiRadCorr3D();
+        if (iq >= R.size() || iw >= R[iq].size()) return nullptr;
+        return R[iq][iw];
+      });
+    }
+
+    // ---- CSV output: one CSV per (model × Q2-bin × W-bin) ----
+    // Requires #include <fstream> and <iomanip> (add at top if not already present)
+    if (writeCSV) {
+      for (size_t im = 0; im < plotters.size(); ++im)
+        for (size_t iq = 0; iq < nQ; ++iq)
+          for (size_t iw = 0; iw < nW; ++iw)
+            writeCSVForBin(im, iq, iw);
+    }
+  }
+
+  /*void PlotPhiDSigmaDt_FromCache(bool logy = true) {
+    if (plotters.empty()) return;
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& tprime = fXbins.GetTprimeBins();
+    const auto& w = fXbins.GetWBins();
+    const bool hasW = !w.empty();
+
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_dsdt_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
+        if (logy) gPad->SetLogy();
+
+        // legend in the same spirit as DVCS cross-section plots
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
+
+        // find a sensible common Y-range across models for this (Q2,W) slice
+        double yMinPos = std::numeric_limits<double>::infinity();
+        double yMaxVal = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
+          if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
+          TH1D* h = xs3D[iq][iw];
+          if (!h) continue;
+          const double I = h->Integral(1, h->GetNbinsX());  // sum of contents
+          // if (I > 0)  h->Scale(1.0 / I);
+          for (int b = 1; b <= h->GetNbinsX(); ++b) {
+            const double v = h->GetBinContent(b);
+            if (v > 0.0 && v < yMinPos) yMinPos = v;
+            if (v > yMaxVal) yMaxVal = v;
+          }
+        }
+        if (!std::isfinite(yMinPos)) yMinPos = 1e-4;
+        if (yMaxVal <= 0.0) yMaxVal = 1.0;
+        if (logy) {
+          yMinPos *= 0.5;
+          yMaxVal *= 3.0;
+        }
+
+        // header text (bin labels)
+        const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+
+        bool first = true;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
+          if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
+          TH1D* h = xs3D[iq][iw];
+          if (!h) continue;
+
+          // apply cross-section style + consistent palette
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+
+          // axis cosmetics consistent with DVCS cross-section look
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
+          h->GetYaxis()->SetTitle("d#sigma/dt [arb.unit]");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          if (logy) h->GetYaxis()->SetRangeUser(yMinPos, yMaxVal);
+
+          if (first) {
+            h->Draw("E1X0");
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+            h->Draw("E1X0 SAME");
+          }
+
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
+        }
+
+        leg->Draw();
+        c->Update();
+
+        // save inside the configured outputDir
+        TString out = hasW ? Form("%s/phi_dsdtvs_prime_Q%zu_W%zu.pdf", outputDir.c_str(), iq, iw) : Form("%s/phi_dsdtvs_prime_Q%zu.pdf", outputDir.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
         delete c;
       }
     }
-    // === Add to DISANAcomparer (public): =========================
-    void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
-                                        double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0) {
-      if (plotters.empty()) {
-        std::cerr << "[PlotPhiInvMassPerBin] no models.\n";
-        return;
-      }
-      gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
-      for (size_t i = 0; i < plotters.size(); ++i) {
-        const std::string subdir = baseOutDir + "/" + labels[i];
-        std::cout << "→ Fitting/drawing per-bin K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << std::endl;
-        (void)plotters[i]->MakePhiMassFitCanvases3D(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, branching);
-      }
-    }
+  };*/
 
-    void PlotPhiDSigmaDt_FromCache(bool logy = true) {
-      if (plotters.empty()) return;
+  // Generic per-(Q2,W) grid plotter of TH1 vs t'
+  void PlotPhiPerBin_FromCache(const std::string& tag,                                       // used in output filename + canvas name
+                               const std::string& yTitle,                                    // axis title
+                               double yMin, double yMax,                                     // y range
+                               std::function<TH1D*(DISANAplotter*, size_t, size_t)> getHist  // how to fetch TH1
+  ) {
+    if (plotters.empty()) return;
 
-      const auto& q2 = fXbins.GetQ2Bins();
-      const auto& tprime = fXbins.GetTprimeBins();
-      const auto& w = fXbins.GetWBins();
-      const bool hasW = !w.empty();
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w = fXbins.GetWBins();
+    const bool hasW = !w.empty();
 
-      const size_t nQ = q2.size() ? q2.size() - 1 : 0;
-      const size_t nW = hasW ? (w.size() - 1) : 1;
+    const size_t nQ = (q2.size() > 1) ? (q2.size() - 1) : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
 
-      for (size_t iq = 0; iq < nQ; ++iq) {
-        for (size_t iw = 0; iw < nW; ++iw) {
-          auto c = new TCanvas(Form("c_phi_dsdt_Q%zu_W%zu", iq, iw), "", 1200, 900);
-          styleCrossSection_.StylePad((TPad*)gPad);
-          gPad->SetFillStyle(4000);
-          gPad->SetTicks(1, 1);
-          if (logy) gPad->SetLogy();
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_%s_Q%zu_W%zu", tag.c_str(), iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetTicks(1, 1);
 
-          // legend in the same spirit as DVCS cross-section plots
-          TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
-          leg->SetBorderSize(0);
-          leg->SetFillStyle(0);
-          leg->SetTextSize(0.035);
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
 
-          // find a sensible common Y-range across models for this (Q2,W) slice
-          double yMinPos = std::numeric_limits<double>::infinity();
-          double yMaxVal = 0.0;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
-            if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
-            TH1D* h = xs3D[iq][iw];
-            if (!h) continue;
-            const double I = h->Integral(1, h->GetNbinsX());  // sum of contents
-            // if (I > 0)  h->Scale(1.0 / I);
-            for (int b = 1; b <= h->GetNbinsX(); ++b) {
-              const double v = h->GetBinContent(b);
-              if (v > 0.0 && v < yMinPos) yMinPos = v;
-              if (v > yMaxVal) yMaxVal = v;
-            }
-          }
-          if (!std::isfinite(yMinPos)) yMinPos = 1e-4;
-          if (yMaxVal <= 0.0) yMaxVal = 1.0;
-          if (logy) {
-            yMinPos *= 0.5;
-            yMaxVal *= 3.0;
-          }
+        TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
 
-          // header text (bin labels)
-          const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+        bool first = true;
 
-          bool first = true;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
-            if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
-            TH1D* h = xs3D[iq][iw];
-            if (!h) continue;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          DISANAplotter* P = plotters[im].get();
+          TH1D* h = getHist(P, iq, iw);
+          if (!h) continue;
 
-            // apply cross-section style + consistent palette
-            styleCrossSection_.StyleTH1(h);
-            auto [cr, cg, cb] = modelShades[im % modelShades.size()];
-            const int colorIdx = 4000 + int(im) * 20;
-            if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
-            h->SetLineColor(colorIdx);
-            h->SetMarkerColor(colorIdx);
-            h->SetMarkerStyle(20);
-            h->SetMarkerSize(1.0);
-            h->SetLineWidth(1);
+          // Style (same logic as your cross-section plot)
+          styleCrossSection_.StyleTH1(h);
 
-            // axis cosmetics consistent with DVCS cross-section look
-            h->SetTitle("");
-            h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
-            h->GetYaxis()->SetTitle("d#sigma/dt [arb.unit]");
-            h->GetXaxis()->CenterTitle(true);
-            h->GetYaxis()->CenterTitle(true);
-            h->GetXaxis()->SetNdivisions(505);
-            h->GetYaxis()->SetNdivisions(510);
-            if (logy) h->GetYaxis()->SetRangeUser(yMinPos, yMaxVal);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 5000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
 
-            if (first) {
-              h->Draw("E1X0");
-              TLatex latex;
-              latex.SetNDC();
-              latex.SetTextFont(42);
-              latex.SetTextSize(0.040);
-              latex.DrawLatex(0.14, 0.93, head);
-            } else {
-              h->Draw("E1X0 SAME");
-            }
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
+          h->GetYaxis()->SetTitle(yTitle.c_str());
+          h->GetYaxis()->SetRangeUser(yMin, yMax);
 
-            leg->AddEntry(h, labels[im].c_str(), "lep");
+          if (first) {
+            h->Draw("E1X0");
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
             first = false;
+          } else {
+            h->Draw("E1X0 SAME");
           }
 
-          leg->Draw();
-          c->Update();
-
-          // save inside the configured outputDir
-          TString out = hasW ? Form("%s/phi_dsdtvs_prime_Q%zu_W%zu.pdf", outputDir.c_str(), iq, iw) : Form("%s/phi_dsdtvs_prime_Q%zu.pdf", outputDir.c_str(), iq);
-          c->SaveAs(out);
-
-          delete leg;
-          delete c;
+          leg->AddEntry(h, labels[im].c_str(), "lep");
         }
-      }
-    };
-    // === NEW: A_LU(cos(theta_KK)) workflow (mirrors inv-mass fits + cached dσ/dt pattern) ===
-    void PlotPhiALUCosThetaPerBin_AllModels(const std::string& baseOutDir = "PhiALUCosThetaFits", int nMassBins = 200, double mMin = 0.9874, double mMax = 1.120,
-                                            bool constrainSigma = true, double sigmaRef = 0.004, double sigmaFrac = 0.30, double beamPol = 1.0) {
-      if (plotters.empty()) {
-        std::cerr << "[PlotPhiALUCosThetaPerBin] no models.\n";
-        return;
-      }
-      gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
-      for (size_t i = 0; i < plotters.size(); ++i) {
-        const std::string subdir = baseOutDir + "/" + labels[i];
-        std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per cos(theta_KK) bin for model: " << labels[i] << " → " << subdir << std::endl;
-        plotters[i]->MakePhiBSAMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
+
+        leg->Draw();
+
+        TString out = hasW ? Form("%s/%s_Q%zu_W%zu.pdf", outputDir.c_str(), tag.c_str(), iq, iw) : Form("%s/%s_Q%zu.pdf", outputDir.c_str(), tag.c_str(), iq);
+
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
       }
     }
-    void PlotPhiALUCosTheta_FromCache(const std::string& outDir = "PhiALUCosTheta") {
-      if (plotters.empty()) return;
+  }
 
-      const std::string outBase = outputDir + "/" + outDir;
-      gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+  // === NEW: A_LU(cos(theta_KK)) workflow (mirrors inv-mass fits + cached dσ/dt pattern) ===
+  void PlotPhiALUCosThetaPerBin_AllModels(const std::string& baseOutDir = "PhiALUCosThetaFits", int nMassBins = 200, double mMin = 0.9874, double mMax = 1.120,
+                                          bool constrainSigma = true, double sigmaRef = 0.004, double sigmaFrac = 0.30, double beamPol = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiALUCosThetaPerBin] no models.\n";
+      return;
+    }
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per cos(theta_KK) bin for model: " << labels[i] << " → " << subdir << std::endl;
+      plotters[i]->MakePhiBSAMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
+    }
+  }
+  void PlotPhiALUCosTheta_FromCache(const std::string& outDir = "PhiALUCosTheta") {
+    if (plotters.empty()) return;
 
-      const auto& q2 = fXbins.GetQ2Bins();
-      const auto& w = fXbins.GetWBins();
-      const bool hasW = !w.empty();
+    const std::string outBase = outputDir + "/" + outDir;
+    gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
 
-      const size_t nQ = q2.size() ? q2.size() - 1 : 0;
-      const size_t nW = hasW ? (w.size() - 1) : 1;
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w = fXbins.GetWBins();
+    const bool hasW = !w.empty();
 
-      for (size_t iq = 0; iq < nQ; ++iq) {
-        for (size_t iw = 0; iw < nW; ++iw) {
-          auto c = new TCanvas(Form("c_phi_alu_costh_Q%zu_W%zu", iq, iw), "", 1200, 900);
-          styleCrossSection_.StylePad((TPad*)gPad);
-          gPad->SetFillStyle(4000);
-          gPad->SetTicks(1, 1);
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
 
-          TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
-          leg->SetBorderSize(0);
-          leg->SetFillStyle(0);
-          leg->SetTextSize(0.035);
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_alu_costh_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
 
-          double yAbsMax = 0.0;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& bsa3D = plotters[im]->GetPhiALUCosTheta3D();
-            if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
-            TH1D* h = bsa3D[iq][iw];
-            if (!h) continue;
-            yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
-            yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
-          }
-          yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
 
-          const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
-
-          bool first = true;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& bsa3D = plotters[im]->GetPhiALUCosTheta3D();
-            if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
-            TH1D* h = bsa3D[iq][iw];
-            if (!h) continue;
-
-            styleCrossSection_.StyleTH1(h);
-            auto [cr, cg, cb] = modelShades[im % modelShades.size()];
-            const int colorIdx = 4000 + int(im) * 20;
-            if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
-            h->SetLineColor(colorIdx);
-            h->SetMarkerColor(colorIdx);
-            h->SetMarkerStyle(20);
-            h->SetMarkerSize(1.0);
-            h->SetLineWidth(1);
-            h->SetTitle("");
-            h->GetXaxis()->SetTitle("cos#theta_{K^{+}K^{-}}");
-            h->GetYaxis()->SetTitle("A_{LU}");
-            h->GetXaxis()->CenterTitle(true);
-            h->GetYaxis()->CenterTitle(true);
-            h->GetXaxis()->SetNdivisions(505);
-            h->GetYaxis()->SetNdivisions(510);
-            h->GetYaxis()->SetRangeUser(-yAbsMax * 2.0, yAbsMax * 2.0);
-
-            if (first) {
-              h->Draw("E1X0");
-              TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
-              z.SetLineStyle(2);
-              z.SetLineWidth(2);
-              z.Draw("SAME");
-
-              TLatex latex;
-              latex.SetNDC();
-              latex.SetTextFont(42);
-              latex.SetTextSize(0.040);
-              latex.DrawLatex(0.14, 0.93, head);
-            } else {
-              h->Draw("E1X0 SAME");
-            }
-
-            leg->AddEntry(h, labels[im].c_str(), "lep");
-            first = false;
-          }
-
-          leg->Draw();
-          c->Update();
-
-          TString out = hasW ? Form("%s/BSA_vs_CosKK_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw) : Form("%s/BSA_vs_CosKK_Q%zu.pdf", outBase.c_str(), iq);
-          c->SaveAs(out);
-
-          delete leg;
-          delete c;
+        double yAbsMax = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiALUCosTheta3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
         }
-      }
-    }
+        yAbsMax = std::max(0.20, 1.2 * yAbsMax);
 
-    void PlotPhiBSATrentoPhiPerBin_AllModels(const std::string& baseOutDir = "PhiBSATrentoPhiFits", int nMassBins = 200, double mMin = 0.9874, double mMax = 1.120,
-                                             bool constrainSigma = true, double sigmaRef = 0.004, double sigmaFrac = 0.30, double beamPol = 1.0) {
-      if (plotters.empty()) {
-        std::cerr << "[PlotPhiBSATrentoPhiPerBin] no models.\n";
-        return;
-      }
+        const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
 
-      gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
-      for (size_t i = 0; i < plotters.size(); ++i) {
-        const std::string subdir = baseOutDir + "/" + labels[i];
-        std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per Trento-phi bin for model: " << labels[i] << " → " << subdir << std::endl;
+        bool first = true;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiALUCosTheta3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
 
-        plotters[i]->MakePhiBSATrentoPhiMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
-      }
-    }
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("cos#theta_{K^{+}K^{-}}");
+          h->GetYaxis()->SetTitle("A_{LU}");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          h->GetYaxis()->SetRangeUser(-yAbsMax * 2.0, yAbsMax * 2.0);
 
-    void PlotPhiBSATrentoPhi_FromCache(const std::string& outDir = "PhiBSATrentoPhi") {
-      if (plotters.empty()) return;
+          if (first) {
+            h->Draw("E1X0");
+            TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
+            z.SetLineStyle(2);
+            z.SetLineWidth(2);
+            z.Draw("SAME");
 
-      const std::string outBase = outputDir + "/" + outDir;
-      gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
-
-      const auto& q2 = fXbins.GetQ2Bins();
-      const auto& w = fXbins.GetWBins();
-      const bool hasW = !w.empty();
-
-      const size_t nQ = q2.size() ? q2.size() - 1 : 0;
-      const size_t nW = hasW ? (w.size() - 1) : 1;
-
-      for (size_t iq = 0; iq < nQ; ++iq) {
-        for (size_t iw = 0; iw < nW; ++iw) {
-          auto c = new TCanvas(Form("c_phi_bsa_trentophi_Q%zu_W%zu", iq, iw), "", 1200, 900);
-          styleCrossSection_.StylePad((TPad*)gPad);
-          gPad->SetFillStyle(4000);
-          gPad->SetTicks(1, 1);
-
-          TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
-          leg->SetBorderSize(0);
-          leg->SetFillStyle(0);
-          leg->SetTextSize(0.035);
-
-          double yAbsMax = 0.0;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& bsa3D = plotters[im]->GetPhiBSATrentoPhi3D();
-            if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
-            TH1D* h = bsa3D[iq][iw];
-            if (!h) continue;
-            yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
-            yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
-          }
-          yAbsMax = std::max(0.20, 1.2 * yAbsMax);
-
-          const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
-
-          bool first = true;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& bsa3D = plotters[im]->GetPhiBSATrentoPhi3D();
-            if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
-            TH1D* h = bsa3D[iq][iw];
-            if (!h) continue;
-
-            styleCrossSection_.StyleTH1(h);
-            auto [cr, cg, cb] = modelShades[im % modelShades.size()];
-            const int colorIdx = 4000 + int(im) * 20;
-            if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
-            h->SetLineColor(colorIdx);
-            h->SetMarkerColor(colorIdx);
-            h->SetMarkerStyle(20);
-            h->SetMarkerSize(1.0);
-            h->SetLineWidth(1);
-
-            h->SetTitle("");
-            h->GetXaxis()->SetTitle("#phi_{Trento} [deg]");
-            h->GetYaxis()->SetTitle("A_{LU}");
-            h->GetXaxis()->CenterTitle(true);
-            h->GetYaxis()->CenterTitle(true);
-            h->GetXaxis()->SetNdivisions(505);
-            h->GetYaxis()->SetNdivisions(510);
-            h->GetYaxis()->SetRangeUser(-0.750, 0.750);
-
-            if (first) {
-              h->Draw("E1X0");
-              TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
-              z.SetLineStyle(2);
-              z.SetLineWidth(2);
-              z.Draw("SAME");
-
-              TLatex latex;
-              latex.SetNDC();
-              latex.SetTextFont(42);
-              latex.SetTextSize(0.040);
-              latex.DrawLatex(0.14, 0.93, head);
-            } else {
-              h->Draw("E1X0 SAME");
-            }
-
-            leg->AddEntry(h, labels[im].c_str(), "lep");
-            first = false;
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+            h->Draw("E1X0 SAME");
           }
 
-          leg->Draw();
-          c->Update();
-
-          TString out = hasW ? Form("%s/BSA_vs_trentoPhi_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw) : Form("%s/BSA_vs_trentoPhi_Q%zu.pdf", outBase.c_str(), iq);
-          c->SaveAs(out);
-
-          delete leg;
-          delete c;
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
         }
+
+        leg->Draw();
+        c->Update();
+
+        TString out = hasW ? Form("%s/BSA_vs_CosKK_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw) : Form("%s/BSA_vs_CosKK_Q%zu.pdf", outBase.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
       }
     }
+  }
 
-    // === NEW: A_LU(z_phi) workflow, analogous to cos(theta_KK) ===
-    void PlotPhiALUZPhiPerBin_AllModels(const std::string& baseOutDir = "PhiALUZPhiFits", int nMassBins = 200, double mMin = 0.9874, double mMax = 1.120,
-                                        bool constrainSigma = true, double sigmaRef = 0.004, double sigmaFrac = 0.30, double beamPol = 1.0) {
-      if (plotters.empty()) {
-        std::cerr << "[PlotPhiALUZPhiPerBin_AllModels] no models.\n";
-        return;
-      }
-
-      gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
-
-      for (size_t i = 0; i < plotters.size(); ++i) {
-        const std::string subdir = baseOutDir + "/" + labels[i];
-        std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per z_phi bin for model: " << labels[i] << " → " << subdir << std::endl;
-
-        plotters[i]->MakePhiALUZPhiMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
-      }
+  void PlotPhiBSATrentoPhiPerBin_AllModels(const std::string& baseOutDir = "PhiBSATrentoPhiFits", int nMassBins = 200, double mMin = 0.9874, double mMax = 1.120,
+                                           bool constrainSigma = true, double sigmaRef = 0.004, double sigmaFrac = 0.30, double beamPol = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiBSATrentoPhiPerBin] no models.\n";
+      return;
     }
 
-    void PlotPhiALUZPhi_FromCache(const std::string& outDir = "PhiALUZPhi") {
-      if (plotters.empty()) return;
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per Trento-phi bin for model: " << labels[i] << " → " << subdir << std::endl;
 
-      const std::string outBase = outputDir + "/" + outDir;
-      gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+      plotters[i]->MakePhiBSATrentoPhiMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
+    }
+  }
 
-      const auto& q2 = fXbins.GetQ2Bins();
-      const auto& w = fXbins.GetWBins();
-      const bool hasW = !w.empty();
+  void PlotPhiBSATrentoPhi_FromCache(const std::string& outDir = "PhiBSATrentoPhi") {
+    if (plotters.empty()) return;
 
-      const size_t nQ = q2.size() ? q2.size() - 1 : 0;
-      const size_t nW = hasW ? (w.size() - 1) : 1;
+    const std::string outBase = outputDir + "/" + outDir;
+    gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
 
-      for (size_t iq = 0; iq < nQ; ++iq) {
-        for (size_t iw = 0; iw < nW; ++iw) {
-          auto c = new TCanvas(Form("c_phi_alu_zphi_Q%zu_W%zu", iq, iw), "", 1200, 900);
-          styleCrossSection_.StylePad((TPad*)gPad);
-          gPad->SetFillStyle(4000);
-          gPad->SetTicks(1, 1);
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w = fXbins.GetWBins();
+    const bool hasW = !w.empty();
 
-          TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
-          leg->SetBorderSize(0);
-          leg->SetFillStyle(0);
-          leg->SetTextSize(0.035);
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
 
-          double yAbsMax = 0.0;
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& alu3D = plotters[im]->GetPhiALUZPhi3D();
-            if (iq >= alu3D.size() || iw >= alu3D[iq].size()) continue;
-            TH1D* h = alu3D[iq][iw];
-            if (!h) continue;
-            yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
-            yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
-          }
-          yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_bsa_trentophi_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
 
-          const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
 
-          bool first = true;
-
-          for (size_t im = 0; im < plotters.size(); ++im) {
-            const auto& alu3D = plotters[im]->GetPhiALUZPhi3D();
-            if (iq >= alu3D.size() || iw >= alu3D[iq].size()) continue;
-            TH1D* h = alu3D[iq][iw];
-            if (!h) continue;
-
-            styleCrossSection_.StyleTH1(h);
-            auto [cr, cg, cb] = modelShades[im % modelShades.size()];
-            const int colorIdx = 4000 + int(im) * 20;
-            if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
-            h->SetLineColor(colorIdx);
-            h->SetMarkerColor(colorIdx);
-            h->SetMarkerStyle(20);
-            h->SetMarkerSize(1.0);
-            h->SetLineWidth(1);
-
-            h->SetTitle("");
-            h->GetXaxis()->SetTitle("z_{#phi}");
-            h->GetYaxis()->SetTitle("A_{LU}");
-            h->GetXaxis()->CenterTitle(true);
-            h->GetYaxis()->CenterTitle(true);
-            h->GetXaxis()->SetNdivisions(505);
-            h->GetYaxis()->SetNdivisions(510);
-            h->GetYaxis()->SetRangeUser(-yAbsMax, yAbsMax);
-
-            if (first) {
-              h->Draw("E1X0");
-              TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
-              z.SetLineStyle(2);
-              z.SetLineWidth(2);
-              z.Draw("SAME");
-
-              TLatex latex;
-              latex.SetNDC();
-              latex.SetTextFont(42);
-              latex.SetTextSize(0.040);
-              latex.DrawLatex(0.14, 0.93, head);
-            } else {
-              h->Draw("E1X0 SAME");
-            }
-
-            leg->AddEntry(h, labels[im].c_str(), "lep");
-            first = false;
-          }
-
-          leg->Draw();
-          c->Update();
-
-          TString out = hasW ? Form("%s/ALU_vs_zphi_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw) : Form("%s/ALU_vs_zphi_Q%zu.pdf", outBase.c_str(), iq);
-          c->SaveAs(out);
-
-          delete leg;
-          delete c;
+        double yAbsMax = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiBSATrentoPhi3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
         }
+        yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+
+        const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+
+        bool first = true;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& bsa3D = plotters[im]->GetPhiBSATrentoPhi3D();
+          if (iq >= bsa3D.size() || iw >= bsa3D[iq].size()) continue;
+          TH1D* h = bsa3D[iq][iw];
+          if (!h) continue;
+
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("#phi_{Trento} [deg]");
+          h->GetYaxis()->SetTitle("A_{LU}");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          h->GetYaxis()->SetRangeUser(-0.750, 0.750);
+
+          if (first) {
+            h->Draw("E1X0");
+            TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
+            z.SetLineStyle(2);
+            z.SetLineWidth(2);
+            z.Draw("SAME");
+
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+            h->Draw("E1X0 SAME");
+          }
+
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
+        }
+
+        leg->Draw();
+        c->Update();
+
+        TString out = hasW ? Form("%s/BSA_vs_trentoPhi_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw) : Form("%s/BSA_vs_trentoPhi_Q%zu.pdf", outBase.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
       }
     }
+  }
 
-    // === A_LU^{sin(phi_Trento)}(cos(theta_KK)) using the moment method ===
-    // Uses the invariant-mass window [mMin, mMax] instead of mass fits.
-    void PlotPhiALUCosThetaPerBin_AllModels_SinPhiMoment(const std::string& baseOutDir = "PhiALUCosTheta_SinPhiMoment", double mMin = 0.9874, double mMax = 1.120,
-                                                         double beamPol = 1.0) {
-      if (plotters.empty()) {
-        std::cerr << "[PlotPhiALUCosThetaPerBin_AllModels_SinPhiMoment] no models.\n";
-        return;
-      }
-
-      gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
-
-      for (size_t i = 0; i < plotters.size(); ++i) {
-        const std::string subdir = baseOutDir + "/" + labels[i];
-
-        std::cout << "→ Computing A_{LU}^{sin#phi}(cos#theta_{KK}) via sin(phi_Trento) moment "
-                  << "in m(K^{+}K^{-}) ∈ [" << mMin << ", " << mMax << "]"
-                  << " for model: " << labels[i] << " → " << subdir << std::endl;
-
-        plotters[i]->MakePhiALUCosThetaSinPhiMoment3D(fXbins, subdir, mMin, mMax, beamPol);
-      }
+  // === NEW: A_LU(z_phi) workflow, analogous to cos(theta_KK) ===
+  void PlotPhiALUZPhiPerBin_AllModels(const std::string& baseOutDir = "PhiALUZPhiFits", int nMassBins = 200, double mMin = 0.9874, double mMax = 1.120, bool constrainSigma = true,
+                                      double sigmaRef = 0.004, double sigmaFrac = 0.30, double beamPol = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiALUZPhiPerBin_AllModels] no models.\n";
+      return;
     }
 
-    // A_LU(cos(theta_KK)) using a fit A*sin(phi)/(1 + b cos(phi))
-    // in each cos(theta_KK) bin. Uses invMass_KpKm window [mMin, mMax].
-    void PlotPhiALUCosThetaPerBin_AllModels_SinOver1PlusbCosFit(const std::string& baseOutDir = "PhiALUCosTheta_SinOver1PlusbCosFit", double mMin = 1.01, double mMax = 1.03,
-                                                                double beamPol = 1.0) {
-      if (plotters.empty()) {
-        std::cerr << "[PlotPhiALUCosThetaPerBin_AllModels_SinOver1PlusbCosFit] no models.\n";
-        return;
-      }
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
 
-      gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      std::cout << "→ Fitting/drawing helicity-separated K^{+}K^{-} mass per z_phi bin for model: " << labels[i] << " → " << subdir << std::endl;
 
-      for (size_t i = 0; i < plotters.size(); ++i) {
-        const std::string subdir = baseOutDir + "/" + labels[i];
+      plotters[i]->MakePhiALUZPhiMassFitCanvases3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamPol);
+    }
+  }
 
-        std::cout << "→ Computing A_{LU}(cos#theta_{KK}) via fit "
-                  << "A*sin(#phi)/(1 + b cos(#phi)) "
-                  << "in m(K^{+}K^{-}) ∈ [" << mMin << ", " << mMax << "]"
-                  << " for model: " << labels[i] << " → " << subdir << std::endl;
+  void PlotPhiALUZPhi_FromCache(const std::string& outDir = "PhiALUZPhi") {
+    if (plotters.empty()) return;
 
-        plotters[i]->MakePhiALUCosTheta_SinOver1PlusbCosFit3D(fXbins, subdir, mMin, mMax, beamPol);
+    const std::string outBase = outputDir + "/" + outDir;
+    gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w = fXbins.GetWBins();
+    const bool hasW = !w.empty();
+
+    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      for (size_t iw = 0; iw < nW; ++iw) {
+        auto c = new TCanvas(Form("c_phi_alu_zphi_Q%zu_W%zu", iq, iw), "", 1200, 900);
+        styleCrossSection_.StylePad((TPad*)gPad);
+        gPad->SetFillStyle(4000);
+        gPad->SetTicks(1, 1);
+
+        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+        leg->SetBorderSize(0);
+        leg->SetFillStyle(0);
+        leg->SetTextSize(0.035);
+
+        double yAbsMax = 0.0;
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& alu3D = plotters[im]->GetPhiALUZPhi3D();
+          if (iq >= alu3D.size() || iw >= alu3D[iq].size()) continue;
+          TH1D* h = alu3D[iq][iw];
+          if (!h) continue;
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMaximum()));
+          yAbsMax = std::max(yAbsMax, std::fabs(h->GetMinimum()));
+        }
+        yAbsMax = std::max(0.20, 1.2 * yAbsMax);
+
+        const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+
+        bool first = true;
+
+        for (size_t im = 0; im < plotters.size(); ++im) {
+          const auto& alu3D = plotters[im]->GetPhiALUZPhi3D();
+          if (iq >= alu3D.size() || iw >= alu3D[iq].size()) continue;
+          TH1D* h = alu3D[iq][iw];
+          if (!h) continue;
+
+          styleCrossSection_.StyleTH1(h);
+          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+          const int colorIdx = 4000 + int(im) * 20;
+          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+          h->SetLineColor(colorIdx);
+          h->SetMarkerColor(colorIdx);
+          h->SetMarkerStyle(20);
+          h->SetMarkerSize(1.0);
+          h->SetLineWidth(1);
+
+          h->SetTitle("");
+          h->GetXaxis()->SetTitle("z_{#phi}");
+          h->GetYaxis()->SetTitle("A_{LU}");
+          h->GetXaxis()->CenterTitle(true);
+          h->GetYaxis()->CenterTitle(true);
+          h->GetXaxis()->SetNdivisions(505);
+          h->GetYaxis()->SetNdivisions(510);
+          h->GetYaxis()->SetRangeUser(-yAbsMax, yAbsMax);
+
+          if (first) {
+            h->Draw("E1X0");
+            TLine z(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
+            z.SetLineStyle(2);
+            z.SetLineWidth(2);
+            z.Draw("SAME");
+
+            TLatex latex;
+            latex.SetNDC();
+            latex.SetTextFont(42);
+            latex.SetTextSize(0.040);
+            latex.DrawLatex(0.14, 0.93, head);
+          } else {
+            h->Draw("E1X0 SAME");
+          }
+
+          leg->AddEntry(h, labels[im].c_str(), "lep");
+          first = false;
+        }
+
+        leg->Draw();
+        c->Update();
+
+        TString out = hasW ? Form("%s/ALU_vs_zphi_Q%zu_W%zu.pdf", outBase.c_str(), iq, iw) : Form("%s/ALU_vs_zphi_Q%zu.pdf", outBase.c_str(), iq);
+        c->SaveAs(out);
+
+        delete leg;
+        delete c;
       }
     }
+  }
 
-   private:
-    BinManager fXbins;
-    bool plotIndividual = false;
-    bool useFittedYields_ = true;
-    bool applyCorrection = false;
+  // === A_LU^{sin(phi_Trento)}(cos(theta_KK)) using the moment method ===
+  // Uses the invariant-mass window [mMin, mMax] instead of mass fits.
+  void PlotPhiALUCosThetaPerBin_AllModels_SinPhiMoment(const std::string& baseOutDir = "PhiALUCosTheta_SinPhiMoment", double mMin = 0.9874, double mMax = 1.120,
+                                                       double beamPol = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiALUCosThetaPerBin_AllModels_SinPhiMoment] no models.\n";
+      return;
+    }
 
-    DrawStyle style_;              // Default style
-    DrawStyle styleKin_;           // Kin plot style
-    DrawStyle styleDVCS_;          // DVCS plot style
-    DrawStyle styleCrossSection_;  // Cross-section plot style
-    DrawStyle styleBSA_;           // BSA plot style
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
 
-    THnSparseD* correctionHist = nullptr;
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
 
-    std::unique_ptr<ROOT::RDF::RNode> rdf;
-    std::string outputDir = ".";
+      std::cout << "→ Computing A_{LU}^{sin#phi}(cos#theta_{KK}) via sin(phi_Trento) moment "
+                << "in m(K^{+}K^{-}) ∈ [" << mMin << ", " << mMax << "]"
+                << " for model: " << labels[i] << " → " << subdir << std::endl;
 
-    std::vector<std::unique_ptr<DISANAplotter>> plotters;
-    std::vector<std::string> labels;
+      plotters[i]->MakePhiALUCosThetaSinPhiMoment3D(fXbins, subdir, mMin, mMax, beamPol);
+    }
+  }
 
-    std::vector<std::string> particleName = {"e", "p", "#gamma"};
-    std::map<std::string, std::string> typeToParticle = {{"el", "electron"},     {"pro", "proton"},   {"pho", "#gamma_{1}"},
-                                                         {"pho2", "#gamma_{2}"}, {"kMinus", "K^{-}"}, {"kPlus", "K^{+}"}};
-    std::map<std::string, std::string> VarName = {{"p", "p (GeV/#it{c})"}, {"theta", "#theta (rad)"}, {"phi", "#phi(rad)"}, {"vz", "v_{z}(cm)"}};
-  };
+  // A_LU(cos(theta_KK)) using a fit A*sin(phi)/(1 + b cos(phi))
+  // in each cos(theta_KK) bin. Uses invMass_KpKm window [mMin, mMax].
+  void PlotPhiALUCosThetaPerBin_AllModels_SinOver1PlusbCosFit(const std::string& baseOutDir = "PhiALUCosTheta_SinOver1PlusbCosFit", double mMin = 1.01, double mMax = 1.03,
+                                                              double beamPol = 1.0) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiALUCosThetaPerBin_AllModels_SinOver1PlusbCosFit] no models.\n";
+      return;
+    }
+
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+
+      std::cout << "→ Computing A_{LU}(cos#theta_{KK}) via fit "
+                << "A*sin(#phi)/(1 + b cos(#phi)) "
+                << "in m(K^{+}K^{-}) ∈ [" << mMin << ", " << mMax << "]"
+                << " for model: " << labels[i] << " → " << subdir << std::endl;
+
+      plotters[i]->MakePhiALUCosTheta_SinOver1PlusbCosFit3D(fXbins, subdir, mMin, mMax, beamPol);
+    }
+  }
+
+ private:
+  BinManager fXbins;
+  bool plotIndividual = false;
+  bool useFittedYields_ = true;
+  bool applyCorrection = false;
+
+  DrawStyle style_;              // Default style
+  DrawStyle styleKin_;           // Kin plot style
+  DrawStyle styleDVCS_;          // DVCS plot style
+  DrawStyle styleCrossSection_;  // Cross-section plot style
+  DrawStyle styleBSA_;           // BSA plot style
+
+  THnSparseD* correctionHist = nullptr;
+
+  std::unique_ptr<ROOT::RDF::RNode> rdf;
+  std::string outputDir = ".";
+
+  std::vector<std::unique_ptr<DISANAplotter>> plotters;
+  std::vector<std::string> labels;
+
+  std::vector<std::string> particleName = {"e", "p", "#gamma"};
+  std::map<std::string, std::string> typeToParticle = {{"el", "electron"},     {"pro", "proton"},   {"pho", "#gamma_{1}"},
+                                                       {"pho2", "#gamma_{2}"}, {"kMinus", "K^{-}"}, {"kPlus", "K^{+}"}};
+  std::map<std::string, std::string> VarName = {{"p", "p (GeV/#it{c})"}, {"theta", "#theta (rad)"}, {"phi", "#phi(rad)"}, {"vz", "v_{z}(cm)"}};
+};
 #endif  // DISANA_COMPARER_H

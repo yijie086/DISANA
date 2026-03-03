@@ -12,6 +12,7 @@ using ROOT::VecOps::RVec;
 static constexpr double kMe = 0.000511;
 static constexpr double kMp = 0.938272;
 static constexpr double kMK = 0.493677;
+static constexpr double alpha = 1.0 / 137.035999084;
 
 // convenience 3-vector helpers
 static double MomentumFunc(float px, float py, float pz) { return std::sqrt(px * px + py * py + pz * pz); }
@@ -19,6 +20,36 @@ static double ThetaFunc(float px, float py, float pz) { return std::acos(pz / st
 static double PhiFunc(float px, float py) {
   double phi = std::atan2(py, px);
   return phi < 0 ? phi + 2 * M_PI : phi;
+}
+
+inline double HandGammaV(double E, double Q2, double W) {
+
+  if (!(E > 0.0) || !(Q2 > 0.0) || !(W > 0.0)) return std::numeric_limits<double>::quiet_NaN();
+
+  const double W2 = W * W;
+
+  // nu = (W^2 + Q^2 - Mp^2) / (2 Mp)
+  const double nu = (W2 + Q2 - kMp*kMp) / (2.0 * kMp);
+
+  const double y  = nu / E;
+  const double Ep = E - nu;
+  if (!(Ep > 0.0)) return std::numeric_limits<double>::quiet_NaN();
+
+  // K = (W^2 - Mp^2) / (2 Mp)
+  const double K = (W2 - kMp*kMp) / (2.0 * kMp);
+
+  const double eps_num = 1.0 - y - Q2 / (4.0 * E * E);
+  const double eps_den = 1.0 - y + 0.5 * y * y + Q2 / (4.0 * E * E);
+  if (eps_den == 0.0) return std::numeric_limits<double>::quiet_NaN();
+  const double eps = eps_num / eps_den;
+
+  if ((1.0 - eps) == 0.0) return std::numeric_limits<double>::quiet_NaN();
+
+  // Hand convention
+  const double Gamma =
+      (alpha / (2.0 * pi * pi)) * (Ep / E) * (K / Q2) * (1.0 / (1.0 - eps));
+
+  return Gamma;
 }
 
 inline int ChooseBestElectron(const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<float>& pz,
@@ -295,7 +326,6 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
              .Define("ele_det_region", [](int i, const ROOT::VecOps::RVec<short>& st) { return i >= 0 ? DetRegionFromStatus(st[i]) : -1; }, {"bestEle_idx", "REC_Particle_status"});
 
   // missing K⁻ 4-vector (components); keep both px/py/pz and derived p,θ,φ
-  constexpr double kMe = 0.000511, kMp = 0.938272, kMK = 0.493677;
   *df_ = df_->Define("kMinus_miss_px",
                      [beam_energy](float epx, float epy, float epz, float ppx, float ppy, float ppz, float kpx, float kpy, float kpz) -> float {
                        TLorentzVector pBeam(0, 0, beam_energy, beam_energy), pTarg(0, 0, 0, kMp);
@@ -492,6 +522,9 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "Cone_Km", &DISANAMath::GetCone_Km, beam_energy);
   *df_ = define_DISCAT(*df_, "z_phi", &DISANAMath::GetZ_phi, beam_energy);
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
+  *df_ = df_->Define("Gamma_v", [beam_energy](double Q2, double W) {
+                 return HandGammaV(beam_energy, Q2, W);
+               }, {"Q2", "W"});
   return *df_;
 }
 
@@ -640,7 +673,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
              .Define("ele_det_region", [](int i, const ROOT::VecOps::RVec<short>& st) { return i >= 0 ? DetRegionFromStatus(st[i]) : -1; }, {"bestEle_idx", "REC_Particle_status"});
 
   // missing K⁺ 4-vector (components)
-  constexpr double kMe = 0.000511, kMp = 0.938272, kMK = 0.493677;
+
   *df_ = df_->Define("kPlus_miss_px",
                      [beam_energy](float epx, float epy, float epz, float ppx, float ppy, float ppz, float kmx, float kmy, float kmz) -> float {
                        TLorentzVector pBeam(0, 0, beam_energy, beam_energy), pTarg(0, 0, 0, kMp);
@@ -684,6 +717,24 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
              .Define("reckPlus_theta", ThetaFunc, {"kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz"})
              .Define("reckPlus_phi", PhiFunc, {"kPlus_miss_px", "kPlus_miss_py"})
              .Define("kMinus_det_region",
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                       for (size_t i = 0; i < pid.size(); ++i) {
+                         if (pid[i] == -321 && pass[i]) {
+                           int abs_status = std::abs(status[i]);
+                           if (abs_status >= 1000 && abs_status < 2000)
+                             return 0;  // FT
+                           else if (abs_status >= 2000 && abs_status < 3000)
+                             return 1;  // FD
+                           else if (abs_status >= 4000 && abs_status < 5000)
+                             return 2;  // CD
+                           else
+                             return -1;  // Unknown/Other
+                         }
+                       }
+                       return -1;
+                     },
+                     {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
+              .Define("kPlus_det_region",
                      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == -321 && pass[i]) {
@@ -783,7 +834,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
 
                        return std::sqrt(E * E - (px * px + py * py + pz * pz));
                      },
-                     {"pro_px", "pro_py", "pro_pz", "kPlus_px", "kPlus_py", "kPlus_pz"});
+                     {"pro_px", "pro_py", "pro_pz", "kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz"});
   // φ mass built from missing K+ and measured K-
   // DISANAMath-driven observables
   *df_ = define_DISCAT(*df_, "Q2", &DISANAMath::GetQ2, beam_energy);
@@ -819,6 +870,9 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   *df_ = define_DISCAT(*df_, "Cone_Km", &DISANAMath::GetCone_Km, beam_energy);
   *df_ = define_DISCAT(*df_, "z_phi", &DISANAMath::GetZ_phi, beam_energy);
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
+  *df_ = df_->Define("Gamma_v", [beam_energy](double Q2, double W) {
+                 return HandGammaV(beam_energy, Q2, W);
+               }, {"Q2", "W"});
   return *df_;
 }
 
@@ -1163,6 +1217,9 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   *df_ = define_DISCAT(*df_, "Cone_Km", &DISANAMath::GetCone_Km, beam_energy);
   *df_ = define_DISCAT(*df_, "z_phi", &DISANAMath::GetZ_phi, beam_energy);
   *df_ = define_DISCAT(*df_, "Coplanarity_had_normals_deg", &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
+  *df_ = df_->Define("Gamma_v", [beam_energy](double Q2, double W) {
+                 return HandGammaV(beam_energy, Q2, W);
+               }, {"Q2", "W"});
 
   return *df_;
 }
@@ -1367,6 +1424,9 @@ df = df
   df = define_DISCAT(df, "z_phi",                    &DISANAMath::GetZ_phi,                    beam_energy);
   df = define_DISCAT(df, "Coplanarity_had_normals_deg",
                      &DISANAMath::GetCoplanarity_had_normals_deg, beam_energy);
+  df = df.Define("Gamma_v", [beam_energy](double Q2, double W) {
+                 return HandGammaV(beam_energy, Q2, W);
+               }, {"Q2", "W"});
 
   return df;
 }
@@ -1395,7 +1455,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df, const std::st
       "invMass_KpKm", "invMass_pKminus", "invMass_pKplus",
 
       // DISANAMath-derived
-      "Q2", "xB", "t", "cos_thetaKK", "cos_phiKK", "tmin", "mtprime", "tprime", "phi", "W", "nu", "y", "z_phi", "Mx2_ep", "Emiss", "PTmiss", "Mx2_epKpKm", "Mx2_eKpKm", "Mx2_eKp",
+      "Q2", "xB", "t", "cos_thetaKK", "cos_phiKK", "tmin", "mtprime", "tprime", "phi", "W", "nu", "y", "Gamma_v", "z_phi", "Mx2_ep", "Emiss", "PTmiss", "Mx2_epKpKm", "Mx2_eKpKm", "Mx2_eKp",
       "Mx_eKp", "Mx2_epKm", "Mx2_epKp", "DeltaPhi", "Theta_g_phimeson", "Theta_e_phimeson", "DeltaE", "Cone_p", "Cone_Kp", "Cone_Km", "Coplanarity_had_normals_deg"};
 
   // Write the slim tree (this triggers the event loop)
@@ -1429,7 +1489,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKm(ROOT::RDF::RNode df, const std::st
                                          "invMass_KpKm", "invMass_pKminus", "invMass_pKplus",
 
                                          // DISANAMath-derived
-                                         "Q2", "xB", "t", "tmin", "cos_thetaKK", "cos_phiKK", "mtprime", "tprime", "phi", "W", "nu", "y", "z_phi", "Mx2_ep", "Emiss", "PTmiss",
+                                         "Q2", "xB", "t", "tmin", "cos_thetaKK", "cos_phiKK", "mtprime", "tprime", "phi", "W", "nu", "y", "Gamma_v", "z_phi", "Mx2_ep", "Emiss", "PTmiss",
                                          "Mx2_epKpKm", "Mx2_eKpKm", "Mx2_eKp", "Mx_eKp", "Mx2_epKm", "Mx2_epKp", "DeltaPhi", "Theta_g_phimeson", "Theta_e_phimeson", "DeltaE",
                                          "Cone_p", "Cone_Kp", "Cone_Km", "Coplanarity_had_normals_deg"};
 
@@ -1463,7 +1523,7 @@ ROOT::RDF::RNode WriteSlimAndReload_missingKp(ROOT::RDF::RNode df, const std::st
                                          "invMass_KpKm", "invMass_pKminus", "invMass_pKplus",
 
                                          // DISANAMath-derived
-                                         "Q2", "xB", "t", "tmin", "cos_thetaKK", "cos_phiKK", "mtprime", "tprime", "phi", "W", "nu", "y", "z_phi", "Mx2_ep", "Emiss", "PTmiss",
+                                         "Q2", "xB", "t", "tmin", "cos_thetaKK", "cos_phiKK", "mtprime", "tprime", "phi", "W", "nu", "y", "Gamma_v","z_phi", "Mx2_ep", "Emiss", "PTmiss",
                                          "Mx2_epKpKm", "Mx2_eKpKm", "Mx2_eKp", "Mx_eKp", "Mx2_epKm", "Mx2_epKp", "DeltaPhi", "Theta_g_phimeson", "Theta_e_phimeson", "DeltaE",
                                          "Cone_p", "Cone_Kp", "Cone_Km", "Coplanarity_had_normals_deg"};
   // Write the slim tree (this triggers the event loop)

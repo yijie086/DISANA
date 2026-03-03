@@ -21,20 +21,6 @@
 
 namespace fs = std::filesystem;
 
-// ---- Static helper functions (preload_hipo, makeRDFFromSlice, etc.) ----
-
-static inline void preload_hipo() {
-  if (const char* h = std::getenv("HIPO_HOME")) {
-    std::string inc = std::string(h) + "/include";
-    gInterpreter->AddIncludePath(inc.c_str());
-  } else {
-    gInterpreter->AddIncludePath(
-      "/cvmfs/oasis.opensciencegrid.org/jlab/hallb/clas12/sw/"
-      "almalinux9-gcc11/local/hipo/4.2.0/include");
-  }
-  gSystem->Load("libhipo4");
-}
-
 static ROOT::RDataFrame makeRDFFromSlice(std::vector<std::string> slice) {
   auto ds = std::make_unique<RHipoDS>(slice);
   return ROOT::RDataFrame(std::move(ds));
@@ -215,12 +201,7 @@ HipoToRootConverter::getHipoFilesInPath(const std::string& pathOrPattern, int nf
 
 // --- convert(): parallel per-slice snapshots with stable schema & pruning ---
 std::vector<std::string> HipoToRootConverter::convert(const std::string& tempFilePrefix) {
-  preload_hipo();
-
   // Keep conversion single-threaded inside each worker (RDF-level)
-  ROOT::DisableImplicitMT();
-  ROOT::EnableThreadSafety();
-
   std::vector<std::string> hipoFiles = getHipoFilesInPath(fInputDir_, fnFiles_);
   lastInputCount_ = hipoFiles.size();
   if (hipoFiles.empty()) {

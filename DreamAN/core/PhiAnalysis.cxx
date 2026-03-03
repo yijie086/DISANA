@@ -8,92 +8,19 @@
 #include <algorithm>
 #include "ROOT/RVec.hxx"
 
+// Returns the run and event column names from an RHipoDS-backed node.
+// RHipoDS translates "RUN::config.run" -> "RUN_config_run" (:: -> _, . -> _).
 static inline std::pair<std::string,std::string>
 PickRunEventCols(ROOT::RDF::RNode df) {
   auto cols = df.GetColumnNames();
   auto has = [&](const std::string& n){
     return std::find(cols.begin(), cols.end(), n) != cols.end();
   };
-
   if (has("RUN_config_run") && has("RUN_config_event"))
     return {"RUN_config_run", "RUN_config_event"};
-
   if (has("RUN::config.run") && has("RUN::config.event"))
     return {"RUN::config.run", "RUN::config.event"};
-
   throw std::runtime_error("QADB: cannot find run/event columns");
-}
-
-#include "ROOT/RVec.hxx"
-
-// helper: detect substring
-static inline bool has_substr(const std::string& s, const std::string& sub) {
-  return s.find(sub) != std::string::npos;
-}
-
-static inline ROOT::RDF::RNode
-DefineRunEventScalars(ROOT::RDF::RNode df, const std::string& runCol, const std::string& evCol) {
-  const auto runType = df.GetColumnType(runCol);
-  const auto evType  = df.GetColumnType(evCol);
-
-  // ----- scalar cases -----
-  auto is_scalar_int = [&](const std::string& t){
-    return t=="int" || t=="Int_t" || t=="unsigned int" || t=="UInt_t";
-  };
-  auto is_scalar_long = [&](const std::string& t){
-    return t=="Long64_t" || t=="long" || t=="long long" || t=="ULong64_t" || t=="unsigned long long";
-  };
-  auto is_scalar_short = [&](const std::string& t){
-    return t=="short" || t=="Short_t" || t=="unsigned short" || t=="UShort_t";
-  };
-
-  if (is_scalar_int(runType) && is_scalar_int(evType)) {
-    return df.Define("RUN_run",  [](int r){ return r; }, {runCol})
-             .Define("RUN_event",[](int e){ return e; }, {evCol});
-  }
-  if (is_scalar_long(runType) && is_scalar_long(evType)) {
-    return df.Define("RUN_run",  [](Long64_t r){ return (int)r; }, {runCol})
-             .Define("RUN_event",[](Long64_t e){ return (int)e; }, {evCol});
-  }
-  if (is_scalar_short(runType) && is_scalar_short(evType)) {
-    return df.Define("RUN_run",  [](Short_t r){ return (int)r; }, {runCol})
-             .Define("RUN_event",[](Short_t e){ return (int)e; }, {evCol});
-  }
-
-  // ----- RVec cases -----
-  auto is_rvec = [&](const std::string& t){ return has_substr(t, "ROOT::VecOps::RVec"); };
-
-  // RVec<int> / RVec<Int_t> / etc (match by substring)
-  if (is_rvec(runType) && is_rvec(evType) && (has_substr(runType,"<int") || has_substr(runType,"<Int_t"))) {
-    return df.Define("RUN_run",  [](const ROOT::VecOps::RVec<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
-             .Define("RUN_event",[](const ROOT::VecOps::RVec<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
-  }
-  if (is_rvec(runType) && is_rvec(evType) && (has_substr(runType,"<Long64_t") || has_substr(runType,"<long long") || has_substr(runType,"<long"))) {
-    return df.Define("RUN_run",  [](const ROOT::VecOps::RVec<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
-             .Define("RUN_event",[](const ROOT::VecOps::RVec<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
-  }
-  if (is_rvec(runType) && is_rvec(evType) && (has_substr(runType,"<Short_t") || has_substr(runType,"<short"))) {
-    return df.Define("RUN_run",  [](const ROOT::VecOps::RVec<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
-             .Define("RUN_event",[](const ROOT::VecOps::RVec<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
-  }
-
-  // ----- std::vector cases -----
-  auto is_stdvec = [&](const std::string& t){ return has_substr(t, "std::vector") || has_substr(t, "vector<"); };
-
-  if (is_stdvec(runType) && is_stdvec(evType) && (has_substr(runType,"<int") || has_substr(runType,"<Int_t"))) {
-    return df.Define("RUN_run",  [](const std::vector<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
-             .Define("RUN_event",[](const std::vector<int>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
-  }
-  if (is_stdvec(runType) && is_stdvec(evType) && (has_substr(runType,"<Long64_t") || has_substr(runType,"<long long") || has_substr(runType,"<long"))) {
-    return df.Define("RUN_run",  [](const std::vector<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
-             .Define("RUN_event",[](const std::vector<Long64_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
-  }
-  if (is_stdvec(runType) && is_stdvec(evType) && (has_substr(runType,"<Short_t") || has_substr(runType,"<short"))) {
-    return df.Define("RUN_run",  [](const std::vector<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {runCol})
-             .Define("RUN_event",[](const std::vector<Short_t>& v){ return v.empty() ? -1 : (int)v[0]; }, {evCol});
-  }
-
-  throw std::runtime_error("QADB: unsupported run/event types: run=" + runType + " ev=" + evType);
 }
 
 PhiAnalysis::PhiAnalysis(bool IsMC, bool IsReproc, bool IsMinBook) : IsMC(IsMC), IsReproc(IsReproc), IsMinBooking(IsMinBook), fHistPhotonP(nullptr) {}
@@ -121,10 +48,7 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_theta", RECParticletheta(), RECParticle::All());
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_phi", RECParticlephi(), RECParticle::All());
   dfDefs = DefineOrRedefine(dfDefs, "REC_Particle_p", RECParticleP(), RECParticle::All());
-  // needed for mc truth matching
-  dfDefs = DefineOrRedefine(dfDefs,"num_events",  [](ULong64_t e) { return e; },  {"rdfentry_"});
-
-
+  dfDefs = DefineOrRedefine(dfDefs, "num_events", [](ULong64_t e) { return e; }, {"rdfentry_"});
 
 
   dforginal = dfDefs;
@@ -192,12 +116,19 @@ if (fIsQADBCut && fQADBCuts) {
   auto node = *dfSelected_afterFid_afterCorr;
   auto [runCol, evCol] = PickRunEventCols(node);
 
-  node = DefineRunEventScalars(node, runCol, evCol);
-
-  auto qadb = *fQADBCuts; // copy functor
+  // Use a typed lambda wrapping the functor so ROOT can deduce the return type.
+  // QADBCuts has multiple operator() overloads which prevents ROOT's CallableTraits
+  // from deducing ret_type if the functor is passed directly.
+  // RHipoDS exposes RUN::config.run as a scalar int (nrows=1 bank).
+  // We pass the source columns directly — no intermediate Define nodes — so that
+  // GetColumnReadersImpl for these columns is called in the single-threaded init
+  // phase together with all other source columns, not lazily from worker threads.
+  auto qadb = *fQADBCuts;
   node = node.Define("REC_QADB_pass",
-                     [qadb](int run, int ev) mutable { return qadb(run, ev); },
-                     {"RUN_run","RUN_event"})
+                     [qadb](int run, int ev) mutable -> bool {
+                       return qadb(run, ev);
+                     },
+                     {runCol, evCol})
              .Filter("REC_QADB_pass", "QADB pass");
 
   dfSelected_afterFid_afterCorr = node;
@@ -219,9 +150,14 @@ void PhiAnalysis::SaveOutput() {
     // snapshot of the MC bank for efficiency and other studies
     dforginal->Snapshot(
         "dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
-        {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
-         "MC_Event_pbeam",  // include if this exists
-         "MC_Event_ptarget", "MC_Event_ebeam","num_events"});
+        {"num_events",          // event identity
+         "MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz",
+         "MC_Particle_vx",  "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt",
+         "MC_Lund_pid", "MC_Lund_px", "MC_Lund_py", "MC_Lund_pz",  // full generator record
+         "MC_Lund_parent", "MC_Lund_daughter",
+         "MC_RecMatch_pindex", "MC_RecMatch_mcindex",               // reco<->truth links
+         "MC_GenMatch_pindex", "MC_GenMatch_mcindex", "MC_GenMatch_quality",
+         "MC_Event_weight", "MC_Event_pbeam", "MC_Event_ptarget", "MC_Event_ebeam"});
   }
 
   if (!dfSelected.has_value()) {
