@@ -1,12 +1,14 @@
 #ifndef EVENTS_H
 #define EVENTS_H
 
+#include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-#include "ROOT/RDataFrame.hxx"
-#include "ROOT/RDF/RInterface.hxx"
-#include "RHipoDS.hxx"
+
+#include <ROOT/RDataFrame.hxx>
+#include "hipo4/RHipoDS.hxx"
 
 class Events {
 public:
@@ -18,7 +20,6 @@ public:
          int nfiles,
          int nthreads);
 
-  // NEW: Destructor to clean up temporary files
   ~Events();
 
   std::optional<ROOT::RDF::RNode> getNode() const;
@@ -27,11 +28,12 @@ public:
 
 private:
   std::vector<std::string> GetHipoFilesInPath(const std::string& directory, int nfiles);
+
   std::string fOutputDir_;
 
-  bool        fIsReprocessRootFile_;
-  int         fnfiles_;
-  int         fnthreads_;
+  bool        fIsReprocessRootFile_{false};
+  int         fnfiles_{0};
+  int         fnthreads_{0};
   std::string fInputROOTtreeName_;
   std::string fOutputROOTfileName_;
 
