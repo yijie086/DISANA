@@ -878,6 +878,7 @@ LEG_FS       = 18
 LEG_TITLE_FS = 18
 YLIM_XS      = (1e-5, 40.0)
 XLIM_T       = (0.0, 6.0)
+YLIM_RED     = (1e-5, 30.0)  # reduced cross-section comparison y-limits
 NCOLS_GRP    = 2
 
 _CANVAS_CFG = {
@@ -1252,14 +1253,14 @@ def make_group_plot(csv_root, models, bin_keys, canvas_key, outdir, logy=True):
                 ax.set_xlim(XLIM_T)
                 if canvas_key == "xs":
                     ax.set_ylim(YLIM_XS)
+                elif canvas_key == "red":
+                    ax.set_ylim(YLIM_RED)
                 elif canvas_key == "acc":
                     ax.set_ylim(0.0, 0.035)   # <-- requested
                 elif canvas_key == "rad":
                     ax.set_ylim(0.6, 1.0)
                     ax.axhline(1.0, color="gray", lw=1.2, ls="--", zorder=1)
                 # --- FORCE reduced comparison ymax to 30 (works even if --no-logy) ---
-                if canvas_key == "red" and (not show_ratio):
-                    ax_m.set_ylim(1e-5, 30.0)
 
                 df_ref = next(
                     (load_csv(csv_root, m, iq, iw_key) for m in models
@@ -1484,13 +1485,7 @@ def make_comparison_with_ratio(csv_root, models, iq, iw, canvas_key, outdir, log
 
         if cfg["logy"] and logy and canvas_key not in ("acc", "rad"):
             ax_m.set_yscale("log")
-
-            # --- FORCE reduced comparison ymax to 30 ---
-            if canvas_key == "red" and (not show_ratio):
-                ax_m.set_ylim(1e-5, 30.0)
-            else:
-                ax_m.set_ylim(YLIM_XS)
-
+            ax_m.set_ylim(YLIM_RED if canvas_key == "red" else YLIM_XS)
         elif canvas_key == "acc":
             ax_m.set_ylim(0.0, 0.035)
 
@@ -3124,10 +3119,10 @@ def make_hs_ds0_summary_plots(ds0_table, outdir, prefer_combined=True):
                 ax.axhline(0.0, color="gray", lw=1.2, ls="--", zorder=1)
                 ax.set_xlabel(xlabel)
                 ax.set_ylabel(r"$D_s(0)$")
-                ax.set_title(r"Strange D-term extraction (Hatta–Strikman template)")
+                ax.set_title(r"Strange D-term extraction (Hatta–Strikman Fit)")
                 if xscale:
                     ax.set_xscale(xscale)
-                ax.legend(frameon=False, fontsize=LEG_FS - 2, loc="lower left")
+                ax.legend(frameon=False, fontsize=LEG_FS - 2, loc="center left")
 
                 if show_lattice:
                     ax.text(0.98, 0.97,
@@ -3424,7 +3419,6 @@ def main():
         )
 
     print(f"\n[DONE] Outputs in {outdir}/")
-
 
 if __name__ == "__main__":
     main()

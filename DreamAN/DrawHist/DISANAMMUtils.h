@@ -1306,6 +1306,10 @@ df = df
   .Define("kMinus_px", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_km_idx","MC_Particle_px"})
   .Define("kMinus_py", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_km_idx","MC_Particle_py"})
   .Define("kMinus_pz", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_km_idx","MC_Particle_pz"})
+  .Define("recel_vz", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_e_idx","MC_Particle_pz"})
+  .Define("recpro_vz", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_p_idx","MC_Particle_pz"})
+  .Define("reckPlus_vz", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_kp_idx","MC_Particle_pz"})
+  .Define("reckMinus_vz", [atOr](int i, const RVec<float>& v){ return atOr(i, v); }, {"gen_km_idx","MC_Particle_pz"})
 
     // require all 4 exist (keep if you want "all-particle" GEN only)
     .Filter([](int ei, int pi, int kpi, int kmi){

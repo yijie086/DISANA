@@ -384,29 +384,29 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     xBins.SetXBBins({0.0, 0.99});
     xBins.SetWBins({2.0, 10.0});
     comparer.SetXBinsRanges(xBins);
+    bool GenOnly = true; // toggle to skip reconstructed and only compare gen-level distributions to models (e.g. for acceptance/efficiency studies)
+                          // ── AddModelPhi — pass rad RDF + enable rad correction per dataset ────────
+    if (!GenOnly) {
+      comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb, df_afterFid_sp19inb_MCgen, df_sp19inb_phi_MC, df_rad_sp19inb,
+                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
 
-    // ── AddModelPhi — pass rad RDF + enable rad correction per dataset ────────
-    comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb,
-                         df_afterFid_sp19inb_MCgen, df_sp19inb_phi_MC,
-                         df_rad_sp19inb,
-                         /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+      comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb, df_afterFid_sp18inb_MCgen, df_sp18inb_phi_MC, df_rad_sp18inb,
+                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+      comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb, df_afterFid_sp18outb_MCgen, df_sp18outb_phi_MC, df_rad_sp18outb,
+                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+      comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb, df_afterFid_fall18inb_MCgen, df_fall18inb_phi_MC, df_rad_fall18inb,
+                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+      comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb, df_afterFid_fall18outb_MCgen, df_fall18outb_phi_MC,
+                           df_rad_fall18outb,
+                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+    } else {
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Sp19 inb gen", beam_energy_sp2019, luminosity_rga_sp19_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Sp18 inb gen", beam_energy_sp2018, luminosity_rga_sp18_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Sp18 outb gen", beam_energy_sp2018, luminosity_rga_sp18_outb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Fall18 inb gen", beam_energy_fall2018, luminosity_rga_fall18_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Fall18 outb gen", beam_energy_fall2018, luminosity_rga_fall18_outb);
+    }
 
-    comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb,
-                         df_afterFid_sp18inb_MCgen, df_sp18inb_phi_MC,
-                         df_rad_sp18inb,
-                         /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-    comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb,
-                         df_afterFid_sp18outb_MCgen, df_sp18outb_phi_MC,
-                         df_rad_sp18outb,
-                         /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-    comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb,
-                         df_afterFid_fall18inb_MCgen, df_fall18inb_phi_MC,
-                         df_rad_fall18inb,
-                         /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-    comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb,
-                         df_afterFid_fall18outb_MCgen, df_fall18outb_phi_MC,
-                         df_rad_fall18outb,
-                         /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false); 
     // outb (no MC gen/rec available — rad corr only)
     //comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
     //comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
@@ -518,6 +518,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
   comparer.PlotPhiDVEPKinematicsPlots();
   comparer.PlotKinematicComparison_phiAna();
+  return;
   comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
   comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 40, 0.988, 1.15, true, 0.004, 0.25,  // sigmaRef, sigmaFrac
                                           branching,                                             // branching (0.492 etc)
