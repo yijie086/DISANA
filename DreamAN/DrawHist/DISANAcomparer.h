@@ -1327,6 +1327,8 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
     }
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSPolCross_postive;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSPolCross_negative;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffmc;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffexp;
@@ -1345,6 +1347,10 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
       if (plotDVCSCross) {
         auto hists = p->ComputeDVCS_CrossSection(fXbins);
         allDVCSCross.push_back(std::move(hists));
+        auto hists_pol_postive = p->ComputePolDVCS_CrossSection(1,fXbins);
+        auto hists_pol_negative = p->ComputePolDVCS_CrossSection(-1,fXbins);
+        allDVCSPolCross_postive.push_back(std::move(hists_pol_postive));
+        allDVCSPolCross_negative.push_back(std::move(hists_pol_negative));
       }
       if (plotPi0Corr) {
         auto hcorr = p->ComputePi0Corr(fXbins);
@@ -1376,7 +1382,11 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
     }
 
     if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
-    if (plotDVCSCross) MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+    if (plotDVCSCross){
+        MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+        MakeTiledGridComparison("DIS_PolCross_Section_Positive", "d#sigma^{+}/d#phi [nb/GeV^4]", allDVCSPolCross_postive, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+        MakeTiledGridComparison("DIS_PolCross_Section_Negative", "d#sigma^{-}/d#phi [nb/GeV^4]", allDVCSPolCross_negative, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+      }
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);

@@ -430,20 +430,20 @@ void PlotThetaMap(double EB=7.546, double t=-0.55, double phi_deg=0.0,
 // Auto-run entry point
 void dvcs_kin(){
   double t   = -0.250;
-  double phi = 130.0;
+  double phi = 180.0;
   double EB  = 7.546;
 
-  double xB  = 0.188;
-  double Q2  = 1.115;
+  double xB  = 0.23;
+  double Q2  = 1.3;
 
   DVCS_Kin(xB, Q2, t, phi, EB);
   TLorentzVector epr, ppr, gam;
   int rc = DVCS_Kin(xB, Q2, t, phi, EB, epr, ppr, gam);
   std::cout << "proton theta = " << ppr.Theta()*TMath::RadToDeg() << " deg" << std::endl;
-
+/*
   // Example 1: gamma theta map, with BOTH bands
   PlotThetaMap(EB, t, phi, "gamma",
-               0.125, 0.30, 120,
+               0.125, 0.3, 120,
                1.0,   2.0,  140,
                9.3,   // theta_e0
                2.0,    // W0
@@ -451,14 +451,14 @@ void dvcs_kin(){
                2.0,    // pe0
                true,   // custom grid
                2.5, 40.0,   // z range
-               true,  2.5, 35.0,  kRed, 0.50,     // gamma band (lo,hi,color,alpha)
+               true,  5, 35.0,  kRed, 0.50,     // gamma band (lo,hi,color,alpha)
                true,  0.0,  0.0,  kAzure+7, 0.50, // proton band (lo,hi,color,alpha)
                "theta_gamma_map.png");
 
   // Example 2: e theta map, band_lo==band_hi => band NOT drawn
   PlotThetaMap(EB, t, phi, "e",
-               0.125, 0.30, 120,
-               1.0,   2.0,  140,
+               0.0, 0.70, 120,
+               1.0,   6.0,  140,
                9.3,   // theta_e0
                2.0,    // W0
                0.0,    // y0
@@ -479,5 +479,5 @@ void dvcs_kin(){
                5, 80.0,   // z range
                true,  25.0, 25.0,  kRed, 0.50,     // gamma band (lo,hi,color,alpha)
                true,  40,  150.0,  kBlack, 0.50, // proton band (lo,hi,color,alpha)
-               "theta_p_map.png");
+               "theta_p_map.png");*/
 }

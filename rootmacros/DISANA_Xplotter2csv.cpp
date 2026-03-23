@@ -4,12 +4,25 @@
 #include "../DreamAN/DrawHist/DrawStyle.h"
 #include "../DreamAN/DrawHist/DISANAMath.h"
 
+#include <ROOT/RDataFrame.hxx>
+
+#include <array>
+#include <cctype>
+#include <fstream>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy);
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df);
 
-ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df);
+ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_rec_bin.csv");;
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df);
-ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df);
+ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_gen_bin.csv");
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df);
 ROOT::RDF::RNode DefineGenDVPi0Pass(ROOT::RDF::RNode df);
@@ -19,6 +32,9 @@ ROOT::RDF::RNode ApplyFinalGenDVPi0Selections(ROOT::RDF::RNode df);
 ROOT::RDF::RNode InitKinematics(const std::string& filename_ = "", const std::string& treename_ = "", float beam_energy = 0);
 ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy = 0);
 ROOT::RDF::RNode InitGenKinematics(const std::string& filename_ = "", const std::string& treename_ = "", float beam_energy = 0);
+
+ROOT::RDF::RNode GetSlim_exclusive(ROOT::RDF::RNode df_, const std::string& filename_slim, const std::string& treename_slim, bool isGen = false);
+ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df_, const std::string& filename_slim, const std::string& treename_slim, bool isGen = false);
 
 void PlotAllRecoDistributions(ROOT::RDF::RNode df, const std::string& out = "reco_kinematics_grid.png",
                               int bins_p = 120, int bins_theta = 120, int bins_phi = 120);
@@ -76,11 +92,11 @@ ROOT::RDF::RNode define_DISCAT_pi0(ROOT::RDF::RNode node, const std::string& nam
                       "recpho2_p", "recpho2_theta", "recpho2_phi"});
 }
 
-void DISANA_Xplotter2() {
+void DISANA_Xplotter2csv() {
   bool ComputeBgk_core = false;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
 
-  ROOT::EnableImplicitMT();
+  ROOT::EnableImplicitMT(40);
  
   std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1001/DISANA/build/data";
 
@@ -109,19 +125,29 @@ void DISANA_Xplotter2() {
 
   float beam_energy = 7.546;
 
-  ROOT::RDF::RNode df_afterFid_7546_data = InitKinematics(filename_afterFid_7546_data, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_data_init = InitKinematics(filename_afterFid_7546_data, "dfSelected_afterFid_afterCorr", beam_energy);
 
-  ROOT::RDF::RNode df_afterFid_7546_pi0MC = InitKinematics(filename_afterFid_7546_pi0MC, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_pi0MC_init = InitKinematics(filename_afterFid_7546_pi0MC, "dfSelected_afterFid_afterCorr", beam_energy);
 
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen = InitGenKinematics(filename_afterFid_7546_dvcsmc_gen, "dfSelected", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec = InitKinematics(filename_afterFid_7546_dvcsmc_rec, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_gen, "dfSelected", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec_init = InitKinematics(filename_afterFid_7546_dvcsmc_rec, "dfSelected_afterFid_afterCorr", beam_energy);
 
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg = InitKinematics(filename_afterFid_7546_dvcsmc_bkg, "dfSelected_afterFid_afterCorr", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg = InitKinematics(filename_afterFid_7546_dvcsmc_nobkg, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg_init = InitKinematics(filename_afterFid_7546_dvcsmc_bkg, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg_init = InitKinematics(filename_afterFid_7546_dvcsmc_nobkg, "dfSelected_afterFid_afterCorr", beam_energy);
 
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad = ApplyFinalDVCSRadSelections(InitGenKinematics(filename_afterFid_7546_dvcsmc_rad, "MC", beam_energy));
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad = InitGenKinematics(filename_afterFid_7546_dvcsmc_norad, "MC", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_p1cut = InitGenKinematics(filename_afterFid_7546_dvcsmc_p1cut, "MC", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_rad, "MC", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_norad, "MC", beam_energy);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_p1cut_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_p1cut, "MC", beam_energy);
+
+  ROOT::RDF::RNode df_afterFid_7546_data = GetSlim_exclusive(df_afterFid_7546_data_init, "dfSlim_7546_data.root", "dfSlim_7546_data", false);
+  ROOT::RDF::RNode df_afterFid_7546_pi0MC = GetSlim_exclusive(df_afterFid_7546_pi0MC_init, "dfSlim_7546_pi0MC.root", "dfSlim_7546_pi0MC", false);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen = GetSlim_exclusive(df_afterFid_7546_dvcsmc_gen_init, "dfSlim_7546_dvcsmc_gen.root", "dfSlim_7546_dvcsmc_gen", true);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec = GetSlim_exclusive(df_afterFid_7546_dvcsmc_rec_init, "dfSlim_7546_dvcsmc_rec.root", "dfSlim_7546_dvcsmc_rec", false);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg = GetSlim_exclusive(df_afterFid_7546_dvcsmc_bkg_init, "dfSlim_7546_dvcsmc_bkg.root", "dfSlim_7546_dvcsmc_bkg", false);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg = GetSlim_exclusive(df_afterFid_7546_dvcsmc_nobkg_init, "dfSlim_7546_dvcsmc_nobkg.root", "dfSlim_7546_dvcsmc_nobkg", false);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad_temp = GetSlim_exclusive(df_afterFid_7546_dvcsmc_rad_init, "dfSlim_7546_dvcsmc_rad.root", "dfSlim_7546_dvcsmc_rad", true);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad = GetSlim_exclusive(df_afterFid_7546_dvcsmc_norad_init, "dfSlim_7546_dvcsmc_norad.root", "dfSlim_7546_dvcsmc_norad", true);
+  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_7546_dvcsmc_p1cut_init, "dfSlim_7546_dvcsmc_p1cut.root", "dfSlim_7546_dvcsmc_p1cut", true);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
 
@@ -144,6 +170,7 @@ void DISANA_Xplotter2() {
   auto df_final_dvcs_7546_dvcsmc_nobkg = ApplyFinalGenDVCSSelections(df_afterFid_7546_dvcsmc_nobkg);
   auto df_final_dvcsPi_rejected_7546_dvcsmc_nobkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_nobkg, beam_energy);
 
+  auto df_afterFid_7546_dvcsmc_rad = df_afterFid_7546_dvcsmc_rad_temp;
 
   DISANAcomparer comparer;
   comparer.SetOutputDir("./");
@@ -196,9 +223,9 @@ void DISANA_Xplotter2() {
   std::cout<<"Luminosity (nb^-1): "<<luminosity<<std::endl;
   double polarisation = 0.85;  // Set your desired polarisation here
 
-  df_final_dvcsPi_rejected_7546_dvcsmc_rec = df_final_dvcsPi_rejected_7546_dvcsmc_rec.Filter("t > 0.5", "Cut: t > 0.5 GeV^2");
+  //df_final_dvcsPi_rejected_7546_dvcsmc_rec = df_final_dvcsPi_rejected_7546_dvcsmc_rec.Filter("t < 0.3 && t >0.2", "Cut: t > 0.5 GeV^2");
 
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,
+  /*comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,
                               //df_afterFid_7546_dvcsmc_gen,
                               df_final_OnlPi0_7546_pi0MC,
                               df_final_dvcsPi_rejected_7546_pi0MC,
@@ -210,9 +237,9 @@ void DISANA_Xplotter2() {
                               df_afterFid_7546_dvcsmc_rad,
                               df_afterFid_7546_dvcsmc_norad,
                               df_afterFid_7546_dvcsmc_p1cut,
-                              "RGK 7.5GeV mc", beam_energy, true, true, true, true, true);
+                              "RGK 7.5GeV mc", beam_energy, true, true, true, true, true);*/
 
-  df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter("t > 0.5", "Cut: t > 0.5 GeV^2");
+  //df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter("t < 0.3 && t > 0.2", "Cut: t > 0.5 GeV^2");
 
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
                               //df_afterFid_7546_dvcsmc_gen,
@@ -232,12 +259,12 @@ void DISANA_Xplotter2() {
   //comparer.PlotPi0KinematicComparison();
   //comparer.PlotxBQ2tBin();
   //comparer.PlotDVCSKinematicsComparison();
-  //comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(polarisation, true, true, true, true, true, true, true, true);   
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(polarisation, true, true, true, true, true, true, true, true);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
   //comparer.PlotPi0ExclusivityComparisonByDetectorCases(detCutsPi0);
-  comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
+  //comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
 
   gApplication->Terminate(0);
 }
@@ -541,59 +568,227 @@ ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df_) {
 }
 // exclusivity cuts
 
-ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df) {
-  return df
-      .Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
-      .Filter("t < 1.0", "Cut: t < 1 GeV^2")
-      //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
-      // 5. W > 2
-      .Filter("W > 2.0", "Cut: W > 2.0 GeV")
-      .Filter("recpho_p > 2.0", "Cut: recpho_p > 2.0 GeV")
-      // 9. 3σ exclusivity cuts
-      .Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma")
-      .Filter("Emiss < 1.0", "Cut: Missing energy")
-      .Filter("PTmiss < 0.25", "Cut: Transverse missing momentum")
-      .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
-      .Filter("Theta_gamma_gamma < 3.0", "Cut: photon-missing angle")
-      //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
-      .Filter("(pho_det_region==0&&pro_det_region==2)                                                  ||   (pho_det_region==1&&pro_det_region==1)                                                    ||   (pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-      //.Filter("(pho_det_region==1&&pro_det_region==1)                                                    ||   (pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.29&&Mx2_ep>-0.23)                       ||   (pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.40&&Mx2_ep>-0.24)                         ||   (pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.31&&Mx2_ep>-0.21)", "Cut: Mx2_ep in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.47&&Emiss>-0.29)                         ||   (pho_det_region==1&&pro_det_region==1&&Emiss<0.73&&Emiss>-0.23)                           ||   (pho_det_region==1&&pro_det_region==2&&Emiss<0.79&&Emiss>-0.37)", "Cut: Emiss in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.10&&PTmiss>-0.00)                       ||   (pho_det_region==1&&pro_det_region==1&&PTmiss<0.22&&PTmiss>-0.00)                         ||   (pho_det_region==1&&pro_det_region==2&&PTmiss<0.14&&PTmiss>-0.00)", "Cut: PTmiss in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<1.49&&Theta_gamma_gamma>-0.00) ||   (pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<2.43&&Theta_gamma_gamma>-0.00)   ||   (pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<1.93&&Theta_gamma_gamma>-0.00)", "Cut: Theta_gamma_gamma in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<3.78&&DeltaPhi>-0.00)                   ||   (pho_det_region==1&&pro_det_region==1&&DeltaPhi<10.63&&DeltaPhi>-0.00)                    ||   (pho_det_region==1&&pro_det_region==2&&DeltaPhi<9.35&&DeltaPhi>-0.00)", "Cut: DeltaPhi in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)                     ||   (pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.04&&Mx2_epg>-0.04)                       ||   (pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.03&&Mx2_epg>-0.03)", "Cut: Mx2_epg in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.69&&Mx2_eg>0.41)                        ||   (pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.87&&Mx2_eg>0.55)                          ||   (pho_det_region==1&&pro_det_region==2&&Mx2_eg<2.12&&Mx2_eg>0.32)", "Cut: Mx2_eg in 3sigma");
-      //.Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)         ||   (pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.71&&Theta_e_gamma>29.17)          ||   (pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
+// ------------------------
+// small utils
+// ------------------------
+static inline std::string Trim(std::string s) {
+  auto is_space = [](unsigned char c){ return std::isspace(c); };
+  while (!s.empty() && is_space((unsigned char)s.front())) s.erase(s.begin());
+  while (!s.empty() && is_space((unsigned char)s.back()))  s.pop_back();
+  return s;
 }
 
-ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df) {
-  return df
-      .Filter("Q2 > 1.0", "Cut: Q2 > 1 GeV^2")
-      .Filter("t < 1.0", "Cut: t < 1 GeV^2")
-      //.Filter("recel_p > 6.0", "Cut: recel_p > 0.6")
-      // 5. W > 2
-      .Filter("W > 2.0", "Cut: W > 2.0 GeV")
-      .Filter("recpho_p > 2.0", "Cut: recpho_p > 2.0 GeV")
-      // 9. 3σ exclusivity cuts
-      .Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma")
-      .Filter("Emiss < 1.0", "Cut: Missing energy")
-      .Filter("PTmiss < 0.25", "Cut: Transverse missing momentum")
-      .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma")
-      .Filter("Theta_gamma_gamma < 3.0", "Cut: photon-missing angle")
-      //.Filter("DeltaPhi < 25.0", "Cut: Coplanarity");
-      .Filter("(pho_det_region==0&&pro_det_region==2)                                                  ||   (pho_det_region==1&&pro_det_region==1)                                                    ||   (pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-      //.Filter("(pho_det_region==1&&pro_det_region==1)                                                    ||   (pho_det_region==1&&pro_det_region==2)", "Cut: three config")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_ep<0.15&&Mx2_ep>-0.13)                       ||   (pho_det_region==1&&pro_det_region==1&&Mx2_ep<0.27&&Mx2_ep>-0.25)                         ||   (pho_det_region==1&&pro_det_region==2&&Mx2_ep<0.15&&Mx2_ep>-0.13)", "Cut: Mx2_ep in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Emiss<0.23&&Emiss>-0.17)                         ||   (pho_det_region==1&&pro_det_region==1&&Emiss<0.40&&Emiss>-0.36)                           ||   (pho_det_region==1&&pro_det_region==2&&Emiss<0.44&&Emiss>-0.36)", "Cut: Emiss in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&PTmiss<0.04&&PTmiss>-0.00)                       ||   (pho_det_region==1&&pro_det_region==1&&PTmiss<0.13&&PTmiss>-0.00)                         ||   (pho_det_region==1&&pro_det_region==2&&PTmiss<0.07&&PTmiss>-0.00)", "Cut: PTmiss in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Theta_gamma_gamma<0.70&&Theta_gamma_gamma>-0.00) ||   (pho_det_region==1&&pro_det_region==1&&Theta_gamma_gamma<1.49&&Theta_gamma_gamma>-0.00)   ||   (pho_det_region==1&&pro_det_region==2&&Theta_gamma_gamma<0.83&&Theta_gamma_gamma>-0.00)", "Cut: Theta_gamma_gamma in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&DeltaPhi<1.82&&DeltaPhi>-0.00)                   ||   (pho_det_region==1&&pro_det_region==1&&DeltaPhi<8.38&&DeltaPhi>-0.00)                     ||   (pho_det_region==1&&pro_det_region==2&&DeltaPhi<4.09&&DeltaPhi>-0.00)", "Cut: DeltaPhi in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_epg<0.01&&Mx2_epg>-0.01)                     ||   (pho_det_region==1&&pro_det_region==1&&Mx2_epg<0.03&&Mx2_epg>-0.03)                       ||   (pho_det_region==1&&pro_det_region==2&&Mx2_epg<0.015&&Mx2_epg>-0.015)", "Cut: Mx2_epg in 3sigma")
-      .Filter("(pho_det_region==0&&pro_det_region==2&&Mx2_eg<1.25&&Mx2_eg>0.61)                        ||   (pho_det_region==1&&pro_det_region==1&&Mx2_eg<1.41&&Mx2_eg>0.37)                          ||   (pho_det_region==1&&pro_det_region==2&&Mx2_eg<1.58&&Mx2_eg>0.30)", "Cut: Mx2_eg in 3sigma");
-      //.Filter("(pho_det_region==0&&pro_det_region==2&&Theta_e_gamma<27.92&&Theta_e_gamma>5.42)         ||   (pho_det_region==1&&pro_det_region==1&&Theta_e_gamma<44.71&&Theta_e_gamma>29.17)          ||   (pho_det_region==1&&pro_det_region==2&&Theta_e_gamma<36.36&&Theta_e_gamma>10.36)", "Cut: Theta_e_gamma in 3sigma");
+static inline std::vector<std::string> SplitCSVLine(const std::string& line) {
+  // simple csv split (no quoted commas)
+  std::vector<std::string> out;
+  std::stringstream ss(line);
+  std::string item;
+  while (std::getline(ss, item, ',')) out.push_back(Trim(item));
+  return out;
 }
+
+struct Win { double lo=0.0, hi=0.0; };
+static inline bool InWin(double x, const Win& w) {
+  return (x > w.lo && x < w.hi);  // keep strict like your original
+}
+
+// key = (var,tbin,cfg)
+struct Key3 {
+  std::string var;
+  int tbin;
+  int cfg;
+  bool operator==(const Key3& o) const {
+    return var==o.var && tbin==o.tbin && cfg==o.cfg;
+  }
+};
+struct Key3Hash {
+  std::size_t operator()(const Key3& k) const noexcept {
+    std::size_t h1 = std::hash<std::string>{}(k.var);
+    std::size_t h2 = std::hash<int>{}(k.tbin);
+    std::size_t h3 = std::hash<int>{}(k.cfg);
+    // combine
+    std::size_t h = h1;
+    h ^= (h2 + 0x9e3779b97f4a7c15ULL + (h<<6) + (h>>2));
+    h ^= (h3 + 0x9e3779b97f4a7c15ULL + (h<<6) + (h>>2));
+    return h;
+  }
+};
+
+struct CutTableTDep {
+  std::vector<double> tEdges;  // size = ntbin+1
+  std::unordered_map<Key3, Win, Key3Hash> winmap;
+
+  int NTbin() const { return (int)tEdges.size() - 1; }
+};
+
+static inline int FindBin(double x, const std::vector<double>& edges) {
+  const int nb = (int)edges.size() - 1;
+  if (nb <= 0) return -1;
+  if (x < edges.front() || x >= edges.back()) return -1;
+  for (int i = 0; i < nb; i++) {
+    if (x >= edges[i] && x < edges[i+1]) return i;
+  }
+  return -1;
+}
+
+// your 3 configs
+static inline int ConfigId(int pho_det_region, int pro_det_region) {
+  if (pho_det_region==0 && pro_det_region==2) return 0;
+  if (pho_det_region==1 && pro_det_region==1) return 1;
+  if (pho_det_region==1 && pro_det_region==2) return 2;
+  return -1;
+}
+
+static CutTableTDep LoadCutsTDepCSV(const std::string& path) {
+  std::ifstream fin(path);
+  if (!fin) throw std::runtime_error("LoadCutsTDepCSV: cannot open: " + path);
+
+  CutTableTDep tab;
+  std::string line;
+  int lineno = 0;
+
+  while (std::getline(fin, line)) {
+    lineno++;
+    line = Trim(line);
+    if (line.empty()) continue;
+    if (line[0] == '#') continue;
+
+    auto cols = SplitCSVLine(line);
+    if (cols.empty()) continue;
+
+    if (cols[0] == "tEdges") {
+      if (cols.size() < 3) {
+        throw std::runtime_error("CSV parse error: tEdges needs >=2 numbers at line " + std::to_string(lineno));
+      }
+      tab.tEdges.clear();
+      for (size_t i = 1; i < cols.size(); i++) tab.tEdges.push_back(std::stod(cols[i]));
+      for (size_t i = 1; i < tab.tEdges.size(); i++) {
+        if (!(tab.tEdges[i] > tab.tEdges[i-1])) {
+          throw std::runtime_error("CSV parse error: tEdges must be strictly increasing");
+        }
+      }
+      continue;
+    }
+
+    // data row: var,tbin,cfg,lo,hi
+    if (cols.size() != 5) {
+      throw std::runtime_error("CSV parse error at line " + std::to_string(lineno) +
+                               ": expect 5 columns var,tbin,cfg,lo,hi");
+    }
+    if (tab.tEdges.empty()) {
+      throw std::runtime_error("CSV parse error: tEdges must appear before data rows");
+    }
+
+    Key3 k{cols[0], std::stoi(cols[1]), std::stoi(cols[2])};
+    Win  w{std::stod(cols[3]), std::stod(cols[4])};
+
+    if (k.cfg < 0 || k.cfg >= 3) {
+      throw std::runtime_error("CSV parse error: cfg must be 0/1/2");
+    }
+    if (k.tbin < 0 || k.tbin >= tab.NTbin()) {
+      throw std::runtime_error("CSV parse error: tbin out of range (0.." + std::to_string(tab.NTbin()-1) + ")");
+    }
+    if (!(w.hi > w.lo)) {
+      throw std::runtime_error("CSV parse error: invalid window hi<=lo for var=" + k.var);
+    }
+
+    tab.winmap[k] = w;
+  }
+
+  if (tab.tEdges.empty()) throw std::runtime_error("CSV missing tEdges line");
+
+  return tab;
+}
+
+static inline bool PassVarTDep(const CutTableTDep& tab,
+                               const std::string& var,
+                               double x, int tbin, int cfg) {
+  auto it = tab.winmap.find(Key3{var,tbin,cfg});
+  if (it == tab.winmap.end()) return false;
+  return InWin(x, it->second);
+}
+
+// ------------------------
+// core selection: shared by REC/GEN
+// ------------------------
+static inline ROOT::RDF::RNode ApplyFinalDVCSSelections_TDep(ROOT::RDF::RNode df,
+                                                            std::shared_ptr<CutTableTDep> cuts) {
+  auto d0 = df
+    // base kinematics
+    .Filter("Q2 > 1.0",  "Cut: Q2 > 1 GeV^2")
+    .Filter("t < 1.0",   "Cut: t < 1 GeV^2")     // 你也可以删掉它，完全依赖 tEdges
+    .Filter("W > 2.0",   "Cut: W > 2.0 GeV")
+    .Filter("recpho_p > 2.0", "Cut: recpho_p > 2.0 GeV")
+
+    // loose pre-cuts (same as your original)
+    .Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma (loose)")
+    .Filter("Emiss < 1.0",                  "Cut: Missing energy (loose)")
+    .Filter("PTmiss < 0.25",                "Cut: Transverse missing momentum (loose)")
+    .Filter("Theta_e_gamma > 5",            "Cut: Theta_e_gamma (loose)")
+    .Filter("Theta_gamma_gamma < 3.0",      "Cut: photon-missing angle (loose)")
+
+    // labels
+    .Define("cfg",  [](int pho, int pro){ return ConfigId(pho, pro); },
+            {"pho_det_region","pro_det_region"})
+    .Define("tbin", [cuts](double tt){ return FindBin(tt, cuts->tEdges); }, {"t"})
+    .Filter("cfg >= 0",  "Cut: three config")
+    .Filter("tbin >= 0", "Cut: t in tEdges");
+
+  // cfg+tbin dependent windows
+  auto d1 = d0
+    .Define("pass_Mx2_ep", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "Mx2_ep", v, tb, cg);
+      }, {"Mx2_ep","tbin","cfg"})
+    .Filter("pass_Mx2_ep", "Cut: Mx2_ep in 3sigma (tbin+cfg)")
+
+    .Define("pass_Emiss", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "Emiss", v, tb, cg);
+      }, {"Emiss","tbin","cfg"})
+    .Filter("pass_Emiss", "Cut: Emiss in 3sigma (tbin+cfg)")
+
+    .Define("pass_PTmiss", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "PTmiss", v, tb, cg);
+      }, {"PTmiss","tbin","cfg"})
+    .Filter("pass_PTmiss", "Cut: PTmiss in 3sigma (tbin+cfg)")
+
+    .Define("pass_Theta_gamma_gamma", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "Theta_gamma_gamma", v, tb, cg);
+      }, {"Theta_gamma_gamma","tbin","cfg"})
+    .Filter("pass_Theta_gamma_gamma", "Cut: Theta_gamma_gamma in 3sigma (tbin+cfg)")
+
+    .Define("pass_DeltaPhi", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "DeltaPhi", v, tb, cg);
+      }, {"DeltaPhi","tbin","cfg"})
+    .Filter("pass_DeltaPhi", "Cut: DeltaPhi in 3sigma (tbin+cfg)")
+
+    .Define("pass_Mx2_epg", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "Mx2_epg", v, tb, cg);
+      }, {"Mx2_epg","tbin","cfg"})
+    .Filter("pass_Mx2_epg", "Cut: Mx2_epg in 3sigma (tbin+cfg)")
+
+    .Define("pass_Mx2_eg", [cuts](double v, int tb, int cg){
+        return PassVarTDep(*cuts, "Mx2_eg", v, tb, cg);
+      }, {"Mx2_eg","tbin","cfg"})
+    .Filter("pass_Mx2_eg", "Cut: Mx2_eg in 3sigma (tbin+cfg)");
+
+  return d1;
+}
+
+// ------------------------
+// public APIs: REC/GEN
+// ------------------------
+ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df,
+                                         const std::string& rec_csv = "dvcs_cuts_rec_bin.csv") {
+  auto cuts = std::make_shared<CutTableTDep>(LoadCutsTDepCSV(rec_csv));
+  return ApplyFinalDVCSSelections_TDep(df, cuts);
+}
+
+ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df,
+                                            const std::string& gen_csv = "dvcs_cuts_gen_bin.csv") {
+  auto cuts = std::make_shared<CutTableTDep>(LoadCutsTDepCSV(gen_csv));
+  return ApplyFinalDVCSSelections_TDep(df, cuts);
+}
+
 
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df) {
   return df;
@@ -919,4 +1114,94 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
   *df_ = define_DISCAT(*df_, "Theta_gamma_gamma", &DISANAMath::GetTheta_gamma_gamma, beam_energy);
 
   return *df_;
+}
+
+ROOT::RDF::RNode GetSlim_exclusive(ROOT::RDF::RNode src, const std::string& f, const std::string& t, bool InitGen) {
+  const bool fileExists = !gSystem->AccessPathName(f.c_str());  // note the '!' (exists == true)
+  if (fileExists) {
+    std::cout << "Slim file " << f << " exists, loading it." << std::endl;
+    return ROOT::RDataFrame(t, f);
+  } else {
+    std::cout << "Trimming the file " << std::endl;
+    return WriteSlimAndReload_exclusive(src, f, t, InitGen);
+  }
+}
+
+
+ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df, const std::string& outFile, const std::string& outTree, bool InitGen) {
+  // Keep EXACTLY these columns (update this list if you add/remove defs)
+  const std::vector<std::string> keep_InitKinematics = {
+    // ===== RAW REC BANKS =====
+    "REC_Particle_pid",
+    "REC_Particle_px",
+    "REC_Particle_py",
+    "REC_Particle_pz",
+    "REC_Particle_vz",
+    "REC_Particle_beta",
+    "REC_Particle_status",
+    "REC_Particle_pass",
+    "REC_Photon_MaxE",
+    "REC_Event_helicity",
+
+    // ===== Picked particles =====
+    "ele_px","ele_py","ele_pz",
+    "pho_px","pho_py","pho_pz",
+    "pro_px","pro_py","pro_pz",
+
+    "recel_vz","recpho_vz","recpro_vz",
+    "recpho_beta",
+
+    // ===== Derived kinematics =====
+    "recel_p","recel_theta","recel_phi",
+    "recpho_p","recpho_theta","recpho_phi",
+    "recpro_p","recpro_theta","recpro_phi",
+
+    "ele_det_region","pho_det_region","pro_det_region",
+
+    // ===== DISANAMath DVCS =====
+    "Q2","xB","t","phi","W","nu","y",
+    "Mx2_ep","Emiss","PTmiss",
+    "Mx2_epg","Mx2_eg",
+    "Theta_e_gamma","DeltaE","DeltaPhi","Theta_gamma_gamma"
+  };
+
+  const std::vector<std::string> keep_InitGenKinematics = {
+
+    // ===== RAW GEN BANKS =====
+    "MC_Particle_pid",
+    "MC_Particle_px",
+    "MC_Particle_py",
+    "MC_Particle_pz",
+
+    // ===== picked particles =====
+    "ele_px","ele_py","ele_pz",
+    "pho_px","pho_py","pho_pz",
+    "pro_px","pro_py","pro_pz",
+
+    "recel_vz","recpho_vz","recpro_vz",
+
+    // ===== derived kinematics =====
+    "recel_p","recel_theta","recel_phi",
+    "recpho_p","recpho_theta","recpho_phi",
+    "recpro_p","recpro_theta","recpro_phi",
+
+    "ele_det_region","pho_det_region","pro_det_region",
+
+    // ===== DISANAMath DVCS =====
+    "Q2","xB","t","phi","W","nu","y",
+    "Mx2_ep","Emiss","PTmiss",
+    "Mx2_epg","Mx2_eg",
+    "Theta_e_gamma","DeltaE","DeltaPhi","Theta_gamma_gamma"
+  };
+
+  if (InitGen){
+    df.Snapshot(outTree, outFile, keep_InitGenKinematics);
+  }
+  else{
+    df.Snapshot(outTree, outFile, keep_InitKinematics);
+  }
+
+  // Reload a much lighter dataframe
+  ROOT::RDataFrame slim(outTree, outFile);
+  return slim;  // implicitly converts to RNode
 }

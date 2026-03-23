@@ -156,7 +156,7 @@ void PlotMomentumCorrectionVsTheta_FromParamFits(const int selectedPid,
     c->SetGridy();
 
     auto *mg = new TMultiGraph();
-    mg->SetTitle(Form("#Delta p vs #theta  (%s, %s);#theta [deg];#Delta p [GeV]",
+    mg->SetTitle(Form("#delta p vs #theta  (%s, %s);#theta [deg];#delta p [GeV]",
                       ParticleNameSimple(selectedPid).c_str(), det.c_str()));
 
     // A pleasant, high-contrast color cycle
@@ -904,12 +904,12 @@ void DrawDeltaPByThetaBins(
             v.overall->Draw("COLZ");
             //TGraph* gPeak = MakePeakGraph(v.overall,outDir + "/" + v.saveName + "_" + selecteddetector + "_overall.txt");
             //gPeak->Draw("PEZ SAME");
-            //drawHist(v.overall, selecteddetector + " " + v.title, "p [GeV]", "#Delta p [GeV]");
+            //drawHist(v.overall, selecteddetector + " " + v.title, "p [GeV]", "#delta p [GeV]");
             if (v.name == "deltaP:p") {
                 v.overall->GetXaxis()->SetTitle("p [GeV]");
-                v.overall->GetYaxis()->SetTitle("#Delta p [GeV]");
+                v.overall->GetYaxis()->SetTitle("#delta p [GeV]");
             } else if (v.name == "p:deltaP") {
-                v.overall->GetXaxis()->SetTitle("#Delta p [GeV]");
+                v.overall->GetXaxis()->SetTitle("#delta p [GeV]");
                 v.overall->GetYaxis()->SetTitle("p [GeV]");
             }
             std::string out = outDir + "/" + v.saveName + "_" + selecteddetector + "_overall.png";
@@ -947,9 +947,9 @@ void DrawDeltaPByThetaBins(
 
             fitFunc = new TF1("fitFunc", fitExpr.c_str(), v.binHists[ti]->GetXaxis()->GetXmin(), v.binHists[ti]->GetXaxis()->GetXmax());
              if (selecteddetector == "FD"&& isOutBend) {
-                    fitFunc->FixParameter(2, 0.0); // For outbending FD protons, fix the C constant term to 0
+                    //fitFunc->FixParameter(2, 0.0); // For outbending FD protons, fix the C constant term to 0
             }
-            fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
+            //fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
             //fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
             //fitFunc->SetParameters(0.01, -0.01, 0.01); // Initial guesses
 
@@ -990,13 +990,13 @@ void DrawDeltaPByThetaBins(
                 }
             }
 
-            //drawHist(v.binHists[ti],selecteddetector + " " + v.title + " in " + GetThetaBinLabel(ti, thetaCuts),"p [GeV]", "#Delta p [GeV]");
+            //drawHist(v.binHists[ti],selecteddetector + " " + v.title + " in " + GetThetaBinLabel(ti, thetaCuts),"p [GeV]", "#delta p [GeV]");
 
             if (v.name == "deltaP:p") {
                 v.binHists[ti]->GetXaxis()->SetTitle("p [GeV]");
-                v.binHists[ti]->GetYaxis()->SetTitle("#Delta p [GeV]");
+                v.binHists[ti]->GetYaxis()->SetTitle("#delta p [GeV]");
             } else if (v.name == "p:deltaP") {
-                v.binHists[ti]->GetXaxis()->SetTitle("#Delta p [GeV]");
+                v.binHists[ti]->GetXaxis()->SetTitle("#delta p [GeV]");
                 v.binHists[ti]->GetYaxis()->SetTitle("p [GeV]");
             }
             std::string out = outDir + "/" + v.saveName + "_" + selecteddetector + Form("_T%zu.png", ti);
@@ -1039,8 +1039,8 @@ void DrawDeltaPByThetaBins(
         f->SetLineWidth(2);
         f->Draw("SAME");
         g->GetYaxis()->SetRangeUser(-0.05, 0.05);
-        if(prefix =="proton_FD")g->GetYaxis()->SetRangeUser(-0.02, 0.02);
-        if(prefix =="proton_CD")g->GetYaxis()->SetRangeUser(-0.3, 0.3);
+        if(prefix =="proton_FD")g->GetYaxis()->SetRangeUser(-0.05, 0.05);
+        if(prefix =="proton_CD")g->GetYaxis()->SetRangeUser(-0.05, 0.05);
 
 
         std::string imgPath = fitParamOutDir + "/" + prefix + "_" + pname + "_vs_theta.png";
@@ -1063,15 +1063,15 @@ void DrawDeltaPByThetaBins(
             PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
         }
         else{
-            PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
-            PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
-            PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
+            PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+            PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+            PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
         }
    
     } else if (selecteddetector == "CD") {
-        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x+ [2]*x*x");
-        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x+ [2]*x*x");
-        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x+ [2]*x*x");
+        PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+        PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+        PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
     }
 
 
@@ -1081,14 +1081,623 @@ void DrawDeltaPByThetaBins(
     timer.Print();
 }
 
+void DrawDeltaPByThetaPhiBins(
+    const int &selectedPid,
+    const std::vector<float> &thetaCuts,
+    const std::string selecteddetector,
+    const int nPhiBins,
+    const std::vector<std::tuple<std::string,std::string,std::string,int,double,double,int,double,double>> &plotVars,
+    const std::string &filename,
+    const std::string &treename,
+    const std::string& outDir = "ProtonMomCorrPhi",
+    bool isOutBend = false)
+{
+    TStopwatch timer;
+    timer.Start();
 
+    ROOT::EnableImplicitMT();
 
+    auto GetParticleName = [](int pid) -> std::string {
+        if (pid == 11)   return "electron";
+        if (pid == 22)   return "photon";
+        if (pid == 2212) return "proton";
+        return "pid" + std::to_string(pid);
+    };
+
+    auto GetPhiBinIndex = [&](double phiDeg) -> int {
+        double phi = phiDeg;
+        while (phi < 0.0)   phi += 360.0;
+        while (phi >= 360.) phi -= 360.0;
+        int idx = static_cast<int>(phi / (360.0 / nPhiBins));
+        if (idx < 0) idx = 0;
+        if (idx >= nPhiBins) idx = nPhiBins - 1;
+        return idx;
+    };
+
+    auto GetPhiBinLabel = [&](int phiBinIdx) -> std::string {
+        double dphi = 360.0 / nPhiBins;
+        double phiMin = phiBinIdx * dphi;
+        double phiMax = (phiBinIdx + 1) * dphi;
+        char buf[128];
+        sprintf(buf, "%.1f#circ < #phi #leq %.1f#circ", phiMin, phiMax);
+        return std::string(buf);
+    };
+
+    auto GetPhiBinTag = [&](int phiBinIdx) -> std::string {
+        double dphi = 360.0 / nPhiBins;
+        double phiMin = phiBinIdx * dphi;
+        double phiMax = (phiBinIdx + 1) * dphi;
+        char buf[128];
+        sprintf(buf, "P%02d_%.0fto%.0f", phiBinIdx, phiMin, phiMax);
+        return std::string(buf);
+    };
+
+    auto GetParamYRange = [&](const std::string& prefix, const std::string& paramName) -> std::pair<double,double> {
+        if (prefix == "proton_FD") {
+            if (paramName == "A_p") return {-0.05, 0.05};
+            if (paramName == "B_p") return {-0.05, 0.05};
+            if (paramName == "C_p") return {-0.05, 0.05};
+            return {-0.05, 0.05};
+        }
+        if (prefix == "proton_CD") {
+            if (paramName == "A_p") return {-0.05, 0.05};
+            if (paramName == "B_p") return {-0.05, 0.05};
+            if (paramName == "C_p") return {-0.05, 0.05};
+            return {-0.05, 0.05};
+        }
+        return {-0.05, 0.05};
+    };
+
+    std::string particleDetectorPrefix = GetParticleName(selectedPid) + "_" + selecteddetector;
+
+    struct ParamThetaPlotInfo {
+        std::string phiTag;
+        std::string phiLabel;
+        std::vector<double> theta;
+        std::vector<double> param;
+        std::vector<double> errors;
+        std::string fitFormula;
+        bool hasData = false;
+    };
+
+    // 改成 map<paramName, vector fixed-size = nPhiBins>
+    std::map<std::string, std::vector<ParamThetaPlotInfo>> summaryPadPlotsByParam;
+
+    ROOT::RDataFrame df(treename, filename);
+    gStyle->SetOptStat(0);
+
+    struct Var3DInfo {
+        std::string saveName;
+        std::string title;
+        std::string name; // "deltaP:p" or "p:deltaP"
+        int nxbins;
+        double xmin, xmax;
+        int nybins;
+        double ymin, ymax;
+
+        TH2D* overall;
+        std::vector<TH2D*> phiOverall;
+        std::vector<std::vector<TH2D*>> binHists;
+    };
+
+    std::vector<Var3DInfo> vars;
+    for (auto &cfg : plotVars) {
+        Var3DInfo v;
+        v.saveName = std::get<0>(cfg);
+        v.title    = std::get<1>(cfg);
+        v.name     = std::get<2>(cfg);
+        v.nxbins   = std::get<3>(cfg);
+        v.xmin     = std::get<4>(cfg);
+        v.xmax     = std::get<5>(cfg);
+        v.nybins   = std::get<6>(cfg);
+        v.ymin     = std::get<7>(cfg);
+        v.ymax     = std::get<8>(cfg);
+
+        v.overall = new TH2D((v.saveName + "_overall").c_str(), "",
+                             v.nxbins, v.xmin, v.xmax, v.nybins, v.ymin, v.ymax);
+        v.overall->SetDirectory(nullptr);
+
+        v.phiOverall.resize(nPhiBins, nullptr);
+        for (int phiBinIdx = 0; phiBinIdx < nPhiBins; ++phiBinIdx) {
+            std::string histName = v.saveName + Form("_P%02d_overall", phiBinIdx);
+            v.phiOverall[phiBinIdx] = new TH2D(histName.c_str(), "",
+                                               v.nxbins, v.xmin, v.xmax, v.nybins, v.ymin, v.ymax);
+            v.phiOverall[phiBinIdx]->SetDirectory(nullptr);
+        }
+
+        v.binHists.resize(nPhiBins);
+        for (int phiBinIdx = 0; phiBinIdx < nPhiBins; ++phiBinIdx) {
+            v.binHists[phiBinIdx].resize(thetaCuts.size() + 1, nullptr);
+            for (size_t thetaBinIdx = 0; thetaBinIdx <= thetaCuts.size(); ++thetaBinIdx) {
+                std::string histName = v.saveName + Form("_P%02d_T%zu", phiBinIdx, thetaBinIdx);
+                v.binHists[phiBinIdx][thetaBinIdx] = new TH2D(histName.c_str(), "",
+                                                              v.nxbins, v.xmin, v.xmax, v.nybins, v.ymin, v.ymax);
+                v.binHists[phiBinIdx][thetaBinIdx]->SetDirectory(nullptr);
+            }
+        }
+
+        vars.push_back(v);
+    }
+
+    std::vector<std::string> colNames = {
+        "REC_Particle_pid", "REC_Particle_theta", "REC_Particle_phi", "REC_Particle_p",
+        "REC_Particle_status", "REC_Particle_pass",
+        "MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz"
+    };
+
+    df.Foreach([&](const RVec<int> &pid,
+                   const RVec<float> &theta,
+                   const RVec<float> &phi,
+                   const RVec<float> &p,
+                   const RVec<short> &status,
+                   const RVec<bool> &passPar,
+                   const RVec<int> &mcpid,
+                   const RVec<float> &mcpx,
+                   const RVec<float> &mcpy,
+                   const RVec<float> &mcpz)
+    {
+        for (size_t i = 0; i < pid.size(); ++i) {
+            if (pid[i] != selectedPid) continue;
+            if (!passPar[i]) continue;
+            if (GetDetectorPart(status[i]) != selecteddetector && selecteddetector != "ALL") continue;
+
+            double thetaDeg = theta[i] * 180.0 / M_PI;
+            double phiDeg   = phi[i]   * 180.0 / M_PI;
+            if (phiDeg < 0) phiDeg += 360.0;
+
+            int thetaBinIdx = GetThetaRegionIndex(thetaDeg, thetaCuts);
+            int phiBinIdx   = GetPhiBinIndex(phiDeg);
+
+            double pRec = p[i];
+            double pMC  = NAN;
+
+            for (size_t j = 0; j < mcpid.size(); ++j) {
+                if (mcpid[j] == selectedPid) {
+                    pMC = std::sqrt(mcpx[j]*mcpx[j] + mcpy[j]*mcpy[j] + mcpz[j]*mcpz[j]);
+                    break;
+                }
+            }
+            if (std::isnan(pMC)) continue;
+
+            double deltaP = pMC - pRec;
+
+            for (auto &v : vars) {
+                double xval = NAN, yval = NAN;
+
+                if (v.name == "deltaP:p") {
+                    xval = pRec;
+                    yval = deltaP;
+                } else if (v.name == "p:deltaP") {
+                    xval = deltaP;
+                    yval = pRec;
+                } else {
+                    continue;
+                }
+
+                if (std::isnan(xval) || std::isnan(yval)) continue;
+
+                v.overall->Fill(xval, yval);
+                v.phiOverall[phiBinIdx]->Fill(xval, yval);
+                v.binHists[phiBinIdx][thetaBinIdx]->Fill(xval, yval);
+            }
+        }
+    }, colNames);
+
+    gSystem->Exec(("mkdir -p " + outDir).c_str());
+
+    for (auto &v : vars) {
+        {
+            TCanvas *c = new TCanvas(("c_" + v.saveName + "_overall").c_str(), "", 3000, 1500);
+            v.overall->SetTitle((selecteddetector + " " + v.title + " (all #phi)").c_str());
+            gPad->SetLogz();
+            v.overall->Draw("COLZ");
+
+            if (v.name == "deltaP:p") {
+                v.overall->GetXaxis()->SetTitle("p [GeV]");
+                v.overall->GetYaxis()->SetTitle("#delta p [GeV]");
+            } else if (v.name == "p:deltaP") {
+                v.overall->GetXaxis()->SetTitle("#delta p [GeV]");
+                v.overall->GetYaxis()->SetTitle("p [GeV]");
+            }
+
+            std::string out = outDir + "/" + v.saveName + "_" + selecteddetector + "_overall.png";
+            c->SaveAs(out.c_str());
+            delete c;
+            std::cout << "Saved: " << out << std::endl;
+        }
+
+        for (int phiBinIdx = 0; phiBinIdx < nPhiBins; ++phiBinIdx) {
+            std::string phiTag   = GetPhiBinTag(phiBinIdx);
+            std::string phiLabel = GetPhiBinLabel(phiBinIdx);
+
+            std::string phiDir = outDir + "/" + phiTag;
+            std::string fitParamOutDir = phiDir + "/ParamFits";
+            gSystem->Exec(("mkdir -p " + phiDir).c_str());
+            gSystem->Exec(("mkdir -p " + fitParamOutDir).c_str());
+
+            std::vector<double> thetaMidVec, aVec, bVec, cVec;
+            std::vector<double> aErrVec, bErrVec, cErrVec;
+
+            {
+                TCanvas *c = new TCanvas(("c_" + v.saveName + "_" + phiTag + "_overall").c_str(), "", 3000, 1500);
+                v.phiOverall[phiBinIdx]->SetTitle((selecteddetector + " " + v.title + " in " + phiLabel).c_str());
+                gPad->SetLogz();
+                v.phiOverall[phiBinIdx]->Draw("COLZ");
+
+                if (v.name == "deltaP:p") {
+                    v.phiOverall[phiBinIdx]->GetXaxis()->SetTitle("p [GeV]");
+                    v.phiOverall[phiBinIdx]->GetYaxis()->SetTitle("#delta p [GeV]");
+                } else if (v.name == "p:deltaP") {
+                    v.phiOverall[phiBinIdx]->GetXaxis()->SetTitle("#delta p [GeV]");
+                    v.phiOverall[phiBinIdx]->GetYaxis()->SetTitle("p [GeV]");
+                }
+
+                std::string out = phiDir + "/" + v.saveName + "_" + selecteddetector + "_" + phiTag + "_overall.png";
+                c->SaveAs(out.c_str());
+                delete c;
+                std::cout << "Saved: " << out << std::endl;
+            }
+
+            for (size_t thetaBinIdx = 0; thetaBinIdx <= thetaCuts.size(); ++thetaBinIdx) {
+                TCanvas *c = new TCanvas(
+                    ("c_" + v.saveName + "_" + phiTag + Form("_T%zu", thetaBinIdx)).c_str(),
+                    "", 3000, 1500
+                );
+
+                TH2D* h2 = v.binHists[phiBinIdx][thetaBinIdx];
+                h2->SetTitle((selecteddetector + " " + v.title + " in " + phiLabel + ", " +
+                              GetThetaBinLabel(thetaBinIdx, thetaCuts)).c_str());
+                gPad->SetLogz();
+                h2->Draw("COLZ");
+
+                TGraph* gPeak2 = MakePeakGraph(
+                    h2,
+                    phiDir + "/" + v.saveName + "_" + selecteddetector + "_" + phiTag + Form("_T%zu.txt", thetaBinIdx)
+                );
+                if (gPeak2 && gPeak2->GetN() > 0) gPeak2->Draw("PEZ SAME");
+
+                TF1* deltaPFitModel = nullptr;
+                std::string deltaPFitFormula;
+
+                if (selectedPid == 2212) {
+                    if (selecteddetector == "FD") {
+                        deltaPFitFormula = "[0] + [1]/x + [2]/(x*x)";
+                    } else if (selecteddetector == "CD" || selecteddetector == "ALL") {
+                        deltaPFitFormula = "[0] + [1]*x + [2]*x*x";
+                    } else {
+                        std::cerr << "Unknown detector for proton: " << selecteddetector << "\n";
+                        if (gPeak2) delete gPeak2;
+                        delete c;
+                        continue;
+                    }
+                } else if (selectedPid == 11 || selectedPid == 22) {
+                    deltaPFitFormula = "[0] + [1]*x + [2]*x*x";
+                } else {
+                    std::cerr << "Unknown pid for fitting: " << selectedPid << "\n";
+                    deltaPFitFormula = "[0] + [1]*x + [2]*x*x";
+                }
+
+                std::string fitName = "deltaPFitModel_" + phiTag + Form("_T%zu", thetaBinIdx);
+                deltaPFitModel = new TF1(
+                    fitName.c_str(),
+                    deltaPFitFormula.c_str(),
+                    h2->GetXaxis()->GetXmin(),
+                    h2->GetXaxis()->GetXmax()
+                );
+
+                if (selecteddetector == "FD" && isOutBend) {
+                    //deltaPFitModel->FixParameter(2, 0.0);
+                }
+
+                //deltaPFitModel->SetParameters(0.01, -0.01, 0.01);
+
+                if (gPeak2 && gPeak2->GetN() > 2) {
+                    gPeak2->Fit(deltaPFitModel, "Q");
+
+                    std::ofstream foutFit(
+                        phiDir + "/" + v.saveName + "_" + selecteddetector + "_" + phiTag +
+                        Form("_T%zu_fit.txt", thetaBinIdx)
+                    );
+                    foutFit << "# Fit expression: " << deltaPFitFormula << "\n";
+                    foutFit << "# Fit parameters:\n";
+                    for (int ip = 0; ip < deltaPFitModel->GetNpar(); ++ip) {
+                        foutFit << "p" << ip << " = " << deltaPFitModel->GetParameter(ip)
+                                << " ± " << deltaPFitModel->GetParError(ip) << "\n";
+                    }
+                    foutFit.close();
+
+                    deltaPFitModel->SetLineColor(kBlue + 2);
+                    deltaPFitModel->SetLineWidth(4);
+                    deltaPFitModel->Draw("SAME");
+
+                    double thetaMid = 0.0;
+                    if (thetaBinIdx == 0) {
+                        thetaMid = thetaCuts[0];
+                    } else if (thetaBinIdx == thetaCuts.size()) {
+                        thetaMid = thetaCuts.back();
+                    } else {
+                        thetaMid = 0.5 * (thetaCuts[thetaBinIdx] + thetaCuts[thetaBinIdx - 1]);
+                    }
+
+                    if (deltaPFitModel->GetNpar() >= 3 && thetaBinIdx < thetaCuts.size()) {
+                        thetaMidVec.push_back(thetaMid);
+                        aVec.push_back(deltaPFitModel->GetParameter(0));
+                        bVec.push_back(deltaPFitModel->GetParameter(1));
+                        cVec.push_back(deltaPFitModel->GetParameter(2));
+                        aErrVec.push_back(deltaPFitModel->GetParError(0));
+                        bErrVec.push_back(deltaPFitModel->GetParError(1));
+                        cErrVec.push_back(deltaPFitModel->GetParError(2));
+                    }
+                }
+
+                if (v.name == "deltaP:p") {
+                    h2->GetXaxis()->SetTitle("p [GeV]");
+                    h2->GetYaxis()->SetTitle("#delta p [GeV]");
+                } else if (v.name == "p:deltaP") {
+                    h2->GetXaxis()->SetTitle("#delta p [GeV]");
+                    h2->GetYaxis()->SetTitle("p [GeV]");
+                }
+
+                std::string out = phiDir + "/" + v.saveName + "_" + selecteddetector + "_" + phiTag +
+                                  Form("_T%zu.png", thetaBinIdx);
+                c->SaveAs(out.c_str());
+
+                delete deltaPFitModel;
+                if (gPeak2) delete gPeak2;
+                delete c;
+
+                std::cout << "Saved: " << out << std::endl;
+            }
+
+            auto PlotParamVsTheta = [&](const std::vector<double>& theta,
+                                        const std::vector<double>& param,
+                                        const std::vector<double>& errors,
+                                        const std::string& paramName,
+                                        const std::string& paramVsThetaFormula)
+            {
+                std::string phiPrefix = particleDetectorPrefix + "_" + phiTag;
+
+                // 先确保 summary 结构按 phi 固定占位
+                if (summaryPadPlotsByParam.find(paramName) == summaryPadPlotsByParam.end()) {
+                    summaryPadPlotsByParam[paramName].resize(nPhiBins);
+                    for (int iphi = 0; iphi < nPhiBins; ++iphi) {
+                        summaryPadPlotsByParam[paramName][iphi].phiTag   = GetPhiBinTag(iphi);
+                        summaryPadPlotsByParam[paramName][iphi].phiLabel = GetPhiBinLabel(iphi);
+                        summaryPadPlotsByParam[paramName][iphi].fitFormula = paramVsThetaFormula;
+                        summaryPadPlotsByParam[paramName][iphi].hasData = false;
+                    }
+                }
+
+                // 无点也保留空位，不跳过
+                if (theta.empty()) {
+                    summaryPadPlotsByParam[paramName][phiBinIdx].fitFormula = paramVsThetaFormula;
+                    summaryPadPlotsByParam[paramName][phiBinIdx].hasData = false;
+                    return;
+                }
+
+                TCanvas *c = new TCanvas(
+                    ("c_" + phiPrefix + "_" + paramName + "_vs_theta").c_str(),
+                    "", 1800, 1200
+                );
+
+                TGraphErrors* g = new TGraphErrors(theta.size());
+                for (size_t i = 0; i < theta.size(); ++i) {
+                    g->SetPoint(i, theta[i], param[i]);
+                    g->SetPointError(i, 0.0, errors[i]);
+                }
+
+                g->SetTitle((phiPrefix + ": " + paramName + " vs #theta").c_str());
+                g->GetXaxis()->SetTitle("#theta [deg]");
+                g->GetYaxis()->SetTitle((paramName + " value").c_str());
+                g->GetYaxis()->SetTitleOffset(1.1);
+                g->SetMarkerStyle(20);
+                g->SetMarkerSize(1.2);
+                g->SetMarkerColor(kBlack);
+                g->SetLineColor(kBlack);
+                g->Draw("AP");
+
+                TF1* paramVsThetaFitModel = nullptr;
+                if (theta.size() >= 3) {
+                    paramVsThetaFitModel = new TF1(
+                        ("paramVsThetaFit_" + phiPrefix + "_" + paramName).c_str(),
+                        paramVsThetaFormula.c_str(),
+                        *std::min_element(theta.begin(), theta.end()),
+                        *std::max_element(theta.begin(), theta.end())
+                    );
+
+                    g->Fit(paramVsThetaFitModel, "Q");
+                    paramVsThetaFitModel->SetLineColor(kRed + 1);
+                    paramVsThetaFitModel->SetLineWidth(2);
+                    paramVsThetaFitModel->Draw("SAME");
+
+                    std::ofstream fout(fitParamOutDir + "/" + phiPrefix + "_" + paramName + "_vs_theta.txt");
+                    fout << "# Fit expression: " << paramVsThetaFormula << "\n";
+                    for (int ip = 0; ip < paramVsThetaFitModel->GetNpar(); ++ip) {
+                        fout << "p" << ip << " = " << paramVsThetaFitModel->GetParameter(ip)
+                             << " ± " << paramVsThetaFitModel->GetParError(ip) << "\n";
+                    }
+                    fout.close();
+                }
+
+                auto yRange = GetParamYRange(particleDetectorPrefix, paramName);
+                g->GetYaxis()->SetRangeUser(yRange.first, yRange.second);
+
+                std::string imgPath = fitParamOutDir + "/" + phiPrefix + "_" + paramName + "_vs_theta.png";
+                c->SaveAs(imgPath.c_str());
+                std::cout << "Saved: " << imgPath << std::endl;
+
+                ParamThetaPlotInfo info;
+                info.phiTag = phiTag;
+                info.phiLabel = phiLabel;
+                info.theta = theta;
+                info.param = param;
+                info.errors = errors;
+                info.fitFormula = paramVsThetaFormula;
+                info.hasData = true;
+                summaryPadPlotsByParam[paramName][phiBinIdx] = info;
+
+                if (paramVsThetaFitModel) delete paramVsThetaFitModel;
+                delete g;
+                delete c;
+            };
+
+            if (selecteddetector == "FD") {
+                if (isOutBend) {
+                    PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+                    PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+                    PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+                } else {
+                    PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0] + [1]*x");
+                    PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0] + [1]*x");
+                    PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0] + [1]*x");
+                }
+            } else if (selecteddetector == "CD" || selecteddetector == "ALL") {
+                PlotParamVsTheta(thetaMidVec, aVec, aErrVec, "A_p", "[0]");
+                PlotParamVsTheta(thetaMidVec, bVec, bErrVec, "B_p", "[0]");
+                PlotParamVsTheta(thetaMidVec, cVec, cErrVec, "C_p", "[0]");
+            }
+        }
+    }
+
+    {
+        std::string summaryDir = outDir + "/SummaryCanvas";
+        gSystem->Exec(("mkdir -p " + summaryDir).c_str());
+
+        for (const auto &kv : summaryPadPlotsByParam) {
+            const std::string &paramName = kv.first;
+            const auto &plotInfos = kv.second;
+
+            if (plotInfos.empty()) continue;
+
+            int nPads = nPhiBins;
+            int nCols = std::ceil(std::sqrt((double)nPads));
+            int nRows = std::ceil((double)nPads / nCols);
+
+            TCanvas *cSummary = new TCanvas(
+                ("c_summary_grid_" + particleDetectorPrefix + "_" + paramName).c_str(),
+                "",
+                700 * nCols,
+                500 * nRows
+            );
+            cSummary->Divide(nCols, nRows, 0.001, 0.001);
+
+            // 关键：保存到最后再 delete，避免 subplot 变空
+            std::vector<TGraphErrors*> summaryGraphs;
+            std::vector<TF1*> summaryFits;
+            std::vector<TH1F*> summaryFrames;
+
+            for (int iPad = 0; iPad < nPads; ++iPad) {
+                cSummary->cd(iPad + 1);
+                gPad->SetMargin(0.14, 0.05, 0.13, 0.10);
+                gPad->SetTicks(1, 1);
+                gPad->SetGridx();
+                gPad->SetGridy();
+
+                const auto &info = plotInfos[iPad];
+                auto yRange = GetParamYRange(particleDetectorPrefix, paramName);
+
+                double xMin = 0.0;
+                double xMax = 0.0;
+                if (!thetaCuts.empty()) {
+                    xMin = thetaCuts.front() - 2.0;
+                    xMax = thetaCuts.back() + 2.0;
+                } else {
+                    xMin = 0.0;
+                    xMax = 50.0;
+                }
+
+                TH1F *frame = new TH1F(
+                    Form("frame_%s_%s_%d", particleDetectorPrefix.c_str(), paramName.c_str(), iPad),
+                    "",
+                    100, xMin, xMax
+                );
+                summaryFrames.push_back(frame);
+
+                frame->SetTitle((info.phiTag + ": " + paramName).c_str());
+                frame->GetXaxis()->SetTitle("#theta [deg]");
+                frame->GetYaxis()->SetTitle((paramName + " value").c_str());
+                frame->GetXaxis()->SetTitleSize(0.055);
+                frame->GetYaxis()->SetTitleSize(0.055);
+                frame->GetXaxis()->SetLabelSize(0.045);
+                frame->GetYaxis()->SetLabelSize(0.045);
+                frame->GetYaxis()->SetTitleOffset(1.15);
+                frame->SetMinimum(yRange.first);
+                frame->SetMaximum(yRange.second);
+                frame->Draw();
+
+                TLatex lat;
+                lat.SetNDC(true);
+                lat.SetTextSize(0.05);
+                lat.SetTextColor(kBlue + 2);
+                lat.DrawLatex(0.17, 0.88, info.phiLabel.c_str());
+
+                if (info.hasData && !info.theta.empty()) {
+                    TGraphErrors *g = new TGraphErrors(info.theta.size());
+                    summaryGraphs.push_back(g);
+
+                    for (size_t i = 0; i < info.theta.size(); ++i) {
+                        g->SetPoint(i, info.theta[i], info.param[i]);
+                        g->SetPointError(i, 0.0, info.errors[i]);
+                    }
+
+                    g->SetMarkerStyle(20);
+                    g->SetMarkerSize(0.9);
+                    g->SetMarkerColor(kBlack);
+                    g->SetLineColor(kBlack);
+                    g->SetLineWidth(1);
+                    g->Draw("P SAME");
+
+                    if (info.theta.size() >= 3) {
+                        TF1 *paramVsThetaFitModel = new TF1(
+                            Form("fit_summary_%s_%s_%d", particleDetectorPrefix.c_str(), paramName.c_str(), iPad),
+                            info.fitFormula.c_str(),
+                            *std::min_element(info.theta.begin(), info.theta.end()),
+                            *std::max_element(info.theta.begin(), info.theta.end())
+                        );
+                        summaryFits.push_back(paramVsThetaFitModel);
+
+                        g->Fit(paramVsThetaFitModel, "Q");
+                        paramVsThetaFitModel->SetLineColor(kRed + 1);
+                        paramVsThetaFitModel->SetLineWidth(2);
+                        paramVsThetaFitModel->Draw("SAME");
+                    }
+                } else {
+                    TLatex lat2;
+                    lat2.SetNDC(true);
+                    lat2.SetTextSize(0.055);
+                    lat2.SetTextColor(kGray + 2);
+                    lat2.DrawLatex(0.30, 0.50, "No valid points");
+                }
+            }
+
+            cSummary->Modified();
+            cSummary->Update();
+
+            std::string outPng = summaryDir + "/" + particleDetectorPrefix + "_" + paramName + "_summary_grid.png";
+            std::string outPdf = summaryDir + "/" + particleDetectorPrefix + "_" + paramName + "_summary_grid.pdf";
+            cSummary->SaveAs(outPng.c_str());
+            cSummary->SaveAs(outPdf.c_str());
+
+            std::cout << "Saved: " << outPng << std::endl;
+            std::cout << "Saved: " << outPdf << std::endl;
+
+            for (auto *f : summaryFits)   delete f;
+            for (auto *g : summaryGraphs) delete g;
+            for (auto *fr : summaryFrames) delete fr;
+            delete cSummary;
+        }
+    }
+
+    timer.Stop();
+    std::cout << "Time for DrawDeltaPByThetaPhiBins: ";
+    timer.Print();
+}
 
 //================ example driver =================
 void analysisMomentumCorrection() {
      ROOT::EnableImplicitMT(6); 
     //std::string path = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg/";
-    std::string path = "../build/";
+    std::string path = "../build/CLASDIS/";
     //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/outb/";
     //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/spring2018/outb/";
     //std::string path = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/clasdis/spring2018/inb/";
@@ -1097,7 +1706,7 @@ void analysisMomentumCorrection() {
     std::string filenameCorrected = path + "dfSelected_afterFid_afterCorr.root";
     std::string treename = "dfSelected_afterFid";
     std::string treenameCorrected = "dfSelected_afterFid_afterCorr";
-    bool isOutBend = false; // set to true for outbending data, false for inbending data
+    bool isOutBend = true; // set to true for outbending data, false for inbending data
     const std::string& outDir ="ProtonMomCorr/";
 
     std::vector<float> thetaCutsFDelectron = {10,15,20,25};
@@ -1204,9 +1813,9 @@ void analysisMomentumCorrection() {
     Draw2DParticleKinematicsByThetaBins(22,{0},"ALL",{{"photon_phi_vs_theta","photon phi vs theta","phi:theta",500,0,360,500,2,8}},filenameCorrected,treenameCorrected);
 */
 /*
-    DrawDeltaPByThetaBins(11,thetaCutsFDelectron,"FD",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.03,0.03}},filename,treename);
-    DrawDeltaPByThetaBins(11,thetaCutsFTelectron,"FT",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-1.0,1.0}},filename,treename);
-    DrawDeltaPByThetaBins(11,{0},"ALL",{{"electron_deltaP_vs_p","electron #Delta p vs p","deltaP:p",500,0,8,500,-0.1,0.1}},filename,treename);
+    DrawDeltaPByThetaBins(11,thetaCutsFDelectron,"FD",{{"electron_deltaP_vs_p","electron #delta p vs p","deltaP:p",500,0,8,500,-0.03,0.03}},filename,treename);
+    DrawDeltaPByThetaBins(11,thetaCutsFTelectron,"FT",{{"electron_deltaP_vs_p","electron #delta p vs p","deltaP:p",500,0,8,500,-1.0,1.0}},filename,treename);
+    DrawDeltaPByThetaBins(11,{0},"ALL",{{"electron_deltaP_vs_p","electron #delta p vs p","deltaP:p",500,0,8,500,-0.1,0.1}},filename,treename);
   */
 
     //Draw2DParticleKinematicsByThetaBins(2212,{0},"FD",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,60}},filename,treename);
@@ -1216,16 +1825,20 @@ void analysisMomentumCorrection() {
     //Draw2DParticleKinematicsByThetaBins(2212,{0},"ALL",{{"proton_p_vs_theta","proton p vs theta","p:theta",500,0,3,500,0,150}},filename,treename);
   
    
-    //DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0.2,6,100,-0.05,0.05}},filename,treename,outDir, isOutBend);
-    //DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0.01,2.5,100,-0.2,0.2}},filename,treename,outDir, isOutBend);
-    //DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #Delta p vs p","deltaP:p",100,0,8,100,-0.1,0.1}},filename,treename,outDir, isOutBend);
-    DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2.5,100,-0.1,0.1}},filenameCorrected,treenameCorrected);
-    DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #Delta p vs p","deltaP:p",100,0,2.5,100,-0.2,0.2}},filenameCorrected,treenameCorrected);
+    //DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0.2,3,100,-0.05,0.05}},filename,treename,outDir, isOutBend);
+    //DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0.01,2.5,100,-0.2,0.2}},filename,treename,outDir, isOutBend);
+    //DrawDeltaPByThetaBins(2212,{0},"ALL",{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0,8,100,-0.1,0.1}},filename,treename,outDir, isOutBend);
+    //DrawDeltaPByThetaBins(2212,thetaCutsFDproton,"FD",{{"proton_deltaP_vs_pcorr","corrected proton #delta p vs p","deltaP:p",100,0,2.5,100,-0.1,0.1}},filenameCorrected,treenameCorrected);
+    //DrawDeltaPByThetaBins(2212,thetaCutsCDproton,"CD",{{"proton_deltaP_vs_pcorr","corrected proton #delta p vs p","deltaP:p",100,0,2.5,100,-0.2,0.2}},filenameCorrected,treenameCorrected);
 
+    DrawDeltaPByThetaPhiBins(2212,thetaCutsFDproton,"FD",18,{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0.2,3,100,-0.05,0.05}},filename,treename,"ProtonMomCorrPhi",isOutBend);
+    DrawDeltaPByThetaPhiBins(2212,thetaCutsCDproton,"CD",6,{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0.01,2.5,100,-0.2,0.2}},filename,treename,"ProtonMomCorrPhi",isOutBend);
+    DrawDeltaPByThetaPhiBins(2212,thetaCutsFDproton,"FD",18,{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0.2,3,100,-0.05,0.05}},filenameCorrected,treenameCorrected,"ProtonMomCorrPhiCorr",isOutBend);
+    DrawDeltaPByThetaPhiBins(2212,thetaCutsCDproton,"CD",6,{{"proton_deltaP_vs_p","proton #delta p vs p","deltaP:p",100,0.01,2.5,100,-0.2,0.2}},filenameCorrected,treenameCorrected,"ProtonMomCorrPhiCorr",isOutBend);
     
-    //DrawDeltaPByThetaBins(22,thetaCutsFDphoton,"FD",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
-    //DrawDeltaPByThetaBins(22,thetaCutsFTphoton,"FT",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.2,0.2}},filename,treename);
-    //DrawDeltaPByThetaBins(22,{0},"ALL",{{"photon_deltaP_vs_p","photon #Delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
+    //DrawDeltaPByThetaBins(22,thetaCutsFDphoton,"FD",{{"photon_deltaP_vs_p","photon #delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
+    //DrawDeltaPByThetaBins(22,thetaCutsFTphoton,"FT",{{"photon_deltaP_vs_p","photon #delta p vs p","deltaP:p",500,0,8,500,-0.2,0.2}},filename,treename);
+    //DrawDeltaPByThetaBins(22,{0},"ALL",{{"photon_deltaP_vs_p","photon #delta p vs p","deltaP:p",500,0,8,500,-0.5,0.5}},filename,treename);
 
    
 

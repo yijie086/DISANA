@@ -738,6 +738,134 @@ class DISANAMath {
     return hist;
   }
 
+    std::vector<std::vector<std::vector<TH1D *>>> ComputeDVCS_CrossSection_Weighted(ROOT::RDF::RNode df, const BinManager &bins, double luminosity)
+  {
+    TStopwatch timer;
+    timer.Start();
+    constexpr double phi_min = 0.0, phi_max = 360.0;
+    constexpr int n_phi_bins = 18;
+
+    const auto &q2_bins = bins.GetQ2Bins();
+    const auto &t_bins  = bins.GetTBins();
+    const auto &xb_bins = bins.GetXBBins();
+
+    const size_t n_q2 = q2_bins.size() - 1;
+    const size_t n_t  = t_bins.size()  - 1;
+    const size_t n_xb = xb_bins.size() - 1;
+
+    // -----------------------
+    // helper: find bin index
+    // -----------------------
+    auto findBin = [](double v, const std::vector<double> &e) -> int {
+      auto it = std::upper_bound(e.begin(), e.end(), v);
+      if (it == e.begin() || it == e.end()) return -1;
+      return int(it - e.begin()) - 1;
+    };
+
+    // -----------------------
+    // allocate final hist + volume
+    // -----------------------
+    std::vector<std::vector<std::vector<TH1D *>>> hist(
+        n_xb, std::vector<std::vector<TH1D *>>(n_q2, std::vector<TH1D *>(n_t, nullptr)));
+
+    std::vector<std::vector<std::vector<double>>> q2xBtbins(
+        n_xb, std::vector<std::vector<double>>(n_q2, std::vector<double>(n_t, 0.0)));
+
+    for (size_t ix = 0; ix < n_xb; ++ix)
+      for (size_t iq = 0; iq < n_q2; ++iq)
+        for (size_t it = 0; it < n_t; ++it) {
+          const double qmin = q2_bins[iq], qmax = q2_bins[iq + 1];
+          const double tmin = t_bins[it],  tmax = t_bins[it + 1];
+          const double xbmin = xb_bins[ix], xbmax = xb_bins[ix + 1];
+
+          auto name  = Form("hphi_q%.2f_t%.2f_xb%.3f", qmin, tmin, xbmin);
+          auto title = Form("d#sigma/d#phi (Q^{2}=[%.2f,%.2f], t=[%.2f,%.2f], x_{B}=[%.3f,%.3f])",
+                            qmin, qmax, tmin, tmax, xbmin, xbmax);
+
+          hist[ix][iq][it] = new TH1D(name, title, n_phi_bins, phi_min, phi_max);
+          hist[ix][iq][it]->SetDirectory(nullptr);
+          hist[ix][iq][it]->Sumw2(); // IMPORTANT: weighted errors
+
+          q2xBtbins[ix][iq][it] = (qmax - qmin) * (tmax - tmin) * (xbmax - xbmin);
+        }
+
+    // ------------------------------------------------------------
+    // thread-safe filling: one histogram set per slot, then merge
+    // ------------------------------------------------------------
+    const unsigned int nSlots = df.GetNSlots();
+
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> hslot(
+        nSlots,
+        std::vector<std::vector<std::vector<TH1D*>>>(
+            n_xb, std::vector<std::vector<TH1D*>>(n_q2, std::vector<TH1D*>(n_t, nullptr))));
+
+    for (unsigned int s = 0; s < nSlots; ++s) {
+      for (size_t ix = 0; ix < n_xb; ++ix)
+        for (size_t iq = 0; iq < n_q2; ++iq)
+          for (size_t it = 0; it < n_t; ++it) {
+            // clone "shape" (bins), unique name per slot
+            hslot[s][ix][iq][it] = (TH1D*)hist[ix][iq][it]->Clone(
+                Form("%s_slot%u", hist[ix][iq][it]->GetName(), s));
+            hslot[s][ix][iq][it]->Reset();
+            hslot[s][ix][iq][it]->SetDirectory(nullptr);
+            //hslot[s][ix][iq][it]->Sumw2();
+          }
+    }
+
+    auto weightFromPhoRegion = [](int pho_det_region) -> double {
+      if (pho_det_region == 1) return 1; //0.7828; // FD
+      if (pho_det_region == 0) return 1; //1.2079; // FT
+      return 1.0;
+    };
+
+    auto fillSlot = [&](unsigned int slot, double Q2, double t, double xB, double phi, int pho_det_region) {
+      const int iq = findBin(Q2, q2_bins);
+      const int it = findBin(t,  t_bins);
+      const int ix = findBin(xB, xb_bins);
+      if (iq < 0 || it < 0 || ix < 0) return;
+
+      const double w = weightFromPhoRegion(pho_det_region);
+      hslot[slot][ix][iq][it]->Fill(phi, w);
+    };
+
+    // NOTE: add "pho_det_region" as input column
+    df.ForeachSlot(fillSlot, {"Q2", "t", "xB", "phi", "pho_det_region"});
+
+    // merge slot hists into final
+    for (unsigned int s = 0; s < nSlots; ++s) {
+      for (size_t ix = 0; ix < n_xb; ++ix)
+        for (size_t iq = 0; iq < n_q2; ++iq)
+          for (size_t it = 0; it < n_t; ++it) {
+            hist[ix][iq][it]->Add(hslot[s][ix][iq][it]);
+            delete hslot[s][ix][iq][it];
+            hslot[s][ix][iq][it] = nullptr;
+          }
+    }
+
+    // ------------------------------------------------------------
+    // convert yields -> cross section
+    // Weighted hist: bin error is sqrt(sum w^2) already.
+    // Use Scale so errors scale correctly.
+    // ------------------------------------------------------------
+    const double bin_width = (pi / 180.) * (phi_max - phi_min) / n_phi_bins;
+
+    for (size_t ix = 0; ix < n_xb; ++ix)
+      for (size_t iq = 0; iq < n_q2; ++iq)
+        for (size_t it = 0; it < n_t; ++it) {
+          TH1D *h = hist[ix][iq][it];
+          if (!h) continue;
+          const double vol = q2xBtbins[ix][iq][it];
+          const double scale = 1.0 / (luminosity * bin_width * vol);
+          h->Scale(scale); // scales both content and errors
+        }
+
+    std::cout << "DVCS cross-sections computed (weighted by pho_det_region) in a single pass.\n";
+    timer.Stop();
+    std::cout << "Time elapsed: " << timer.RealTime() << " s (real), " << timer.CpuTime() << " s (CPU)\n";
+    return hist;
+  }
+
+
   // φ dσ/dt (unchanged)
   std::vector<TH1D *> ComputePhi_CrossSection(ROOT::RDF::RNode df, const BinManager &bins, double luminosity) {
     TStopwatch timer;

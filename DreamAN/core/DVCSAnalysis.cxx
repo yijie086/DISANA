@@ -118,14 +118,11 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dforginal = dfDefs;
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
+  auto [runCol, evCol] = PickRunEventCols(dfDefsWithTraj);
+  dfDefsWithTraj = DefineRunEventScalars(dfDefsWithTraj, runCol, evCol);
   // QADB cuts should be place in the first to reduce the computation load
   if (fIsQADBCut && fQADBCuts) {
     std::cout << "Applying QADB cut..." << std::endl;
-
-    auto [runCol, evCol] = PickRunEventCols(dfDefsWithTraj);
-
-    dfDefsWithTraj = DefineRunEventScalars(dfDefsWithTraj, runCol, evCol);
-
     auto qadb = *fQADBCuts;
     dfDefsWithTraj =
         dfDefsWithTraj.Define("REC_QADB_pass", [qadb](int run, int ev) mutable { return qadb(run, ev); }, {"RUN_run", "RUN_event"}).Filter("REC_QADB_pass", "QADB pass");
@@ -229,7 +226,7 @@ void DVCSAnalysis::SaveOutput() {
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      if (IsMinBooking && !fDoMomentumCorrection) SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
+      if (!IsMinBooking) SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
     }
   }
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {

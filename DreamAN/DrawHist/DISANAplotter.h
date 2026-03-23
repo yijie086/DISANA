@@ -285,7 +285,38 @@ class DISANAplotter {
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> ComputeDVCS_CrossSection(const BinManager& bins) {
-    auto result = kinCalc.ComputeDVCS_CrossSection(rdf, bins, luminosity_nb_inv);
+    auto result = kinCalc.ComputeDVCS_CrossSection_Weighted(rdf, bins, luminosity_nb_inv);
+    if (dopi0corr) {
+      auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(*rdf_pi0_data, bins, luminosity_nb_inv);
+      result = UsePi0Correction(result, sigma_pi0_3d, ComputePi0Corr(bins));
+    }
+    if (doacceptcorr) {
+      auto acc3D = ComputeAccCorr(bins);
+      result = UseAccCorrection(result, acc3D);
+    }
+    if (doefficiencycorr) {
+      auto eff3D = ComputeEffCorr(bins);
+      result = UseEffCorrection(result, eff3D);
+    }
+    if (doradiativecorr) {
+      auto rad3D = ComputeRadCorr(bins);
+      result = UseRadCorrection(result, rad3D);
+    }
+    if (dop1cut) {
+      auto p13D = ComputeP1CutEffect(bins);
+      result = UseP1Cut(result, p13D);
+    }
+    return result;
+  }
+
+  std::vector<std::vector<std::vector<TH1D*>>> ComputePolDVCS_CrossSection(int pol, const BinManager& bins) {
+    auto rdf_pol = rdf.Filter(Form("REC_Event_helicity == %d", pol));
+    const auto n_all = static_cast<double>(rdf.Count().GetValue());
+    const auto n_pol = static_cast<double>(rdf_pol.Count().GetValue());
+    auto lumi_pol = luminosity_nb_inv * n_pol / n_all;
+    std::cout << " Pol " << pol << " fraction: " << double(n_pol) / n_all << ", effective luminosity: " << lumi_pol << " nb^-1\n";
+    
+    auto result = kinCalc.ComputeDVCS_CrossSection_Weighted(rdf_pol, bins, lumi_pol);
     if (dopi0corr) {
       auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(*rdf_pi0_data, bins, luminosity_nb_inv);
       result = UsePi0Correction(result, sigma_pi0_3d, ComputePi0Corr(bins));
