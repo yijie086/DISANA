@@ -63,10 +63,12 @@ class DISANAcomparer {
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
-    plotter->GeneratePi0KinematicHistos("el");
-    plotter->GeneratePi0KinematicHistos("pro");
-    plotter->GeneratePi0KinematicHistos("pho");
-    plotter->GeneratePi0KinematicHistos("pho2");
+    if (fPi0Correction){
+      plotter->GeneratePi0KinematicHistos("el");
+      plotter->GeneratePi0KinematicHistos("pro");
+      plotter->GeneratePi0KinematicHistos("pho");
+      plotter->GeneratePi0KinematicHistos("pho2");
+    }
     labels.push_back(label);
     plotters.push_back(std::move(plotter));
   }

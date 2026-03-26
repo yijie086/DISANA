@@ -20,9 +20,9 @@
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy);
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df);
 
-ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_rec_bin.csv");;
+ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_rec_6p5.csv");
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df);
-ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_gen_bin.csv");
+ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_gen_6p5.csv");
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df);
 ROOT::RDF::RNode DefineGenDVPi0Pass(ROOT::RDF::RNode df);
@@ -92,85 +92,35 @@ ROOT::RDF::RNode define_DISCAT_pi0(ROOT::RDF::RNode node, const std::string& nam
                       "recpho2_p", "recpho2_theta", "recpho2_phi"});
 }
 
-void DISANA_Xplotter2csv() {
+void DISANA_Xplotter2csv6p5() {
   bool ComputeBgk_core = false;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
 
   ROOT::EnableImplicitMT(40);
  
-  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1001/DISANA/build/data";
+  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/data";
+  std::string input_path_from_analysisRun_6535_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/dvcsmc/";
 
-  std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/pi0";
+  std::string filename_afterFid_6535_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_data.c_str());
+  std::string filename_afterFid_6535_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_dvcsmc_rec.c_str());
 
-  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkgall";
-  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg"; //(no bkg merged)
+  float beam_energy = 6.535;
 
-  std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/bkg";
-  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg";
+  ROOT::RDF::RNode df_afterFid_6535_data_init = InitKinematics(filename_afterFid_6535_data, "dfSelected_afterFid_afterCorr", beam_energy);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rec_init = InitKinematics(filename_afterFid_6535_dvcsmc_rec, "dfSelected_afterFid_afterCorr", beam_energy);
 
-  std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data.c_str());
-
-  std::string filename_afterFid_7546_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_pi0MC.c_str());
-
-  std::string filename_afterFid_7546_dvcsmc_gen = Form("%s/dfSelected.root", input_path_from_analysisRun_7546_dvcsmc_gen.c_str());
-  std::string filename_afterFid_7546_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_rec.c_str());
-
-  std::string filename_afterFid_7546_dvcsmc_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg.c_str());
-  std::string filename_afterFid_7546_dvcsmc_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg.c_str());
-
-  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/raddelta0p1v0p6Max.root";
-  std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/nor.root";
-  std::string filename_afterFid_7546_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/norP1_2.root";
-  
-
-  float beam_energy = 7.546;
-
-  ROOT::RDF::RNode df_afterFid_7546_data_init = InitKinematics(filename_afterFid_7546_data, "dfSelected_afterFid_afterCorr", beam_energy);
-
-  ROOT::RDF::RNode df_afterFid_7546_pi0MC_init = InitKinematics(filename_afterFid_7546_pi0MC, "dfSelected_afterFid_afterCorr", beam_energy);
-
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_gen, "dfSelected", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec_init = InitKinematics(filename_afterFid_7546_dvcsmc_rec, "dfSelected_afterFid_afterCorr", beam_energy);
-
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg_init = InitKinematics(filename_afterFid_7546_dvcsmc_bkg, "dfSelected_afterFid_afterCorr", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg_init = InitKinematics(filename_afterFid_7546_dvcsmc_nobkg, "dfSelected_afterFid_afterCorr", beam_energy);
-
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_rad, "MC", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_norad, "MC", beam_energy);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_p1cut_init = InitGenKinematics(filename_afterFid_7546_dvcsmc_p1cut, "MC", beam_energy);
-
-  ROOT::RDF::RNode df_afterFid_7546_data = GetSlim_exclusive(df_afterFid_7546_data_init, "dfSlim_7546_data.root", "dfSlim_7546_data", false);
-  ROOT::RDF::RNode df_afterFid_7546_pi0MC = GetSlim_exclusive(df_afterFid_7546_pi0MC_init, "dfSlim_7546_pi0MC.root", "dfSlim_7546_pi0MC", false);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_gen = GetSlim_exclusive(df_afterFid_7546_dvcsmc_gen_init, "dfSlim_7546_dvcsmc_gen.root", "dfSlim_7546_dvcsmc_gen", true);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rec = GetSlim_exclusive(df_afterFid_7546_dvcsmc_rec_init, "dfSlim_7546_dvcsmc_rec.root", "dfSlim_7546_dvcsmc_rec", false);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_bkg = GetSlim_exclusive(df_afterFid_7546_dvcsmc_bkg_init, "dfSlim_7546_dvcsmc_bkg.root", "dfSlim_7546_dvcsmc_bkg", false);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_nobkg = GetSlim_exclusive(df_afterFid_7546_dvcsmc_nobkg_init, "dfSlim_7546_dvcsmc_nobkg.root", "dfSlim_7546_dvcsmc_nobkg", false);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_rad_temp = GetSlim_exclusive(df_afterFid_7546_dvcsmc_rad_init, "dfSlim_7546_dvcsmc_rad.root", "dfSlim_7546_dvcsmc_rad", true);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_norad = GetSlim_exclusive(df_afterFid_7546_dvcsmc_norad_init, "dfSlim_7546_dvcsmc_norad.root", "dfSlim_7546_dvcsmc_norad", true);
-  ROOT::RDF::RNode df_afterFid_7546_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_7546_dvcsmc_p1cut_init, "dfSlim_7546_dvcsmc_p1cut.root", "dfSlim_7546_dvcsmc_p1cut", true);
+  ROOT::RDF::RNode df_afterFid_6535_data = GetSlim_exclusive(df_afterFid_6535_data_init, "dfSlim_6535_data.root", "dfSlim_6535_data", false);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rec = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rec_init, "dfSlim_6535_dvcsmc_rec.root", "dfSlim_6535_dvcsmc_rec", false);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
 
+
   // Apply final DVCS cuts
-  auto df_final_dvcs_7546_data = ApplyFinalDVCSSelections(df_afterFid_7546_data);
-  auto df_final_dvcsPi_rejected_7546_data = RejectPi0TwoPhoton(df_final_dvcs_7546_data, beam_energy);
+  auto df_final_dvcs_6535_data = ApplyFinalDVCSSelections(df_afterFid_6535_data);
+  auto df_final_dvcsPi_rejected_6535_data = RejectPi0TwoPhoton(df_final_dvcs_6535_data, beam_energy);
 
-  auto df_final_dvcs_7546_pi0MC = ApplyFinalGenDVCSSelections(df_afterFid_7546_pi0MC);
-  auto df_final_dvcsPi_rejected_7546_pi0MC = RejectPi0TwoPhoton(df_final_dvcs_7546_pi0MC, beam_energy);
-
-  auto df_final_OnlPi0_7546_data = ApplyFinalDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_7546_data), beam_energy));
-  auto df_final_OnlPi0_7546_pi0MC = ApplyFinalGenDVPi0Selections(Init2PhotonKinematics(SelectPi0Event(df_afterFid_7546_pi0MC), beam_energy));
-
-  auto df_final_dvcs_7546_dvcsmc_rec = ApplyFinalGenDVCSSelections(df_afterFid_7546_dvcsmc_rec);
-  auto df_final_dvcsPi_rejected_7546_dvcsmc_rec = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_rec, beam_energy);
-
-  auto df_final_dvcs_7546_dvcsmc_bkg = ApplyFinalGenDVCSSelections(df_afterFid_7546_dvcsmc_bkg);
-  auto df_final_dvcsPi_rejected_7546_dvcsmc_bkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_bkg, beam_energy);
-
-  auto df_final_dvcs_7546_dvcsmc_nobkg = ApplyFinalGenDVCSSelections(df_afterFid_7546_dvcsmc_nobkg);
-  auto df_final_dvcsPi_rejected_7546_dvcsmc_nobkg = RejectPi0TwoPhoton(df_final_dvcs_7546_dvcsmc_nobkg, beam_energy);
-
-  auto df_afterFid_7546_dvcsmc_rad = df_afterFid_7546_dvcsmc_rad_temp;
+  auto df_final_dvcs_6535_dvcsmc_rec = ApplyFinalGenDVCSSelections(df_afterFid_6535_dvcsmc_rec);
+  auto df_final_dvcsPi_rejected_6535_dvcsmc_rec = RejectPi0TwoPhoton(df_final_dvcs_6535_dvcsmc_rec, beam_energy);
 
   DISANAcomparer comparer;
   comparer.SetOutputDir("./");
@@ -183,88 +133,59 @@ void DISANA_Xplotter2csv() {
   /// bins for cross-section plots
   BinManager xBins;
 
-  //xBins.SetQ2Bins({1.0, 1.5, 2.0});
-  //xBins.SetTBins({0.1, 0.2, 0.6});
-  //xBins.SetXBBins({0.15, 0.2, 0.3});
-
-  //xBins.SetQ2Bins({1.0, 1.25, 1.5, 1.7, 2.0});
-  //xBins.SetQ2Bins({1.0, 1.25});
-  //xBins.SetTBins({0.11, 0.15, 0.25, 0.40, 0.60, 0.80, 1.00});
-  //xBins.SetTBins({0.40, 0.60});
-  //xBins.SetXBBins({0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
-  //xBins.SetXBBins({0.15, 0.175});
-
   xBins.SetQ2Bins({1.0, 1.25, 1.5, 1.75, 2.0});
   xBins.SetTBins({0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
   xBins.SetXBBins({0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
 
-  //xBins.SetQ2Bins({1.0, 1.25, 1.5, 2.0});
-  //xBins.SetTBins({0.2, 0.4, 0.6, 1.0});
-  //xBins.SetXBBins({0.125, 0.15, 0.175, 0.2, 0.25, 0.3});
-
-  //xBins.SetQ2Bins({1.0, 1.25});
-  //xBins.SetTBins({0.2, 0.3});
-  //xBins.SetXBBins({0.125, 0.15});
-
   comparer.SetXBinsRanges(xBins);
 
-  /*df_final_dvcsPi_rejected_7546_data.Count();
-  df_final_OnlPi0_7546_data.Count();
-  df_final_dvcsPi_rejected_7546_pi0MC.Count();
-  df_final_OnlPi0_7546_pi0MC.Count();
-  df_afterFid_7546_dvcsmc_gen.Count();
-  df_final_dvcsPi_rejected_7546_dvcsmc_rec.Count();
-  df_final_dvcsPi_rejected_7546_dvcsmc_bkg.Count();
-  df_final_dvcsPi_rejected_7546_dvcsmc_nobkg.Count();*/
-
-  double charge=4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
+  //double charge=4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed) 7.5GeV
+  double charge=17.6223; // mC 6.5GeV 5919 removed
   std::cout<<"Total effective charge (mC): "<<charge<<std::endl;
   double luminosity = (charge)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
   std::cout<<"Luminosity (nb^-1): "<<luminosity<<std::endl;
   double polarisation = 0.85;  // Set your desired polarisation here
+  std::cout<<"Polarisation: "<<polarisation<<std::endl;
 
-  //df_final_dvcsPi_rejected_7546_dvcsmc_rec = df_final_dvcsPi_rejected_7546_dvcsmc_rec.Filter("t < 0.3 && t >0.2", "Cut: t > 0.5 GeV^2");
+  comparer.AddModelwithPi0Corr(//df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_dvcsmc_rec,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              "RGK 6.5GeV GEMC", beam_energy, false, false, false, false, false, luminosity);
+  
+  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_6535_data,
+                              //df_final_dvcsPi_rejected_6535_dvcsmc_rec,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              df_final_dvcsPi_rejected_6535_data,
+                              "RGK 6.5GeV", beam_energy, false, false, false, false, false, luminosity);
 
-  /*comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_dvcsmc_rec,
-                              //df_afterFid_7546_dvcsmc_gen,
-                              df_final_OnlPi0_7546_pi0MC,
-                              df_final_dvcsPi_rejected_7546_pi0MC,
-                              df_final_OnlPi0_7546_pi0MC,
-                              df_afterFid_7546_dvcsmc_gen,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_rec,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_bkg,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_nobkg,
-                              df_afterFid_7546_dvcsmc_rad,
-                              df_afterFid_7546_dvcsmc_norad,
-                              df_afterFid_7546_dvcsmc_p1cut,
-                              "RGK 7.5GeV mc", beam_energy, true, true, true, true, true);*/
 
-  //df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter("t < 0.3 && t > 0.2", "Cut: t > 0.5 GeV^2");
-
-  comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
-                              //df_afterFid_7546_dvcsmc_gen,
-                              df_final_OnlPi0_7546_data,
-                              df_final_dvcsPi_rejected_7546_pi0MC,
-                              df_final_OnlPi0_7546_pi0MC,
-                              df_afterFid_7546_dvcsmc_gen,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_rec,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_bkg,
-                              df_final_dvcsPi_rejected_7546_dvcsmc_nobkg,
-                              df_afterFid_7546_dvcsmc_rad,
-                              df_afterFid_7546_dvcsmc_norad,
-                              df_afterFid_7546_dvcsmc_p1cut,
-                              "RGK 7.5GeV", beam_energy, true, true, true, true, true, luminosity);
-
-  //comparer.PlotKinematicComparison();
+  comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
   //comparer.PlotxBQ2tBin();
-  //comparer.PlotDVCSKinematicsComparison();
-  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(polarisation, true, true, true, true, true, true, true, true);   
+  comparer.PlotDVCSKinematicsComparison();
+  comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(polarisation, true, true, false, false, false, false, false, false);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
   //comparer.PlotPi0ExclusivityComparisonByDetectorCases(detCutsPi0);
-  //comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
+  comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
 
   gApplication->Terminate(0);
 }
@@ -708,6 +629,33 @@ static inline bool PassVarTDep(const CutTableTDep& tab,
   return InWin(x, it->second);
 }
 
+static inline bool PassVarTDep_Debug(const CutTableTDep& tab,
+                                     const std::string& var,
+                                     double v, int tbin, int cfg) 
+{
+  auto it = tab.winmap.find(Key3{var, tbin, cfg});
+
+  if (it == tab.winmap.end()) {
+    std::cout << "[CutDebug] " << var
+              << " cfg=" << cfg << " tbin=" << tbin
+              << "  --> NO WINDOW FOUND (FAIL)" << std::endl;
+    return false;
+  }
+
+  double lo = it->second.lo;
+  double hi = it->second.hi;
+
+  bool pass = (v >= lo && v <= hi);
+
+  std::cout << "[ApplyCut] " << var
+            << " (cfg=" << cfg << ", tbin=" << tbin << ") : "
+            << lo << " < " << var << " < " << hi
+            << "  | value=" << v
+            << " --> " << (pass ? "PASS" : "FAIL")
+            << std::endl;
+
+  return pass;
+}
 // ------------------------
 // core selection: shared by REC/GEN
 // ------------------------
@@ -720,6 +668,7 @@ static inline ROOT::RDF::RNode ApplyFinalDVCSSelections_TDep(ROOT::RDF::RNode df
     .Filter("W > 2.0",   "Cut: W > 2.0 GeV")
     .Filter("recpho_p > 2.0", "Cut: recpho_p > 2.0 GeV")
     .Filter("ele_det_region == 1", "Cut: electron in FD")
+    .Filter("pho_det_region != 0", "Cut: photon not in FT")
 
     // loose pre-cuts (same as your original)
     .Filter("Mx2_ep > -1.5 && Mx2_ep < 1.5", "Cut: MM^2(ep) in 3sigma (loose)")
@@ -779,13 +728,13 @@ static inline ROOT::RDF::RNode ApplyFinalDVCSSelections_TDep(ROOT::RDF::RNode df
 // public APIs: REC/GEN
 // ------------------------
 ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df,
-                                         const std::string& rec_csv = "dvcs_cuts_rec_bin.csv") {
+                                         const std::string& rec_csv = "dvcs_cuts_rec_6p5.csv") {
   auto cuts = std::make_shared<CutTableTDep>(LoadCutsTDepCSV(rec_csv));
   return ApplyFinalDVCSSelections_TDep(df, cuts);
 }
 
 ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df,
-                                            const std::string& gen_csv = "dvcs_cuts_gen_bin.csv") {
+                                            const std::string& gen_csv = "dvcs_cuts_gen_6p5.csv") {
   auto cuts = std::make_shared<CutTableTDep>(LoadCutsTDepCSV(gen_csv));
   return ApplyFinalDVCSSelections_TDep(df, cuts);
 }

@@ -249,14 +249,14 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
 void analysisCVTFid() {
     ROOT::EnableImplicitMT();
 
-    std::string path = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data/";
+    std::string path = "../build/";
 
     std::vector<int> layers = {1, 3, 5, 7, 12};
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -4.0};
     std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 20.0};
     std::vector<float> thetaCuts = {55, 85, 115};
-    DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
+    //DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
+    //DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
     DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
     DrawCVTHitResponse(2212, 5, layers, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);

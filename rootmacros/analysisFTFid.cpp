@@ -105,7 +105,7 @@ void DrawFTHitResponse(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisFTFid() {
-    std::string path = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data/";
+    std::string path = "../build/";
     
     std::vector<int> layers = {1};
     DrawFTHitResponse(22, 10, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);

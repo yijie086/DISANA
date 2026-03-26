@@ -243,12 +243,12 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 void analysisECALSF() {
     ROOT::EnableImplicitMT();
 
-    std::string path = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/data/"; 
+    std::string path = "../build/eleONLY/"; 
     
     //==================// DVCS analysis paths==========================
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
     //DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 5.5);
-    DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false, 3, 2, 5.8);
+    DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false, 3, 2, 4.8);
     gApplication->Terminate(0);
 }

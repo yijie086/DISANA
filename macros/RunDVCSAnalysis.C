@@ -24,8 +24,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsMinimalBook = false;
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
-  std::string dataconfig = "rgkfa18_7546";
-  // std::string dataconfig = "rgkfa18_6535";
+  //std::string dataconfig = "rgkfa18_7546";
+   std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
     IsInbending = false;  // Set to false for outbending data
@@ -101,8 +101,11 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // defined here the DC edge cuts for electron and proton
   auto edge_regions_e = std::vector<float>{3.0f, 3.0f, 10.0f};
   auto edge_regions_p = std::vector<float>{3.0f, 3.0f, 5.0f};
-  // auto CVT_edge_layers_p = std::vector<float>{-100.0f, -100.0f, -100.0f, -100.0f, -100.0f};  // CVT edge cuts for test
   auto CVT_edge_layers_p = std::vector<float>{0.0f, 0.0f, 0.0f, 0.0f, 0.0f};  // CVT edge cuts for protons
+
+  //edge_regions_e = std::vector<float>{-100.0f, -100.0f, -100.0f};  // DC edge cuts for electrons for test
+  //edge_regions_p = std::vector<float>{-100.0f, -100.0f, -100.0f};  // DC edge cuts for protons for test
+  //CVT_edge_layers_p = std::vector<float>{-100.0f, -100.0f, -100.0f, -100.0f, -100.0f};  // CVT edge cuts for test
 
   trackCuts->SetDCEdgeCuts(11, edge_regions_e);        // DC edge cuts for electrons
   trackCuts->SetDCEdgeCuts(2212, edge_regions_p);      // DC edge cuts for protons
@@ -267,6 +270,20 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddSamplingFractionMinCut(11, 6, 0.144573, 0.0237518, -0.00208597);    // Electronsector6
     trackCuts->AddSamplingFractionMaxCut(11, 6, 0.287206, 0.00271637, -0.000575112);  // Electro sector 6
   }
+  if (dataconfig == "rgkfa18_6535") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.129479, 0.0284944, -0.00255477);     // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.291026, 0.00267055, -0.000682925);  // Electro sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.148413, 0.0175468, -0.00101822);     // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.291265, 0.00131041, -0.000321427);   // Electronsector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.133683, 0.0284258, -0.00245536);    // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.278676, 0.010232, -0.00156497);  // Electro sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.127047, 0.0315586, -0.00306858);    // Electronsector4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.283795, 0.00622474, -0.00114807);   // Electronsector4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.14653, 0.0173448, -0.00100931);    // Electronsector5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.289485, 0.00126921, -0.000440945);   // Electronsector5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.147071, 0.0176412, -0.000913347);    // Electronsector6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.295828, -0.00145277, -0.0000326392);  // Electro sector 6
+  }
 
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
@@ -322,10 +339,10 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   photon.maxBeta = 1.1f;  // Maximum beta for photons
 
   // pi0 background studies, similar is valid for exclusive meson production
-  TwoBodyMotherCut pi0;
-  pi0.expectedMotherMass = 0.132f;  // determined from the fit inv mass of two photon
-  pi0.massSigma = 0.0129f;          // determined from the fit inv mass of two photon
-  pi0.nSigmaMass = 3.0;             // choice for nsigma is user dependent
+  //TwoBodyMotherCut pi0;
+  //pi0.expectedMotherMass = 0.132f;  // determined from the fit inv mass of two photon
+  //pi0.massSigma = 0.0129f;          // determined from the fit inv mass of two photon
+  //pi0.nSigmaMass = 3.0;             // choice for nsigma is user dependent
 
   eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
   eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
@@ -411,6 +428,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   }
 
   qadbCuts->AddExcludedRun(5740);  // RGK run 7546
+  qadbCuts->AddExcludedRun(5919);  // RGK run 6535
   qadbCuts->AddExcludedRun(3262);  // outbendng RGA spring 2018
                                    // qadbCuts->AddDefect("SomeExtraDefect");
                                    // qadbCuts->SetAccumulateCharge(true); // default true
