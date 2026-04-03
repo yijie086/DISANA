@@ -17,6 +17,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     bool IsInbending /* you can ignore and derive from dataconfig if you like */,
                     bool IsMinimalBook,
                     bool IsMissingKm,
+                    bool IsHpHm /* select ep->e'p'h+h- instead of K+K- or missing-K */,
                     const std::string& reprocRootFile = "",
                     const std::string& reprocTreeName = "") {
   // Determine the number of threads to use.
@@ -120,10 +121,24 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   trackCuts->SetDCEdgeCuts(2212, edge_regions_p);   // DC edge cuts for protons
   trackCuts->SetDCEdgeCuts(-321, edge_regions_kM);  // DC edge cuts for kM
   trackCuts->SetDCEdgeCuts(321, edge_regions_kP);   // DC edge cuts for kP
+  // h+h- mode: also apply the same DC edge cuts to pions so that π± tracks
+  // that the event builder mis-tagged as kaons at high momentum still pass
+  // the fiducial gate with the same edge margins.
+  if (IsHpHm) {
+    auto edge_regions_piP = edge_regions_kP;
+    auto edge_regions_piM = edge_regions_kM;
+    trackCuts->SetDCEdgeCuts( 211, edge_regions_piP);   // DC edge for π+
+    trackCuts->SetDCEdgeCuts(-211, edge_regions_piM);   // DC edge for π-
+  }
 
   trackCuts->SetCVTEdgeCuts(-321, CVT_edge_layers_p);   // CVT edge cuts for proton
   trackCuts->SetCVTEdgeCuts(-321, CVT_edge_layers_kM);  // CVT edge cuts for Kaon M
   trackCuts->SetCVTEdgeCuts(321, CVT_edge_layers_kP);   // CVT edge cuts for KaonP
+  // h+h- mode: same CVT edge cuts for pions
+  if (IsHpHm) {
+    trackCuts->SetCVTEdgeCuts( 211, CVT_edge_layers_kP);
+    trackCuts->SetCVTEdgeCuts(-211, CVT_edge_layers_kM);
+  }
 
   // CVT fiducial cuts for proton from RGA common analysis note
   const std::array<int, 3> pids = {2212, 321, -321};
@@ -134,7 +149,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
       {12, {std::pair{-99.0, -89.0}, std::pair{21.0, 31.0}, std::pair{148.0, 158.0}}},
   };
 
-  // Now loop over species, layers, and ranges
+  // Apply CVT phi-range fiducial cuts for proton and kaons (always)
   for (const int pid : pids) {
     for (const auto& [layer, ranges] : phiRangesByLayer) {
       for (const auto& [phiMin, phiMax] : ranges) {
@@ -142,8 +157,18 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
       }
     }
   }
-
-  // ===== FT cal fiducial cuts for electron ===== checked with RGA common analysis note
+  // h+h- mode: apply the same CVT phi-range cuts to pions
+  if (IsHpHm) {
+    for (const int hpid : {211, -211}) {
+      for (const auto& [layer, ranges] : phiRangesByLayer) {
+        for (const auto& [phiMin, phiMax] : ranges) {
+          trackCuts->AddCVTFiducialRange(hpid, layer, "phi", phiMin, phiMax);
+        }
+      }
+    }
+  }
+  // is not needed for this analysis
+ /* // ===== FT cal fiducial cuts for electron ===== checked with RGA common analysis note
   if (dataconfig == "rgasp18_inb" || dataconfig == "rgafall18_inb" || dataconfig == "rgasp19_inb" || dataconfig == "rgasp18_outb" || dataconfig == "rgafall18_outb") {
     trackCuts->AddFTCalFiducialRange(11, 1, 0, 0, 0.0, 8.5);           // Electron FTCal fiducial cuts
     trackCuts->AddFTCalFiducialRange(11, 1, 0, 0, 15.5, 100.0);        // Electron FTCal fiducial cuts
@@ -151,7 +176,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
     trackCuts->AddFTCalFiducialRange(11, 1, -9.89, -5.33, 0.0, 1.6);   // Electron FTCal fiducial cuts
     trackCuts->AddFTCalFiducialRange(11, 1, -6.15, -13.00, 0.0, 2.3);  // Electron FTCal fiducial cuts
     trackCuts->AddFTCalFiducialRange(11, 1, 3.7, -6.5, 0.0, 2.0);      // Electron FTCal fiducial cuts
-  }
+  }*/
 
   // Cal fiducial edge cuts for electron medium cuts for the lower edge
   trackCuts->AddPCalFiducialRange(11, 1, "lw", 0.0, 13.5);
@@ -329,7 +354,20 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   eventCuts->AddParticleCut("proton", proton);      // Applies defaults automatically
   eventCuts->AddParticleCut("electron", electron);  // Applies defaults automatically
   
-  if (IsMissingKm && IsInbending) {
+  if (IsHpHm) {
+    // h+h- mode: select ep -> e'p'h+h- where h+/h- is any charged hadron
+    // other than the scattered electron and leading proton.
+    // "Pos Hadron" (pid=0 wildcard, charge=+1) accepts K+, pi+, and any
+    // other positive hadron; "Neg Hadron" does the same for negative tracks.
+    // The kaon mass hypothesis is applied later in the exclusivity analysis.
+    std::cout << "Adding h+ and h- (di-charged-hadron) particle cuts.\n";
+    ParticleCut hPos;
+    ParticleCut hNeg;
+    hPos.minCount = 1;
+    hNeg.minCount = 1;
+    eventCuts->AddParticleCut("Pos Hadron", hPos);
+    eventCuts->AddParticleCut("Neg Hadron", hNeg);
+  } else if (IsMissingKm && IsInbending) {
     std::cout << "Adding missing K+ particle cut.\n";
     eventCuts->AddParticleCut("Pos Kaon", kPos);
   } else if (IsMissingKm && !IsInbending) {
@@ -350,9 +388,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
      PhiTask->SetBeamEnergy(10.2);
   }
 
-  PhiTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
+  PhiTask->SetFTonConfig(false);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   PhiTask->SetDoFiducialCut(true);
-
   PhiTask->SetDoInvMassCut(true);          // in this case pi0 background for two-photon pairs in the event
   PhiTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
   PhiTask->SetMomentumCorrection(corr);    // Set the momentum correction object
@@ -381,6 +418,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   std::cout << "IsInbending (arg)   : " << (IsInbending ? "true" : "false") << "\n";
   std::cout << "IsMinimalBook       : " << (IsMinimalBook ? "true" : "false") << "\n";
   std::cout << "IsMissingKm         : " << (IsMissingKm ? "true" : "false") << "\n";
+  std::cout << "IsHpHm              : " << (IsHpHm ? "true" : "false") << "\n";
   std::cout << "reprocRootFile      : " 
             << (reprocRootFile.empty() ? "<default>" : reprocRootFile) << "\n";
   std::cout << "reprocTreeName      : " 

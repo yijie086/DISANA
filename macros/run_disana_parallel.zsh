@@ -15,12 +15,49 @@ set -u
 set -o pipefail
 setopt NO_NOMATCH   # avoid zsh "no matches found" on empty globs
 
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  run_disana_parallel_legacy_defaults_cli.zsh [options]
+
+This version keeps the script's old hardcoded defaults, but adds CLI parsing
+on top so flags like -c, -i, -o, -t, --inbending, --hphm, etc. actually work.
+
+Options:
+  -i, --input-dir DIR         Override INPUT_DIR
+  -o, --output-base DIR       Override OUTPUT_BASE
+  -c, --config NAME           Override CFG
+  -t, --threads N             Override THREADS_PER_JOB
+  -n, --nfile N               Override NEVT
+  -k, --jobs N                Override K
+      --exe PATH              Override EXE
+      --workdir NAME|PATH     Override WORKDIR
+      --relaunch-only         Set RELAUNCH_ONLY=1
+      --merge-partial         Set MERGE_PARTIAL=1
+      --no-merge-partial      Set MERGE_PARTIAL=0
+      --run-in-batches        Set RUN_IN_BATCHES=1
+      --no-run-in-batches     Set RUN_IN_BATCHES=0
+      --jobs-per-batch N      Override JOBS_PER_BATCH
+      --success-grep TEXT     Override SUCCESS_GREP
+      --mc / --no-mc
+      --reproc / --no-reproc
+      --inbending / --outbending
+      --minimal / --no-minimal
+      --missingKm / --no-missingKm
+      --hphm / --no-hphm
+      --reproc-file NAME
+      --reproc-tree NAME
+  -h, --help                  Show this help
+USAGE
+}
+
 # =============================================================================
 # USER SETTINGS (TOP)
 # =============================================================================
 
 # ---- Parallelization / splitting
-K=200
+K=40
 
 # ---- Executable for skimming
 EXE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi
@@ -34,6 +71,9 @@ EXE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi
 INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/kneupane/10424/ #sp18_outb_50nA
 #INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/singh/10423/ #fall_outb_50nA
 #INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/singh/10422/ #fall_inb_55nA
+
+#data for hplushminus (Bhawani)
+INPUT_DIR=/lustre24/expphy/cache/clas12/rg-a/production/recon/spring2019/torus-1/pass2/dst/train/DVKpKmP/
 
 
 
@@ -54,6 +94,11 @@ INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10507/ #sp18_outb_45nA
 INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10508/ #sp18_outb2_45nA
 INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10509/ #sp18_outb_no_bkg
 INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10510/ #sp18_outb_no_bkg
+
+#data for hplushminus (Bhawani)
+INPUT_DIR=/lustre24/expphy/cache/clas12/rg-a/production/recon/spring2019/torus-1/pass2/dst/train/DVKpKmP/
+
+
 # ---- Output base (ABSOLUTE OR RELATIVE OK)
 # Everything will be created under this directory:
 #   OUTPUT_BASE/<WORKDIR>/job_###/{input,out,log}
@@ -81,6 +126,9 @@ OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_pro
 OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_outb2/45nA/
 OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_outb2/no_bkg/
 
+
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/hplus_hminus_ep/
+
 # ---- AnalysisPhi args (matches AnalysisDVCS.cpp)
 NEVT=-1                # AnalysisPhi: -n / --nfile
 THREADS_PER_JOB=1      # AnalysisPhi: -t / --threads
@@ -89,11 +137,12 @@ CFG=rgasp18_outb        # AnalysisPhi: -c / --config
 CFG=rgasp19_inb  
 
 # Boolean flags (0/1) -> translated to presence/absence of flags
-IS_MC=1                # --mc
+IS_MC=0              # --mc
 IS_REPROC=0            # --reproc
 IS_INBENDING=1         # --inbending
 IS_MINIMAL=0           # --minimal
 IS_MISSINGKM=0         # --missingKm
+IS_HPHM=0              # --hphm  (ep -> e'p'h+h- di-charged-hadron mode)
 
 # Reproc options (only used if IS_REPROC=1; passed if non-empty)
 REPROC_FILE="merged.root"         # --reproc-file <filename>
@@ -135,8 +184,155 @@ FAILED_JOBS=(000 008 009 018 024 029)   # must match ID width
 
 # ---- Batching ----
 RUN_IN_BATCHES=1
-JOBS_PER_BATCH=40
+JOBS_PER_BATCH=20
 # -------------------------------------
+
+# =============================================================================
+# ARGUMENT PARSING (overrides old defaults above)
+# =============================================================================
+
+while (( $# > 0 )); do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -i|--input-dir)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      INPUT_DIR="$2"
+      shift 2
+      ;;
+    -o|--output-base)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      OUTPUT_BASE="$2"
+      shift 2
+      ;;
+    -c|--config)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      CFG="$2"
+      shift 2
+      ;;
+    -t|--threads)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      THREADS_PER_JOB="$2"
+      shift 2
+      ;;
+    -n|--nfile)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      NEVT="$2"
+      shift 2
+      ;;
+    -k|--jobs)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      K="$2"
+      shift 2
+      ;;
+    --exe)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      EXE="$2"
+      shift 2
+      ;;
+    --workdir)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      WORKDIR="$2"
+      shift 2
+      ;;
+    --relaunch-only)
+      RELAUNCH_ONLY=1
+      shift
+      ;;
+    --merge-partial)
+      MERGE_PARTIAL=1
+      shift
+      ;;
+    --no-merge-partial)
+      MERGE_PARTIAL=0
+      shift
+      ;;
+    --run-in-batches)
+      RUN_IN_BATCHES=1
+      shift
+      ;;
+    --no-run-in-batches)
+      RUN_IN_BATCHES=0
+      shift
+      ;;
+    --jobs-per-batch)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      JOBS_PER_BATCH="$2"
+      shift 2
+      ;;
+    --success-grep)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      SUCCESS_GREP="$2"
+      shift 2
+      ;;
+    --mc)
+      IS_MC=1
+      shift
+      ;;
+    --no-mc)
+      IS_MC=0
+      shift
+      ;;
+    --reproc)
+      IS_REPROC=1
+      shift
+      ;;
+    --no-reproc)
+      IS_REPROC=0
+      shift
+      ;;
+    --inbending)
+      IS_INBENDING=1
+      shift
+      ;;
+    --outbending)
+      IS_INBENDING=0
+      shift
+      ;;
+    --minimal)
+      IS_MINIMAL=1
+      shift
+      ;;
+    --no-minimal)
+      IS_MINIMAL=0
+      shift
+      ;;
+    --missingKm)
+      IS_MISSINGKM=1
+      shift
+      ;;
+    --no-missingKm)
+      IS_MISSINGKM=0
+      shift
+      ;;
+    --hphm)
+      IS_HPHM=1
+      shift
+      ;;
+    --no-hphm)
+      IS_HPHM=0
+      shift
+      ;;
+    --reproc-file)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      REPROC_FILE="$2"
+      shift 2
+      ;;
+    --reproc-tree)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      REPROC_TREE="$2"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Unknown argument: $1"
+      echo
+      usage
+      exit 2
+      ;;
+  esac
+done
 
 # =============================================================================
 # Derived / normalized paths
@@ -144,6 +340,7 @@ JOBS_PER_BATCH=40
 
 # Normalize OUTPUT_BASE to absolute path (best effort)
 # If OUTPUT_BASE is relative, make it relative to where you run the script from.
+mkdir -p "$OUTPUT_BASE" 2>/dev/null || true
 OUTPUT_BASE_ABS="$(cd "$OUTPUT_BASE" 2>/dev/null && pwd)"
 if [[ -z "${OUTPUT_BASE_ABS}" ]]; then
   echo "[ERROR] OUTPUT_BASE does not exist or not accessible: $OUTPUT_BASE"
@@ -168,6 +365,7 @@ EXTRA_ARGS=()
 (( IS_INBENDING )) && EXTRA_ARGS+=(--inbending)
 (( IS_MINIMAL ))   && EXTRA_ARGS+=(--minimal)
 (( IS_MISSINGKM )) && EXTRA_ARGS+=(--missingKm)
+(( IS_HPHM ))      && EXTRA_ARGS+=(--hphm)
 [[ -n "$REPROC_FILE" ]] && EXTRA_ARGS+=(--reproc-file "$REPROC_FILE")
 [[ -n "$REPROC_TREE" ]] && EXTRA_ARGS+=(--reproc-tree "$REPROC_TREE")
 

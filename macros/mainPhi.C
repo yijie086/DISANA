@@ -32,6 +32,7 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     bool IsMC, bool IsreprocRootFile,
                     bool IsInbending, bool IsMinimalBook,
                     bool IsMissingKm,
+                    bool IsHpHm,
                     const std::string& reprocRootFile = "",
                     const std::string& reprocTreeName = "");
 
@@ -41,12 +42,12 @@ static void print_usage(const char* prog) {
 R"(Usage:
   # Flag form (recommended)
   )" << prog << R"( -i <inputDir> [-n <nfile>] [-t <nthreads>] [-o <outputDir>]
-                [-c <dataconfig>] [--mc] [--reproc] [--inbending] [--minimal] [--missingKm]
+                [-c <dataconfig>] [--mc] [--reproc] [--inbending] [--minimal] [--missingKm] [--hphm]
                 [--reproc-file <filename>] [--reproc-tree <treename>]
 
   # Positional form (quick & dirty; anything omitted uses defaults)
   )" << prog << R"( [inputDir] [nfile] [nthreads] [outputDir] [dataconfig]
-                [mc] [reproc] [inbend] [minimal] [missingKm]
+                [mc] [reproc] [inbend] [minimal] [missingKm] [hphm]
 
 Defaults:
   inputDir="."      nfile=-1 (all)        nthreads=0 (auto)
@@ -102,6 +103,7 @@ int main(int argc, char* argv[]) {
   bool IsInbending      = false;
   bool IsMinimalBook    = false;
   bool IsMissingKm      = false;
+  bool IsHpHm           = false;   // ep -> e'p'h+h- (di-charged-hadron) mode
 
   // New options for reprocessed files
   std::string reprocRootFile = "";
@@ -172,6 +174,9 @@ int main(int argc, char* argv[]) {
     } else if (a == "--missingKm") {
       IsMissingKm = true;
 
+    } else if (a == "--hphm") {
+      IsHpHm = true;
+
     } else {
       std::cerr << "ERROR: unknown option: " << a << "\n";
       print_usage(argv[0]);
@@ -192,6 +197,7 @@ int main(int argc, char* argv[]) {
     if (pos < argc) { if (!parse_bool(argv[pos++], IsInbending)) return 2; }
     if (pos < argc) { if (!parse_bool(argv[pos++], IsMinimalBook)) return 2; }
     if (pos < argc) { if (!parse_bool(argv[pos++], IsMissingKm)) return 2; }
+    if (pos < argc) { if (!parse_bool(argv[pos++], IsHpHm)) return 2; }
 
     if (pos < argc) {
       std::cerr << "ERROR: too many positional arguments\n";
@@ -222,7 +228,8 @@ int main(int argc, char* argv[]) {
             << " reproc="      << (IsreprocRootFile ? "1" : "0")
             << " inbending="   << (IsInbending ? "1" : "0")
             << " minimal="     << (IsMinimalBook ? "1" : "0")
-            << " missingKm="   << (IsMissingKm ? "1" : "0") << "\n";
+            << " missingKm="   << (IsMissingKm ? "1" : "0")
+            << " hphm="        << (IsHpHm ? "1" : "0") << "\n";
   if (!reprocRootFile.empty()) {
     std::cout << " reprocFile  : " << reprocRootFile << "\n";
   }
@@ -238,7 +245,7 @@ int main(int argc, char* argv[]) {
   RunPhiAnalysis(inputDir, nfile, nthreads,
                  outputDir, dataconfig,
                  IsMC, IsreprocRootFile, IsInbending,
-                 IsMinimalBook, IsMissingKm,
+                 IsMinimalBook, IsMissingKm, IsHpHm,
                  reprocRootFile, reprocTreeName);
 
   auto end = std::chrono::high_resolution_clock::now();

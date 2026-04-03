@@ -52,6 +52,12 @@ class PhiAnalysis : public AnalysisTask {
   void SetDoQADBCuts(bool charge_output) { fIsQADBCut = charge_output; }
 
  private:
+  // Returns the set of columns that must be written to every snapshot so that
+  // the analysis can be re-run directly on the snapshotted .root file.
+  // Any column in the list that does not exist in the dataframe at snapshot
+  // time is silently ignored by SelectiveSnapshot.
+  std::vector<std::string> MinimalColumns() const;
+
   bool IsMC = false;
   bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
   bool IsMinBooking = false;   // reduces the output to minimum only after fiducial

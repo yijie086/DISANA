@@ -35,7 +35,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 {
   bool runExclusive = true;
   bool runMissingMass = false;
-  bool plotIntInvMass = false;  // toggle for plotting invariant mass (phi peak) distributions
+  bool plotIntInvMass = true;  // toggle for plotting invariant mass (phi peak) distributions
   bool GenOnly = false;
   bool RecGEMCOnly = false;
   bool RecDataOnly = true;
@@ -49,6 +49,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   // Input locations
   // Exclusive reconstruction K+K-
   std::string input_result_folder_excl = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DVKpKm/";
+  std::string input_result_folder_excl_test = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/script/";
   std::string input_result_folder_excl_missing = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/nSIDIS/hipo2root/Final_reprocessed/";
   /*std::string input_path_from_analysisRun_SP18inb_data =
    * "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";
@@ -99,7 +100,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   std::string input_path_from_analysisRun_SP18outb_data_qadb = Form("%s/rgasp18_outb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_Fall18inb_data_qadb = Form("%s/rgafall18_inb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_Fall18outb_data_qadb = Form("%s/rgafall18_outb", input_result_folder_excl.c_str());
-  std::string input_path_from_analysisRun_SP19inb_data_qadb = Form("%s/rgasp19_inb", input_result_folder_excl.c_str());
+  std::string input_path_from_analysisRun_SP19inb_data_qadb = Form("%s", input_result_folder_excl_test.c_str());
 
   // std::string input_path_from_analysisRun_SP19inb_data_qadb = Form("%s", "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/");
   //  Reprocessed missing–mass
@@ -185,7 +186,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   BinManager xBins;
   xBins.SetXBBins({0.0, 0.7});
   xBins.SetWBins({1.8, 4.0});
-  xBins.SetQ2Bins({0.0000, 2.2667, 2.9333, 3.7333, 8.0000});
+  xBins.SetQ2Bins({0.0000, 2.2667, 2.9333, 3.7333, 6.0000});
   xBins.SetTprimeBins({0.000, 0.2250, 0.3750, 0.5250, 0.6750, 0.8250, 1.0500, 1.3500, 1.8750, 4.5000});
   xBins.SetCosThetaKKBins({-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0});
   comparer.SetXBinsRanges(xBins);
@@ -381,8 +382,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
     // Add any datasets you want to compare
     // Binning setup for phi analysis
-    auto hQ2t_fall18outb = df_fall18outb_phi.Histo2D({"hQ2t_fall18outb", "t' vs Q^{2};t' [GeV^{2}];Q^{2} [GeV^{2}]", 60, 0.01, 4.0,  // x:  t' range
-                                                      60, 0.8, 8.0},                                                                 // y:  Q^2 range
+    auto hQ2t_fall18outb = df_fall18outb_phi.Histo2D({"hQ2t_fall18outb", "t' vs Q^{2};t' [GeV^{2}];Q^{2} [GeV^{2}]", 100, 0.01, 4.0,  // x:  t' range
+                                                      100, 0.8, 6.0},                                                                 // y:  Q^2 range
                                                      "mtprime", "Q2"                                                                 // x var, y var
     );
     // MC Reconstructed
@@ -403,14 +404,14 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     PrintEdges("Q^{2}", eqBins.q2Edges);
     PrintEdges("t'", eqBins.tprimeEdges);
 
-    xBins.DrawQ2TprimeWithGrid(hQ2t_fall18outb.GetPtr(), eqBins.q2Edges, {0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0},
+    xBins.DrawQ2TprimeWithGrid(hQ2t_fall18outb.GetPtr(), eqBins.q2Edges, {0.0100, 0.329, 0.401, 0.52, 0.64, 0.76, 0.9250, 1.1080, 1.38, 1.75, 2.2, 2.7, 4.0},
                                "cQ2t_equalStat", "PhiMassPlots/Q2_vs_tprime_equalStatBins.pdf");
     // Fix t bin bin
     xBins.SetQ2Bins(eqBins.q2Edges);
-    xBins.SetTprimeBins({0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0});
+    xBins.SetTprimeBins({0.0100, 0.329, 0.401, 0.52, 0.64, 0.76, 0.9250, 1.1080, 1.38, 1.75, 2.2, 2.7, 4.0});
     // keep your xB, W binning as-is
     xBins.SetWBins({1.8, 4.0});
-    // xBins.SetTprimeBins(eqBins.tprimeEdges);
+    //xBins.SetTprimeBins(eqBins.tprimeEdges);
     {
       std::filesystem::create_directories(outputDir);
 
@@ -439,6 +440,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
                                           /*yLo=*/0.90, /*yHi=*/1.15,
                                           /*sigWin=*/0.010);  // ← widen to 0.015 if stats are low
     }
+
     {
       double W2lo = 3.24;       // W > 1.8 GeV
       double W2hi = 4.0 * 4.0;  // W < 3.5 GeV
@@ -454,7 +456,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
       ExportBinningCSV(eqBins.q2Edges, {0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0}, static_cast<double>(beam_energy_fall2018),
                        W2lo, W2hi, csv106);
     }
-    
+
     // ── Load rad-corr RDF trees from RunMDiffradNew output ROOT files ─────────
     std::string kRadRootFile_10p2 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p2GeV/mdiffrad_output.root";
     std::string kRadRootFile_10p6 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p6GeV/mdiffrad_output.root";
@@ -704,7 +706,7 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 ROOT::RDF::RNode ApplyFinalDVEPSelections(ROOT::RDF::RNode df) {
   return df
       // 4. Q2 > 1
-      .Filter("Q2 > 0.8", "Cut: Q2 > 0.8 GeV^2")
+      .Filter("Q2 > 0.8 && Q2 < 6.0", "Cut: Q2 > 0.8 GeV^2")
       .Filter("W > 1.8", "Cut: W > 1.8 && W < 2.5 GeV")
       .Filter("recel_p  > 1.5", "Cut: recel_p < 1.5 GeV")
       //.Filter("bestEle_idx > 0", "Cut: reckPlus_p < 3.5 GeV")

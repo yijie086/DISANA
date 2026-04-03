@@ -1,4 +1,3 @@
-
 #include "EventCut.h"
 #include "./../Math/ParticleMassTable.h"
 
@@ -36,6 +35,22 @@ void EventCut::AddParticleCut(const std::string& name, const ParticleCut& userCu
     cut.pid = 321;
     cut.minVz = -8;
     cut.maxVz = 2;
+  } else if (name == "Pos Hadron") {
+    // h+ wildcard: any positively charged hadron except scattered electron (pid=11)
+    // and leading proton (pid=2212).  pid=0 is used as a sentinel so operator()
+    // switches to charge-only matching and vetoes those two species explicitly.
+    // The kaon mass hypothesis is applied downstream in the exclusivity analysis.
+    cut.pid    = 0;    // wildcard — matched by charge sign, not PID
+    cut.charge = 1;
+    cut.minVz  = -8;
+    cut.maxVz  = 2;
+  } else if (name == "Neg Hadron") {
+    // h- wildcard: any negatively charged hadron except the scattered electron
+    // (pid=11).  pid=0 is the wildcard sentinel.
+    cut.pid    = 0;    // wildcard — matched by charge sign, not PID
+    cut.charge = -1;
+    cut.minVz  = -8;
+    cut.maxVz  = 2;
   }
 
   fParticleCuts[name] = cut;
@@ -100,7 +115,19 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
       const float p2 = px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i];
       if (p2 < 1e-4f) continue;
 
-      if (pid[i] != cut.pid || charge[i] != cut.charge || REC_Track_pass_fid[i] != 1) continue;
+      // pid==0 is the wildcard sentinel used by "Pos Hadron" / "Neg Hadron" cuts.
+      // In that mode we match by charge sign only and explicitly veto the
+      // scattered electron (|pid|==11) and the leading proton (pid==2212) so
+      // they are never double-counted as hadron candidates.
+      if (cut.pid == 0) {
+        if (charge[i] != cut.charge)   continue;  // wrong charge sign
+        if (std::abs(pid[i]) == 11)    continue;  // veto e+/-
+        if (pid[i] == 2212)            continue;  // veto proton
+        if (REC_Track_pass_fid[i] != 1) continue;
+      } else {
+        // Original strict PID matching (K+K-, photon, proton, electron, ...)
+        if (pid[i] != cut.pid || charge[i] != cut.charge || REC_Track_pass_fid[i] != 1) continue;
+      }
       if (!IsInRange(chi2pid[i], cut.minChi2PID, cut.maxChi2PID)) continue;
 
       const float momentum = std::sqrt(p2);

@@ -50,6 +50,39 @@ class AnalysisTask {
     df.Snapshot(treename, filename, outputCols);
   }
 
+  // SelectiveSnapshot: snapshot only the columns in wantedCols that actually
+  // exist in df.  Columns not present in df are silently skipped, so this is
+  // safe to call on both the full HIPO-backed dataframe and on a re-processing
+  // dataframe that was read back from a previously snapshotted .root file.
+  void SelectiveSnapshot(ROOT::RDF::RNode df, const std::string& treename,
+                         const std::string& filename,
+                         const std::vector<std::string>& wantedCols) {
+    auto allCols = df.GetColumnNames();
+    std::vector<std::string> outputCols;
+    outputCols.reserve(wantedCols.size());
+    for (const auto& col : wantedCols) {
+      if (std::find(allCols.begin(), allCols.end(), col) != allCols.end()) {
+        outputCols.push_back(col);
+      }
+    }
+    df.Snapshot(treename, filename, outputCols);
+  }
+
+  // ResolveSnapshotColumns: returns the subset of wantedCols that exist in df.
+  // Use this to build the column list before calling lazy df.Snapshot() directly,
+  // so that Count() and Snapshot() can be booked together and share one event loop.
+  std::vector<std::string> ResolveSnapshotColumns(ROOT::RDF::RNode df,
+                                                   const std::vector<std::string>& wantedCols) {
+    auto allCols = df.GetColumnNames();
+    std::vector<std::string> result;
+    result.reserve(wantedCols.size());
+    for (const auto& col : wantedCols) {
+      if (std::find(allCols.begin(), allCols.end(), col) != allCols.end())
+        result.push_back(col);
+    }
+    return result;
+  }
+
  protected:
   AnalysisTaskManager* fTaskManager = nullptr;
 };
