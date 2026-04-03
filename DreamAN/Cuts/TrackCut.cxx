@@ -219,60 +219,50 @@ TrackCut::RECTrajPass() const {
       return false;
     };
     for (size_t i = 0; i < pindex.size(); ++i) {
-      if (detector[i] == 6) {  // DC
-        if (fDoFiducialCut) {
-          int region = 0;
-          int absLayer = std::abs(layer[i]);
-          if (absLayer == 6)
-            region = 1;
-          else if (absLayer == 18)
-            region = 2;
-          else if (absLayer == 36)
-            region = 3;
+      if (detector[i] == 6) {
+          if (fDoFiducialCut) {
+              int region = 0;
+              int absLayer = std::abs(layer[i]);
+              if (absLayer == 6)       region = 1;
+              else if (absLayer == 18) region = 2;
+              else if (absLayer == 36) region = 3;
+              if (region == 0) continue;
+              if (pindex[i] < 0 || pindex[i] >= static_cast<int>(pid.size())) continue;
+              int cur_pid = pid[pindex[i]];
+              auto pidCuts = fDCEdgeCutsPerPID.find(cur_pid);
+              if (pidCuts == fDCEdgeCutsPerPID.end()) continue;
 
-          int cur_pid = pid[pindex[i]];
-
-          // Only apply edge cut if edge cuts are defined for this PID
-          auto pidCuts = fDCEdgeCutsPerPID.find(cur_pid);
-          if (pidCuts == fDCEdgeCutsPerPID.end()) {
-            continue;  // Skip cut for this PID
+              float edgeCut = pidCuts->second[region - 1];
+              if (edge[i] <= edgeCut) {
+                  if (pindex[i] < static_cast<int>(pass_values.size()))
+                      pass_values[pindex[i]] = 0;
+                  continue;
+              }
           }
-
-          float edgeCut = pidCuts->second[region - 1];
-          if (edge[i] <= edgeCut) {
-            pass_values[pindex[i]] = 0;
-            continue;
-          }
-        }
       }
+
 
       if (detector[i] == 5) {  // CVT
         if (fDoFiducialCut) {
           int region = 0;
           int absLayer = std::abs(layer[i]);
-          if (absLayer == 1)
-            region = 1;
-          else if (absLayer == 3)
-            region = 2;
-          else if (absLayer == 5)
-            region = 3;
-          else if (absLayer == 7)
-            region = 4;
-          else if (absLayer == 12)
-            region = 5;
+          // AFTER (safe):
+          if (absLayer == 1)  region = 1;
+          else if (absLayer == 3)  region = 2;
+          else if (absLayer == 5)  region = 3;
+          else if (absLayer == 7)  region = 4;
+          else if (absLayer == 12) region = 5;
+          if (region == 0) continue;
+          if (pindex[i] < 0 || pindex[i] >= static_cast<int>(pid.size())) continue;
 
           int cur_pid = pid[pindex[i]];
-
-          // Only apply edge cut if edge cuts are defined for this PID
           auto pidCuts = fCVTEdgeCutsPerPID.find(cur_pid);
-          if (pidCuts == fCVTEdgeCutsPerPID.end()) {
-            continue;  // Skip cut for this PID
-          }
-
-          float edgeCut = pidCuts->second[region - 1];
+          if (pidCuts == fCVTEdgeCutsPerPID.end()) continue;
+          float edgeCut = pidCuts->second[region - 1];  // now safe
           if (edge[i] <= edgeCut) {
-            pass_values[pindex[i]] = 0;
-            continue;
+              if (pindex[i] < static_cast<int>(pass_values.size()))  // ADD THIS
+                  pass_values[pindex[i]] = 0;
+              continue;
           }
 
           const std::map<int, std::map<int, FiducialCut2D_CVT>>* cutMap = nullptr;
@@ -288,10 +278,11 @@ TrackCut::RECTrajPass() const {
                 const FiducialCut2D_CVT& cut = it->second;
                 float CVTtheta = 180.0 / TMath::Pi() * TMath::ACos(z[i] / sqrt(x[i]*x[i] + y[i]*y[i] + z[i]*z[i]));
                 float CVTphi = 180.0 / TMath::Pi() * TMath::ATan2(y[i], x[i]);
-                if (isExcluded(CVTtheta, cut.thetaCut) || isExcluded(CVTphi, cut.phiCut) ) {
-                  pass_values[pindex[i]] = 0;
+                if (isExcluded(CVTtheta, cut.thetaCut) || isExcluded(CVTphi, cut.phiCut)) {
+                  if (pindex[i] < static_cast<int>(pass_values.size()))  // ADD THIS
+                      pass_values[pindex[i]] = 0;
                   continue;
-                }
+              }
               }
             }
           }

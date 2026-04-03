@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <fnmatch.h>
 
 #include <ROOT/RDataFrame.hxx>
 #include "hipo4/RHipoDS.hxx"
@@ -25,6 +26,8 @@ public:
   std::optional<ROOT::RDF::RNode> getNode() const;
   std::size_t getFileCount() const;
   std::string getFinalInputPath() const;
+  std::vector<std::string> getHipoFilesInPath(const std::string& pathOrPattern,
+                                              int nfiles) const;
 
 private:
   std::vector<std::string> GetHipoFilesInPath(const std::string& directory, int nfiles);

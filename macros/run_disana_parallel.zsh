@@ -35,6 +35,25 @@ INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/kneupane/10424/ #sp18_outb_50nA
 #INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/singh/10423/ #fall_outb_50nA
 #INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/singh/10422/ #fall_inb_55nA
 
+
+
+
+
+### efficiencies for phi analysis (Bhawani)
+INPUT_DIR=/lustre24/expphy/volatile/clas12/singh/hipo2root/osg/sims_lager/fall2018_outb_50nA_phi_lager/
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/singh/10527/
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/singh/10527/
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/kneupane/10646/ #sp19_inb_50nA
+#spring 2018 efficincies 
+INPUT_DIR=//lustre24/expphy/volatile/clas12/osg/yijie/10503/ #sp18_inb_50nA
+INPUT_DIR=//lustre24/expphy/volatile/clas12/osg/yijie/10504/ #sp18_inb2_50nA
+INPUT_DIR=//lustre24/expphy/volatile/clas12/osg/yijie/10505/ #sp18_inb_no_bkg
+INPUT_DIR=//lustre24/expphy/volatile/clas12/osg/yijie/10506/ #sp18_inb_no_bkg
+
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10507/ #sp18_outb_45nA
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10508/ #sp18_outb2_45nA
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10509/ #sp18_outb_no_bkg
+INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10510/ #sp18_outb_no_bkg
 # ---- Output base (ABSOLUTE OR RELATIVE OK)
 # Everything will be created under this directory:
 #   OUTPUT_BASE/<WORKDIR>/job_###/{input,out,log}
@@ -45,12 +64,29 @@ OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_pro
 OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2018_outb/45nA/
 #OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_outb/50nA/
 #OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_inb/55nA/
+
+#efficiencies for phi analysis (Bhawani)
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/fall2018_inb/55nA/
+
+#Harut MC GEN test:
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/Harut_MC/p39_10p2/
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2019_inb/50nA
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2019_inb/no_bkg/
+
+# spring 2018 efficiencies:
+OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_inb/50nA/
+OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_inb2/50nA/
+OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_inb/no_bkg/
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_inb2/no_bkg/
+OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_outb2/45nA/
+OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_outb2/no_bkg/
+
 # ---- AnalysisPhi args (matches AnalysisDVCS.cpp)
 NEVT=-1                # AnalysisPhi: -n / --nfile
 THREADS_PER_JOB=1      # AnalysisPhi: -t / --threads
-CFG=rgafall18_outb     # AnalysisPhi: -c / --config
+CFG=rgafall18_inb     # AnalysisPhi: -c / --config
 CFG=rgasp18_outb        # AnalysisPhi: -c / --config
-#CFG=rgafall18_inb  
+CFG=rgasp19_inb  
 
 # Boolean flags (0/1) -> translated to presence/absence of flags
 IS_MC=1                # --mc

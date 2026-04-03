@@ -4,12 +4,12 @@
 #include <TString.h>
 
 #include <ROOT/RDataFrame.hxx>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <vector>
-#include <cmath>
 
 #include "../DreamAN/DrawHist/DISANAMMUtils.h"
 #include "../DreamAN/DrawHist/DISANAMath.h"
@@ -19,24 +19,31 @@
 #include "../DreamAN/DrawHist/DrawStyle.h"
 
 ROOT::RDF::RNode ApplyFinalDVEPSelections(ROOT::RDF::RNode df);
-static void ExportBinningCSV(const std::vector<double>& q2Edges, const std::vector<double>& tpEdges,double beamMom, double W2lo, double W2hi, const std::string& outPath);
-std::vector<std::pair<std::string, std::string>> detCuts = { {"pro_det_region == 2", "CD"}, {"pro_det_region == 1", "FD"} };
-void PrintEdges(const std::string& label, const std::vector<double>& edges); 
+ROOT::RDF::RNode ApplyFinalGenDVEPSelections(ROOT::RDF::RNode df);
+static void ExportBinningCSV(const std::vector<double>& q2Edges, const std::vector<double>& tpEdges, double beamMom, double W2lo, double W2hi, const std::string& outPath);
+std::vector<std::pair<std::string, std::string>> detCuts = {{"pro_det_region == 2", "CD"}, {"pro_det_region == 1", "FD"}};
+void PrintEdges(const std::string& label, const std::vector<double>& edges);
 // Plot styling (unchanged)
 DrawStyle KinStyle(0.07, 0.06, 0.9, 1.2);                                       // For Kin plots
 DrawStyle dvcsStyle(0.06, 0.06, 1.0, 1.2, 42, 5, 510, 0.14, 0.07, 0.14, 0.06);  // For DVCS plots
 DrawStyle csStyle(0.05, 0.05, .95, 1.1, 42, 5, 510, 0.12, 0.03, 0.12, 0.02);    // For Cross-Sections
 DrawStyle bsaStyle(0.06, 0.045, .8, .8, 42, 5, 510, 0.15, 0.07, 0.16, 0.06);    // For BSA
 double computeLuminosity(double Q_coulombs);
+
 // Main plotter with toggles
 void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 {
   bool runExclusive = true;
   bool runMissingMass = false;
   bool plotIntInvMass = false;  // toggle for plotting invariant mass (phi peak) distributions
+  bool GenOnly = false;
+  bool RecGEMCOnly = false;
+  bool RecDataOnly = true;
+  bool TryHStyle = false;  // toggle to try HStyle for plotting (instead of custom DrawStyle)
   ROOT::EnableImplicitMT(40);
+
   std::string outputDir = "phi_analysis_plots";
- 
+
   // Spring 2018 INB (10.2 GeV)
   // -----------------------------
   // Input locations
@@ -55,30 +62,45 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   std::string input_path_from_analysisRun_SP19inb_data =
   "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";*/
   /// MC path for exclusivity fits
-  
+
   // MC RECONSTRUCTED GEMC
   std::string input_path_from_analysisRun_SP18inb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2018_inb/50nA/";
   std::string input_path_from_analysisRun_SP19inb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2019/50nA/";
   std::string input_path_from_analysisRun_SP19inb_MC_clasdis = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/clasdis/sp2019_50nA_inb/";
-  std::string input_path_from_analysisRun_Fall18inb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_inb/55nA/";
+  std::string input_path_from_analysisRun_SP19inb_MC_Harut_p39 = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/Harut_MC/p39_10p2/";
 
+  std::string input_path_from_analysisRun_Fall18inb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_inb/55nA/";
   std::string input_path_from_analysisRun_Fall18outb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_outb/50nA/";
   std::string input_path_from_analysisRun_SP18outb_MC = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2018_outb/45nA/";
-  
-  
+
+  // MC Reconstructed for efficiencies
+  std::string input_path_from_analysisRun_SP18inb_MC_eff_nobkg =
+      "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_inb/no_bkg/";
+  std::string input_path_from_analysisRun_SP18inb_MC_eff_50nA = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_inb/50nA/";
+  std::string input_path_from_analysisRun_SP18outb_MC_eff_45nA =
+      "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_outb/45nA/";
+  std::string input_path_from_analysisRun_SP18outb_MC_eff_nobkg =
+      "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2018_outb/no_bkg/";
+
+  std::string input_path_from_analysisRun_SP19inb_MC_eff_50nA = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2019_inb/50nA/";
+  std::string input_path_from_analysisRun_SP19inb_MC_eff_nobkg =
+      "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/Efficiency/sp2019_inb/no_bkg/";
+
   // MC GEN
   std::string input_path_from_analysisRun_SP18inb_MCgen = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2018_inb/50nA/";
   std::string input_path_from_analysisRun_SP19inb_MCgen = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2019/50nA/";
+  std::string input_path_from_analysisRun_SP19inb_MCgen_Harut_p39 = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/Harut_MC/p39_10p2/";
   std::string input_path_from_analysisRun_Fall18inb_MCgen = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_inb/55nA/";
   std::string input_path_from_analysisRun_Fall18outb_MCgen = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/fall2018_outb/50nA/";
   std::string input_path_from_analysisRun_SP18outb_MCgen = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/sims/lager/sp2018_outb/45nA/";
 
-
+  // MC GEN test paths Harut
   std::string input_path_from_analysisRun_SP18inb_data_qadb = Form("%s/rgasp18_inb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_SP18outb_data_qadb = Form("%s/rgasp18_outb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_Fall18inb_data_qadb = Form("%s/rgafall18_inb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_Fall18outb_data_qadb = Form("%s/rgafall18_outb", input_result_folder_excl.c_str());
   std::string input_path_from_analysisRun_SP19inb_data_qadb = Form("%s/rgasp19_inb", input_result_folder_excl.c_str());
+
   // std::string input_path_from_analysisRun_SP19inb_data_qadb = Form("%s", "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2019/inb/DVKpKm_wagon/");
   //  Reprocessed missing–mass
   std::string input_path_from_analysisRun_SP19inb_data_missingKm = "./../data_processed/spring2019/inb/nsidis_wagon/missing_Km_output/";
@@ -123,12 +145,23 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   std::string filename_afterFid_SP18inb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18inb_MC.c_str());
   std::string filename_afterFid_SP19inb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_MC.c_str());
   std::string filename_afterFid_SP19inb_MC_clasdis = Form("%s/dfSelected.root", input_path_from_analysisRun_SP19inb_MC_clasdis.c_str());
+  std::string filename_afterFid_SP19inb_MC_Harut_p39 = Form("%s/dfSelected.root", input_path_from_analysisRun_SP19inb_MC_Harut_p39.c_str());
   std::string filename_afterFid_Fall18inb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18inb_MC.c_str());
-  std::string filename_afterFid_Fall18outb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18outb_MC.c_str()); 
-  std::string filename_afterFid_SP18outb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_MC.c_str()); 
+  std::string filename_afterFid_Fall18outb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_Fall18outb_MC.c_str());
+  std::string filename_afterFid_SP18outb_MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_MC.c_str());
+
+  // MC rec for efficiencies
+  std::string filename_afterFid_SP18inb_MC_eff_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18inb_MC_eff_nobkg.c_str());
+  std::string filename_afterFid_SP18outb_MC_eff_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_MC_eff_nobkg.c_str());
+  std::string filename_afterFid_SP19inb_MC_eff_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_MC_eff_nobkg.c_str());
+  std::string filename_afterFid_SP18inb_MC_eff_50nA = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18inb_MC_eff_50nA.c_str());
+  std::string filename_afterFid_SP19inb_MC_eff_50nA = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP19inb_MC_eff_50nA.c_str());
+  std::string filename_afterFid_SP18outb_MC_eff_45nA = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_SP18outb_MC_eff_45nA.c_str());
+
   // MC GEN files for exclusivity fits
   std::string filename_afterFid_SP18inb_MCgen = Form("%s/dfSelectedMC.root", input_path_from_analysisRun_SP18inb_MCgen.c_str());
   std::string filename_afterFid_SP19inb_MCgen = Form("%s/dfSelectedMC.root", input_path_from_analysisRun_SP19inb_MCgen.c_str());
+  std::string filename_afterFid_SP19inb_MCgen_Harut_p39 = Form("%s/dfSelectedMC.root", input_path_from_analysisRun_SP19inb_MCgen_Harut_p39.c_str());
   std::string filename_afterFid_Fall18inb_MCgen = Form("%s/dfSelectedMC.root", input_path_from_analysisRun_Fall18inb_MCgen.c_str());
   std::string filename_afterFid_Fall18outb_MCgen = Form("%s/dfSelectedMC.root", input_path_from_analysisRun_Fall18outb_MCgen.c_str());
   std ::string filename_afterFid_SP18outb_MCgen = Form("%s/dfSelectedMC.root", input_path_from_analysisRun_SP18outb_MCgen.c_str());
@@ -150,8 +183,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
   // Binning (unchanged)
   BinManager xBins;
-  xBins.SetXBBins({0, 0.99});
-  xBins.SetWBins({2.0, 10.0});
+  xBins.SetXBBins({0.0, 0.7});
+  xBins.SetWBins({1.8, 4.0});
   xBins.SetQ2Bins({0.0000, 2.2667, 2.9333, 3.7333, 8.0000});
   xBins.SetTprimeBins({0.000, 0.2250, 0.3750, 0.5250, 0.6750, 0.8250, 1.0500, 1.3500, 1.8750, 4.5000});
   xBins.SetCosThetaKKBins({-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0});
@@ -195,8 +228,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     ROOT::RDF::RNode df_afterFid_sp19inb_data_init = InitKinematics(filename_afterFid_SP19inb_data, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
 
     // MC RECONSTRUCTED GEMC
-    //ROOT::RDF::RNode df_afterFid_sp18inb_MC_init = InitKinematics(filename_afterFid_SP18inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
-    //auto df_afterFid_sp18inb_MC = GetSlim_exclusive(df_afterFid_sp18inb_MC_init, "slim_sp18_MC_exclusive_qadb.root", "slim_sp18_MC_exclusive_qadb");
+    // ROOT::RDF::RNode df_afterFid_sp18inb_MC_init = InitKinematics(filename_afterFid_SP18inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
+    // auto df_afterFid_sp18inb_MC = GetSlim_exclusive(df_afterFid_sp18inb_MC_init, "slim_sp18_MC_exclusive_qadb.root", "slim_sp18_MC_exclusive_qadb");
     ROOT::RDF::RNode df_afterFid_sp18inb_MC_init = InitKinematics(filename_afterFid_SP18inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
     auto df_afterFid_sp18inb_MC = GetSlim_exclusive(df_afterFid_sp18inb_MC_init, "slim_sp18_MC_exclusive_qadb.root", "slim_sp18_MC_exclusive_qadb");
     ROOT::RDF::RNode df_afterFid_sp19inb_MC_init = InitKinematics(filename_afterFid_SP19inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
@@ -205,18 +238,38 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     ROOT::RDF::RNode df_afterFid_sp19inb_MC_clasdis_init = InitKinematics(filename_afterFid_SP19inb_MC_clasdis, "dfSelected", beam_energy_sp2019);
     auto df_afterFid_sp19inb_MC_clasdis = GetSlim_exclusive(df_afterFid_sp19inb_MC_clasdis_init, "slim_sp19_MC_clasdis_exclusive_qadb.root", "slim_sp19_MC_clasdis_exclusive_qadb");
 
+    ROOT::RDF::RNode df_afterFid_sp19inb_MC_Harut_p39_init = InitKinematics(filename_afterFid_SP19inb_MC_Harut_p39, "dfSelected", beam_energy_sp2019);
+    auto df_afterFid_sp19inb_MC_Harut_p39 =
+        GetSlim_exclusive(df_afterFid_sp19inb_MC_Harut_p39_init, "slim_sp19_MC_Harut_p39_exclusive_qadb.root", "slim_sp19_MC_Harut_p39_exclusive_qadb");
+
     auto df_afterFid_fall18inb_MC_init = InitKinematics(filename_afterFid_Fall18inb_MC, "dfSelected_afterFid_afterCorr", beam_energy_fall2018);
     auto df_afterFid_fall18inb_MC = GetSlim_exclusive(df_afterFid_fall18inb_MC_init, "slim_fall18inb_MC_exclusive_qadb.root", "slim_fall18inb_MC_exclusive_qadb");
     auto df_afterFid_fall18outb_MC_init = InitKinematics(filename_afterFid_Fall18outb_MC, "dfSelected_afterFid_afterCorr", beam_energy_fall2018);
     auto df_afterFid_fall18outb_MC = GetSlim_exclusive(df_afterFid_fall18outb_MC_init, "slim_fall18outb_MC_exclusive_qadb.root", "slim_fall18outb_MC_exclusive_qadb");
     auto df_afterFid_sp18outb_MC_init = InitKinematics(filename_afterFid_SP18outb_MC, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
     auto df_afterFid_sp18outb_MC = GetSlim_exclusive(df_afterFid_sp18outb_MC_init, "slim_sp18outb_MC_exclusive_qadb.root", "slim_sp18outb_MC_exclusive_qadb");
-  // MC GEN
+
+    // MC RECONSTRUCTED GEMC for efficiencies
+    auto df_afterFid_SP18inb_MC_eff_nobkg_init = InitKinematics(filename_afterFid_SP18inb_MC_eff_nobkg, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
+    auto df_afterFid_SP18inb_MC_eff_nobkg = GetSlim_exclusive(df_afterFid_SP18inb_MC_eff_nobkg_init, "slim_sp18inb_MC_eff_nobkg.root", "slim_sp18inb_MC_eff_nobkg");
+    auto df_afterFid_SP18inb_MC_eff_50nA_init = InitKinematics(filename_afterFid_SP18inb_MC_eff_50nA, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
+    auto df_afterFid_SP18inb_MC_eff_50nA = GetSlim_exclusive(df_afterFid_SP18inb_MC_eff_50nA_init, "slim_sp18inb_MC_eff_50nA.root", "slim_sp18inb_MC_eff_50nA");
+    auto df_afterFid_SP18outb_MC_eff_45nA_init = InitKinematics(filename_afterFid_SP18outb_MC_eff_45nA, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
+    auto df_afterFid_SP18outb_MC_eff_45nA = GetSlim_exclusive(df_afterFid_SP18outb_MC_eff_45nA_init, "slim_sp18outb_MC_eff_45nA.root", "slim_sp18outb_MC_eff_45nA");
+    auto df_afterFid_SP18outb_MC_eff_nobkg_init = InitKinematics(filename_afterFid_SP18outb_MC_eff_nobkg, "dfSelected_afterFid_afterCorr", beam_energy_sp2018);
+    auto df_afterFid_SP18outb_MC_eff_nobkg = GetSlim_exclusive(df_afterFid_SP18outb_MC_eff_nobkg_init, "slim_sp18outb_MC_eff_nobkg.root", "slim_sp18outb_MC_eff_nobkg");
+    auto df_afterFid_SP19inb_MC_eff_50nA_init = InitKinematics(filename_afterFid_SP19inb_MC_eff_50nA, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
+    auto df_afterFid_SP19inb_MC_eff_50nA = GetSlim_exclusive(df_afterFid_SP19inb_MC_eff_50nA_init, "slim_sp19inb_MC_eff_50nA.root", "slim_sp19inb_MC_eff_50nA");
+    auto df_afterFid_SP19inb_MC_eff_nobkg_init = InitKinematics(filename_afterFid_SP19inb_MC_eff_nobkg, "dfSelected_afterFid_afterCorr", beam_energy_sp2019);
+    auto df_afterFid_SP19inb_MC_eff_nobkg = GetSlim_exclusive(df_afterFid_SP19inb_MC_eff_nobkg_init, "slim_sp19inb_MC_eff_nobkg.root", "slim_sp19inb_MC_eff_nobkg");
+
+    // MC GEN
     ROOT::RDF::RNode df_afterFid_sp18inb_MCgen = InitGenKinematics(filename_afterFid_SP18inb_MCgen, "dfSelectedMC", beam_energy_sp2018);
-    ROOT::RDF::RNode df_afterFid_sp19inb_MCgen= InitGenKinematics(filename_afterFid_SP19inb_MCgen, "dfSelectedMC", beam_energy_sp2019);
+    ROOT::RDF::RNode df_afterFid_sp19inb_MCgen = InitGenKinematics(filename_afterFid_SP19inb_MCgen, "dfSelectedMC", beam_energy_sp2019);
+    ROOT::RDF::RNode df_afterFid_sp19inb_MCgen_Harut_p39 = InitGenKinematics(filename_afterFid_SP19inb_MCgen_Harut_p39, "dfSelectedMC", beam_energy_sp2019);
     ROOT::RDF::RNode df_afterFid_fall18inb_MCgen = InitGenKinematics(filename_afterFid_Fall18inb_MCgen, "dfSelectedMC", beam_energy_fall2018);
     ROOT::RDF::RNode df_afterFid_fall18outb_MCgen = InitGenKinematics(filename_afterFid_Fall18outb_MCgen, "dfSelectedMC", beam_energy_fall2018);
-    ROOT::RDF::RNode df_afterFid_sp18outb_MCgen = InitGenKinematics(filename_afterFid_SP18outb_MCgen, "dfSelectedMC", beam_energy_sp2018);  
+    ROOT::RDF::RNode df_afterFid_sp18outb_MCgen = InitGenKinematics(filename_afterFid_SP18outb_MCgen, "dfSelectedMC", beam_energy_sp2018);
 
     auto df_afterFid_sp19inb_data = GetSlim_exclusive(df_afterFid_sp19inb_data_init, "slim_sp19_exlcusive_qadb.root", "slim_sp19_exlcusive_qadb");
     auto df_afterFid_sp18inb_data = GetSlim_exclusive(df_afterFid_sp18inb_data_init, "slim_sp18inb_exlcusive_qadb.root", "slim_sp18inb_exlcusive_qadb");
@@ -237,11 +290,20 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     auto df_sp18inb_all_MC = SelectExclusivePhiEvent(df_afterFid_sp18inb_MC);
     auto df_sp19inb_all_MC = SelectExclusivePhiEvent(df_afterFid_sp19inb_MC);
     auto df_sp19inb_all_MC_clasdis = SelectExclusivePhiEvent(df_afterFid_sp19inb_MC_clasdis);
+    auto df_sp19inb_all_MC_Harut_p39 = SelectExclusivePhiEvent(df_afterFid_sp19inb_MC_Harut_p39);
     auto df_fall18inb_all_MC = SelectExclusivePhiEvent(df_afterFid_fall18inb_MC);
     auto df_fall18outb_all_MC = SelectExclusivePhiEvent(df_afterFid_fall18outb_MC);
     auto df_sp18outb_all_MC = SelectExclusivePhiEvent(df_afterFid_sp18outb_MC);
-   // MC gen
-    
+
+    // Apply final selections MC rec for efficiencies
+    auto df_afterFid_SP18inb_MC_eff_nobkg_final = SelectExclusivePhiEvent(df_afterFid_SP18inb_MC_eff_nobkg);
+    auto df_afterFid_SP18inb_MC_eff_50nA_final = SelectExclusivePhiEvent(df_afterFid_SP18inb_MC_eff_50nA);
+    auto df_afterFid_SP18outb_MC_eff_45nA_final = SelectExclusivePhiEvent(df_afterFid_SP18outb_MC_eff_45nA);
+    auto df_afterFid_SP18outb_MC_eff_nobkg_final = SelectExclusivePhiEvent(df_afterFid_SP18outb_MC_eff_nobkg);
+    auto df_afterFid_SP19inb_MC_eff_50nA_final = SelectExclusivePhiEvent(df_afterFid_SP19inb_MC_eff_50nA);
+    auto df_afterFid_SP19inb_MC_eff_nobkg_final = SelectExclusivePhiEvent(df_afterFid_SP19inb_MC_eff_nobkg);
+
+    // MC gen
 
     auto df_sp18inb_phi = ApplyFinalDVEPSelections(df_sp18inb_all);
     // auto df_sp18outb_phi_noqadb = ApplyFinalDVEPSelections(df_sp18outb_all_noqadb);
@@ -253,19 +315,35 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     /// MC
     auto df_sp18inb_phi_MC = ApplyFinalDVEPSelections(df_sp18inb_all_MC);
     auto df_sp19inb_phi_MC = ApplyFinalDVEPSelections(df_sp19inb_all_MC);
-    auto df_sp19inb_phi_MC_clasdis = df_afterFid_sp19inb_MC_clasdis;
+    auto df_sp19inb_phi_MC_Harut_p39 = ApplyFinalDVEPSelections(df_sp19inb_all_MC_Harut_p39);
     auto df_fall18inb_phi_MC = ApplyFinalDVEPSelections(df_fall18inb_all_MC);
     auto df_fall18outb_phi_MC = ApplyFinalDVEPSelections(df_fall18outb_all_MC);
-    auto df_sp18outb_phi_MC = ApplyFinalDVEPSelections(df_sp18outb_all_MC); 
+    auto df_sp18outb_phi_MC = ApplyFinalDVEPSelections(df_sp18outb_all_MC);
 
+    // MC rec for efficiencies
+    auto df_sp18inb_phi_MC_eff_nobkg = ApplyFinalDVEPSelections(df_afterFid_SP18inb_MC_eff_nobkg_final);
+    auto df_sp18inb_phi_MC_eff_50nA = ApplyFinalDVEPSelections(df_afterFid_SP18inb_MC_eff_50nA_final);
+    auto df_sp18outb_phi_MC_eff_45nA = ApplyFinalDVEPSelections(df_afterFid_SP18outb_MC_eff_45nA_final);
+    auto df_sp18outb_phi_MC_eff_nobkg = ApplyFinalDVEPSelections(df_afterFid_SP18outb_MC_eff_nobkg_final);
+    auto df_sp19inb_phi_MC_eff_50nA = ApplyFinalDVEPSelections(df_afterFid_SP19inb_MC_eff_50nA_final);
+    auto df_sp19inb_phi_MC_eff_nobkg = ApplyFinalDVEPSelections(df_afterFid_SP19inb_MC_eff_nobkg_final);
+    // auto df_sp19inb_phi_MC_clasdis = df_afterFid_sp19inb_MC_clasdis;
+
+    // Gen DVEP selections
+    auto df_afterFid_sp19inb_MCgen_Harut_p39final = ApplyFinalGenDVEPSelections(df_afterFid_sp19inb_MCgen_Harut_p39);
+    auto df_afterFid_sp19inb_MCgenfinal = ApplyFinalGenDVEPSelections(df_afterFid_sp19inb_MCgen);
+    auto df_afterFid_sp18inb_MCgenfinal = ApplyFinalGenDVEPSelections(df_afterFid_sp18inb_MCgen);
+    auto df_afterFid_fall18inb_MCgenfinal = ApplyFinalGenDVEPSelections(df_afterFid_fall18inb_MCgen);
+    auto df_afterFid_fall18outb_MCgenfinal = ApplyFinalGenDVEPSelections(df_afterFid_fall18outb_MCgen);
+    auto df_afterFid_sp18outb_MCgenfinal = ApplyFinalGenDVEPSelections(df_afterFid_sp18outb_MCgen);
 
     if (plotIntInvMass) {
       /* code */
       // PlotEventOverview(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm", "exclusiveKpKm");
-      DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8,
+      DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi, "PhiMassPlots/spring2019/inb/DVKpKm/exclusiveKpKm/", "Sp19 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.6,
                                             /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
       DISANA::PhiMass::DrawPhiMass_Measured(df_fall18inb_phi, "PhiMassPlots/fall2018/inb/DVKpKm/exclusiveKpKm/", "Fall18 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.6,
-                                            /*mPhiLo*/ 0.9874, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
+                                            /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
       DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi, "PhiMassPlots/spring2018/inb/DVKpKm/exclusiveKpKm/", "Sp18 INB DVKpKm", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.6,
                                             /*mPhiLo*/ 0.9874, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
       DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi, "PhiMassPlots/spring2018/outb/DVKpKm/exclusiveKpKm/", "Sp18 OUTB DVKpKm ", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.6,
@@ -277,14 +355,19 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
       // MC RECONSTRUCTED
       DISANA::PhiMass::DrawPhiMass_Measured(df_sp18inb_phi_MC, "PhiMassPlots/spring2018/inb/MC_reconstructed/DVKpKm/", "Sp18 INB DVKpKm MC Reconstructed", /*nBins*/ 200,
-                                          /*mMin*/ 0.8, /*mMax*/ 1.8,
-                                           /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
+                                            /*mMin*/ 0.8, /*mMax*/ 1.8,
+                                            /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
       DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi_MC, "PhiMassPlots/spring2019/inb/MC_reconstructed/DVKpKm/", "Sp19 INB DVKpKm MC Reconstructed", /*nBins*/ 200,
                                             /*mMin*/ 0.8, /*mMax*/ 1.8,
                                             /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
-                              
-      DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi_MC_clasdis, "PhiMassPlots/spring2019/inb/MC_reconstructed/DVKpKm/clasdis/", "Sp19 INB DVKpKm MC Reconstructed clasdis", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8,
+      DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi_MC_Harut_p39, "PhiMassPlots/spring2019/inb/MC_reconstructed/DVKpKm/Harut_p39/",
+                                            "Sp19 INB DVKpKm MC Reconstructed Harut p39", /*nBins*/ 200,
+                                            /*mMin*/ 0.8, /*mMax*/ 1.8,
                                             /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
+
+      // DISANA::PhiMass::DrawPhiMass_Measured(df_sp19inb_phi_MC_clasdis, "PhiMassPlots/spring2019/inb/MC_reconstructed/DVKpKm/clasdis/", "Sp19 INB DVKpKm MC Reconstructed
+      // clasdis", /*nBins*/ 200, /*mMin*/ 0.8, /*mMax*/ 1.8,
+      //                                    /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
       DISANA::PhiMass::DrawPhiMass_Measured(df_fall18inb_phi_MC, "PhiMassPlots/fall2018/inb/MC_reconstructed/DVKpKm/", "Fall18 INB DVKpKm MC Reconstructed", /*nBins*/ 200,
                                             /*mMin*/ 0.8, /*mMax*/ 1.8,
                                             /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
@@ -293,24 +376,25 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
                                             /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
       DISANA::PhiMass::DrawPhiMass_Measured(df_sp18outb_phi_MC, "PhiMassPlots/spring2018/outb/MC_reconstructed/DVKpKm/", "Sp18 OUTB DVKpKm MC Reconstructed", /*nBins*/ 200,
                                             /*mMin*/ 0.8, /*mMax*/ 1.8,
-                                            /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);  
+                                            /*mPhiLo*/ 0.987, /*mPhiHi*/ 1.2, /*nSigma*/ 8.0);
     }
+
     // Add any datasets you want to compare
     // Binning setup for phi analysis
-    auto hQ2t_fall18outb = df_fall18outb_phi.Histo2D({"hQ2t_fall18outb", "t' vs Q^{2};t' [GeV^{2}];Q^{2} [GeV^{2}]", 60, 0.01, 4.5,  // x:  t' range
-                                                      60, 0.1, 8.0},                                                                // y:  Q^2 range
-                                                     "mtprime", "Q2"                                                                // x var, y var
+    auto hQ2t_fall18outb = df_fall18outb_phi.Histo2D({"hQ2t_fall18outb", "t' vs Q^{2};t' [GeV^{2}];Q^{2} [GeV^{2}]", 60, 0.01, 4.0,  // x:  t' range
+                                                      60, 0.8, 8.0},                                                                 // y:  Q^2 range
+                                                     "mtprime", "Q2"                                                                 // x var, y var
     );
     // MC Reconstructed
-    //auto hQ2t_sp18inb_MC = df_sp18inb_phi_MC.Histo2D({"hQ2t_sp18inb_MC", "t' vs Q^{2};t' [GeV^{2}];Q^{2} [GeV^{2}]", 60, 0.01, 4.5,  // x:  t' range
+    // auto hQ2t_sp18inb_MC = df_sp18inb_phi_MC.Histo2D({"hQ2t_sp18inb_MC", "t' vs Q^{2};t' [GeV^{2}];Q^{2} [GeV^{2}]", 60, 0.01, 4.5,  // x:  t' range
     //                                                  60, 0.1, 8.0},                                                                // y:  Q^2 range
-   //                                                  "mtprime", "Q2"                                                                // x var, y var
-   // );
+    //                                                  "mtprime", "Q2"                                                                // x var, y var
+    // );
     auto* hptr = hQ2t_fall18outb.GetPtr();
     std::cout << "[DEBUG] hQ2t_fall18outb entries = " << hptr->GetEntries() << " integral = " << hptr->Integral() << std::endl;
 
-    int nQ2Bins = 4;      // n Q^2 bins
-    int nTprimeBins = 9;  // m t' bins
+    int nQ2Bins = 5;       // n Q^2 bins
+    int nTprimeBins = 10;  // m t' bins
 
     EqualStatBinningResult eqBins = xBins.MakeEqualStatBinning(hQ2t_fall18outb.GetPtr(), nQ2Bins, nTprimeBins);
     std::cout << "Q2 edges size = " << eqBins.q2Edges.size() << std::endl;
@@ -319,31 +403,68 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
     PrintEdges("Q^{2}", eqBins.q2Edges);
     PrintEdges("t'", eqBins.tprimeEdges);
 
-    // ── Export binning CSVs for RunMDiffradNew (one per beam energy) ─────────
-    // Two groups:
-    //   10.2 GeV → sp2019 inb
-    //   10.6 GeV → sp2018 inb/outb, fall2018 inb/outb
+    xBins.DrawQ2TprimeWithGrid(hQ2t_fall18outb.GetPtr(), eqBins.q2Edges, {0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0},
+                               "cQ2t_equalStat", "PhiMassPlots/Q2_vs_tprime_equalStatBins.pdf");
+    // Fix t bin bin
+    xBins.SetQ2Bins(eqBins.q2Edges);
+    xBins.SetTprimeBins({0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0});
+    // keep your xB, W binning as-is
+    xBins.SetWBins({1.8, 4.0});
+    // xBins.SetTprimeBins(eqBins.tprimeEdges);
     {
-      double W2lo = 4.00;    // W > 2.0 GeV
-      double W2hi = 12.25;   // W < 3.5 GeV
+      std::filesystem::create_directories(outputDir);
+
+      // Compute mean Q^2 and mean x_B per Q^2 bin from each data sample.
+      // Both quantities are booked in a single lazy RDataFrame event loop.
+      const auto means_sp19 = ComputeMeanKinPerQ2Bin(df_sp19inb_phi, eqBins.q2Edges);
+      const auto means_sp18 = ComputeMeanKinPerQ2Bin(df_sp18inb_phi, eqBins.q2Edges);
+
+      // Spring 2019 inb  (10.2 GeV)
+      PlotVmCut(eqBins.q2Edges, means_sp19, static_cast<double>(beam_energy_sp2019), m_phi, outputDir + "/vm_cut_sp19inb_10p2GeV.pdf");
+
+      // Spring 2018 inb  (10.6 GeV)
+      PlotVmCut(eqBins.q2Edges, means_sp18, static_cast<double>(beam_energy_sp2018), m_phi, outputDir + "/vm_cut_sp18inb_10p6GeV.pdf");
+
+      // ── Egamma* and Emiss distributions per Q^2 bin ────────────────────
+      PlotRadiativeKinematics(df_sp19inb_phi, eqBins.q2Edges, means_sp19, outputDir + "/rad_kinematics_sp19inb_10p2GeV.pdf");
+
+      PlotRadiativeKinematics(df_sp18inb_phi, eqBins.q2Edges, means_sp18, outputDir + "/rad_kinematics_sp18inb_10p6GeV.pdf");
+      // 2D heat map — integrated over all Q²
+      PlotInvMassVsMissingMass(df_sp19inb_phi, outputDir + "/invmass_vs_missmass.pdf");
+
+      // Side-by-side 1D projections from the same 2D distribution
+      PlotInvMassVsMissingMassProjections(df_sp19inb_phi, outputDir + "/invmass_missmass_projections.pdf",
+                                          /*nBinsX=*/100, /*nBinsY=*/80,
+                                          /*xLo=*/0.98, /*xHi=*/1.10,
+                                          /*yLo=*/0.90, /*yHi=*/1.15,
+                                          /*sigWin=*/0.010);  // ← widen to 0.015 if stats are low
+    }
+    {
+      double W2lo = 3.24;       // W > 1.8 GeV
+      double W2hi = 4.0 * 4.0;  // W < 3.5 GeV
       std::filesystem::create_directories(outputDir);
 
       // 10.2 GeV CSV
       std::string csv102 = outputDir + "/diffrad_binning_10p2GeV.csv";
-      ExportBinningCSV(eqBins.q2Edges, eqBins.tprimeEdges,
-                       static_cast<double>(beam_energy_sp2019), W2lo, W2hi, csv102);
+      ExportBinningCSV(eqBins.q2Edges, {0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0}, static_cast<double>(beam_energy_sp2019),
+                       W2lo, W2hi, csv102);
 
       // 10.6 GeV CSV
       std::string csv106 = outputDir + "/diffrad_binning_10p6GeV.csv";
-      ExportBinningCSV(eqBins.q2Edges, eqBins.tprimeEdges,
-                       static_cast<double>(beam_energy_fall2018), W2lo, W2hi, csv106);
+      ExportBinningCSV(eqBins.q2Edges, {0.0100, 0.3760, 0.4675, 0.5590, 0.6505, 0.8335, 0.9250, 1.1080, 1.3825, 1.8400, 2.2, 2.7, 4.0}, static_cast<double>(beam_energy_fall2018),
+                       W2lo, W2hi, csv106);
     }
-    // ─────────────────────────────────────────────────────────────────────────
-
+    
     // ── Load rad-corr RDF trees from RunMDiffradNew output ROOT files ─────────
-    const std::string kRadRootFile_10p2 =  "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p2GeV/mdiffrad_output.root";
-    const std::string kRadRootFile_10p6 =  "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p6GeV/mdiffrad_output.root";
-
+    std::string kRadRootFile_10p2 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p2GeV/mdiffrad_output.root";
+    std::string kRadRootFile_10p6 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p6GeV/mdiffrad_output.root";
+    if (TryHStyle) {
+      kRadRootFile_10p2 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/HS_rad/10p2GeV/mdiffrad_output.root";
+      kRadRootFile_10p6 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/HS_rad/10p6GeV/mdiffrad_output.root";
+    } else {
+      kRadRootFile_10p2 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p2GeV/mdiffrad_output.root";
+      kRadRootFile_10p6 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p6GeV/mdiffrad_output.root";
+    }
     // Helper: load radcorr_rdf tree, return RNode. Falls back to a 1-row dummy
     // (rad_corr=1.0) if the file is not yet available so the rest of the analysis
     // still compiles and runs without corrections applied.
@@ -352,72 +473,71 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
         std::cout << "[RadCorr] Loading radcorr_rdf from " << rootFile << "\n";
         return ROOT::RDataFrame("radcorr_rdf", rootFile);
       }
-      std::cerr << "[RadCorr] WARNING: " << rootFile
-                << " not found — using rad_corr=1.0 (no correction).\n"
+      std::cerr << "[RadCorr] WARNING: " << rootFile << " not found — using rad_corr=1.0 (no correction).\n"
                 << "  Run RunMDiffradNew and set the output path above.\n";
       // Return a minimal dummy RDF with the required columns so downstream
       // code does not crash.  MakePhiRadiativeCorrection3D will fall back to 1.0
       // for all bins with fewer than minEntries (default 10) entries.
       return ROOT::RDataFrame(0)
-                 .Define("Q2",       []{ return 1.0; })
-                 .Define("W",        []{ return 3.0; })
-                 .Define("mtprime",  []{ return 0.1; })
-                 .Define("rad_corr", []{ return 1.0; })
-                 .Define("beam_mom", []{ return 10.6; });
+          .Define("Q2", [] { return 1.0; })
+          .Define("W", [] { return 3.0; })
+          .Define("mtprime", [] { return 0.1; })
+          .Define("rad_corr", [] { return 1.0; })
+          .Define("beam_mom", [] { return 10.6; });
     };
 
     ROOT::RDF::RNode df_rad_10p2 = LoadRadRDF(kRadRootFile_10p2);
     ROOT::RDF::RNode df_rad_10p6 = LoadRadRDF(kRadRootFile_10p6);
 
     // Period → rad RDF mapping
-    ROOT::RDF::RNode& df_rad_sp19inb    = df_rad_10p2;  // 10.2 GeV
-    ROOT::RDF::RNode& df_rad_sp18inb   = df_rad_10p6;  // 10.6 GeV
-    ROOT::RDF::RNode& df_rad_sp18outb  = df_rad_10p6;
+    ROOT::RDF::RNode& df_rad_sp19inb = df_rad_10p2;  // 10.2 GeV
+    ROOT::RDF::RNode& df_rad_sp18inb = df_rad_10p6;  // 10.6 GeV
+    ROOT::RDF::RNode& df_rad_sp18outb = df_rad_10p6;
     ROOT::RDF::RNode& df_rad_fall18inb = df_rad_10p6;
-    ROOT::RDF::RNode& df_rad_fall18outb= df_rad_10p6;
+    ROOT::RDF::RNode& df_rad_fall18outb = df_rad_10p6;
 
-    // xBins.DrawQ2TprimeWithGrid(hQ2t_fall18outb.GetPtr(), eqBins.q2Edges, eqBins.tprimeEdges, "cQ2t_equalStat", "PhiMassPlots/Q2_vs_tprime_equalStatBins.pdf");
-    xBins.SetQ2Bins(eqBins.q2Edges);
-    xBins.SetTprimeBins(eqBins.tprimeEdges);
-
-    // keep your xB, W binning as-is
-    xBins.SetXBBins({0.0, 0.99});
-    xBins.SetWBins({2.0, 10.0});
     comparer.SetXBinsRanges(xBins);
-    bool GenOnly = true; // toggle to skip reconstructed and only compare gen-level distributions to models (e.g. for acceptance/efficiency studies)
-                          // ── AddModelPhi — pass rad RDF + enable rad correction per dataset ────────
-    if (!GenOnly) {
-      comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb, df_afterFid_sp19inb_MCgen, df_sp19inb_phi_MC, df_rad_sp19inb,
+    // toggle to skip reconstructed and only compare gen-level distributions to models (e.g. for acceptance/efficiency studies)
+    // ── AddModelPhi — pass rad RDF + enable rad correction per dataset ────────
+    if (RecDataOnly) {
+      comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb", beam_energy_sp2019, luminosity_rga_sp19_inb, df_afterFid_sp19inb_MCgenfinal, df_sp19inb_phi_MC, df_sp19inb_phi_MC_eff_50nA,
+                           df_sp19inb_phi_MC_eff_nobkg, df_rad_sp19inb,
                            /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+      // comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb, df_afterFid_sp18inb_MCgenfinal, df_sp18inb_phi_MC,
+      // df_sp18inb_phi_MC_eff_nobkg, df_sp18inb_phi_MC_eff_50nA, df_rad_sp18inb,
+      //                     /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
+      // comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb, df_afterFid_sp18outb_MCgenfinal, df_sp18outb_phi_MC,
+      // df_sp18outb_phi_MC_eff_45nA, df_sp18outb_phi_MC_eff_nobkg, df_rad_sp18outb,
+      //                    /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
 
-      comparer.AddModelPhi(df_sp18inb_phi, "Sp18 inb", beam_energy_sp2018, luminosity_rga_sp18_inb, df_afterFid_sp18inb_MCgen, df_sp18inb_phi_MC, df_rad_sp18inb,
-                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-      comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb, df_afterFid_sp18outb_MCgen, df_sp18outb_phi_MC, df_rad_sp18outb,
-                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-      comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb, df_afterFid_fall18inb_MCgen, df_fall18inb_phi_MC, df_rad_fall18inb,
-                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-      comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb, df_afterFid_fall18outb_MCgen, df_fall18outb_phi_MC,
-                           df_rad_fall18outb,
-                           /*doAcc=*/false, /*doEff=*/false, /*doRadCorr=*/false);
-    } else {
-      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Sp19 inb gen", beam_energy_sp2019, luminosity_rga_sp19_inb);
-      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Sp18 inb gen", beam_energy_sp2018, luminosity_rga_sp18_inb);
-      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Sp18 outb gen", beam_energy_sp2018, luminosity_rga_sp18_outb);
-      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Fall18 inb gen", beam_energy_fall2018, luminosity_rga_fall18_inb);
-      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen, "Fall18 outb gen", beam_energy_fall2018, luminosity_rga_fall18_outb);
+    } else if (GenOnly) {
+      xBins.SetQ2Bins({0.8, 8.0});
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgen_Harut_p39final, "JLab MC", beam_energy_sp2019, luminosity_rga_sp19_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Phi Eventgen", beam_energy_sp2019, luminosity_rga_sp19_inb);
+      /*comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Sp18 inb gen", beam_energy_sp2018, luminosity_rga_sp18_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Sp18 outb gen", beam_energy_sp2018, luminosity_rga_sp18_outb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Fall18 inb gen", beam_energy_fall2018, luminosity_rga_fall18_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Fall18 outb gen", beam_energy_fall2018, luminosity_rga_fall18_outb);*/
+    } else if (RecGEMCOnly) {
+      comparer.AddModelPhi(df_sp19inb_phi_MC_Harut_p39, "JLab MC", beam_energy_sp2019, luminosity_rga_sp19_inb);
+      comparer.AddModelPhi(df_sp19inb_phi_MC, "Phi Eventgen", beam_energy_sp2019, luminosity_rga_sp19_inb);
+      comparer.AddModelPhi(df_sp19inb_phi, "Sp19 inb (data)", beam_energy_sp2019, luminosity_rga_sp19_inb);
+      /*comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Sp18 inb gen", beam_energy_sp2018, luminosity_rga_sp18_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Sp18 outb gen", beam_energy_sp2018, luminosity_rga_sp18_outb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Fall18 inb gen", beam_energy_fall2018, luminosity_rga_fall18_inb);
+      comparer.AddModelPhi(df_afterFid_sp19inb_MCgenfinal, "Fall18 outb gen", beam_energy_fall2018, luminosity_rga_fall18_outb);*/
     }
 
     // outb (no MC gen/rec available — rad corr only)
-    //comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
-    //comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
+    // comparer.AddModelPhi(df_fall18outb_phi, "Fall18 outb", beam_energy_fall2018, luminosity_rga_fall18_outb);
+    // comparer.AddModelPhi(df_sp18outb_phi, "Sp18 outb", beam_energy_sp2018, luminosity_rga_sp18_outb);
     // inb
-    //comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb);
-
+    // comparer.AddModelPhi(df_fall18inb_phi, "Fall18 inb", beam_energy_fall2018, luminosity_rga_fall18_inb);
 
     // MC RECONSTRUCTED
     // comparer.AddModelPhi(df_sp18inb_phi_MC, "Sp18 inb MC Recon", beam_energy_sp2018, luminosity_rga_sp18_inb);
-    //comparer.AddModelPhi(df_sp19inb_phi_MC, "Sp19inb MC Rec", beam_energy_sp2019, luminosity_rga_sp19_inb);
-    //comparer.AddModelPhi(df_sp19inb_phi_MC_clasdis, "Sp19inb MC Rec clasdis", beam_energy_sp2019, luminosity_rga_sp19_inb);
+    // comparer.AddModelPhi(df_sp19inb_phi_MC, "Sp19inb MC Rec", beam_energy_sp2019, luminosity_rga_sp19_inb);
+    // comparer.AddModelPhi(df_sp19inb_phi_MC_clasdis, "Sp19inb MC Rec clasdis", beam_energy_sp2019, luminosity_rga_sp19_inb);
     // DumpExclusiveTxt(df_sp18inb_phi_MC, "exclusive_events_dump_sp2018_inb_MC_reconstructed.txt");
     // DumpExclusiveTxt(df_sp19inb_phi_MC, "exclusive_events_dump_sp2019_inb_MC_reconstructed.txt");
   }
@@ -518,14 +638,32 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 
   comparer.PlotPhiDVEPKinematicsPlots();
   comparer.PlotKinematicComparison_phiAna();
-  return;
   comparer.PlotPhiAnaExclusivityComparisonByDetectorCases(detCuts);
+
   comparer.PlotPhiInvMassPerBin_AllModels("PhiInvMassFits", 40, 0.988, 1.15, true, 0.004, 0.25,  // sigmaRef, sigmaFrac
                                           branching,                                             // branching (0.492 etc)
-                                          true,                                                 // doAcceptanceCorr
-                                          false                                                   // doRadCorr
+                                          true,                                                  // doAcceptanceCorr
+                                          true,                                                  // efficiencyCorr
+                                          false                                                  // doRadCorr
+
   );
-  comparer.PlotPhiDSigmaDt_FromCache(true, false, false, true);
+  comparer.PlotPhiDSigmaDt_FromCache(true, true, true, true, true);
+  return;
+  // ----------------------------------------------------------------
+  //  R = sigma_L / sigma_T  from cos(theta_H) angular distribution
+  //  Step 1: run per-(Q2,W,t',cos θ) mass fits and fill R / r04_00 cache
+  //  Step 2: plot R vs t' and write summary CSV
+  // ----------------------------------------------------------------
+  comparer.PlotPhiRLTPerBin_AllModels("PhiRLTFits",  // output subdirectory
+                                      40,            // nMassBins for K+K- invariant mass fit
+                                      0.988,         // mMin  [GeV]
+                                      1.15,          // mMax  [GeV]
+                                      true,          // constrainSigma
+                                      0.004,         // sigmaRef [GeV]
+                                      0.25,          // sigmaFrac
+                                      10.6           // beam energy [GeV]
+  );
+  comparer.PlotPhiRLT_FromCache("PhiRLT");
 
   return;
   xBins.SetQ2Bins({0.9, 8.35});
@@ -566,30 +704,14 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
 ROOT::RDF::RNode ApplyFinalDVEPSelections(ROOT::RDF::RNode df) {
   return df
       // 4. Q2 > 1
-      .Filter("Q2 > 0.1", "Cut: Q2 > 0.1 GeV^2")
-      //.Filter("mtprime > 0.01", "Cut: t' > 0 GeV^2")
-      .Filter("W > 2.0", "Cut: W > 2.0 GeV")
+      .Filter("Q2 > 0.8", "Cut: Q2 > 0.8 GeV^2")
+      .Filter("W > 1.8", "Cut: W > 1.8 && W < 2.5 GeV")
       .Filter("recel_p  > 1.5", "Cut: recel_p < 1.5 GeV")
       //.Filter("bestEle_idx > 0", "Cut: reckPlus_p < 3.5 GeV")
 
       .Filter("reckPlus_p  <7.5", "Cut: reckPlus_p < 3.5 GeV")
       .Filter("reckMinus_p < 7.5", "Cut: reckMinus_p < 3.5 GeV")
-      // 5. W > 2 (your title said 1.8; using 2.0 as in expression)
-
-      // Apply vz cut only if detector status == 2
-      // Apply vz(e) only if ele_det_region == 1
-      //.Filter("(ele_det_region != 1) || (recel_vz > -10.0 && recel_vz < 3.0)", "Cut: vz(e) in [-10,3] cm if ele_det_region==1")
-
-      // Apply vz(K+) only if kPlus_det_region == 1
-      //.Filter("(kPlus_det_region != 1) || (reckPlus_vz > -10.0 && reckPlus_vz < 3.0)", "Cut: vz(K+) in [-10,3] cm if kPlus_det_region==1")
-
-      // Apply vz(K-) only if kMinus_det_region == 1
-      //.Filter("(kMinus_det_region != 1) || (reckMinus_vz > -10.0 && reckMinus_vz < 3.0)", "Cut: vz(K-) in [-10, 3] cm if kMinus_det_region==1")
-
-      // Apply vz(p) only if pro_det_region is 1 OR 2 (single combined filter)
-      //.Filter("((pro_det_region != 1) && (pro_det_region != 2)) || (recpro_vz > -10.0 && recpro_vz < 3.0)", "Cut: vz(p) in [-10, 3] cm if pro_det_region==1 or 2")
-
-      // 9. Missing energy / exclusivity
+      .Filter("ele_det_region == 1", "Cut: ele_det_region == 1")
       .Filter("Mx2_eKpKm > 0.8*0.8 && Mx2_eKpKm < 1.08*1.08", "Cut: Proton Missing Mass Squared in [0.8,1.08] GeV^2")
       .Filter("Mx2_epKm > .08 && Mx2_epKm < 0.48", "Cut: Kaon Missing Mass Squared in [0.08,.48] GeV^2")
       .Filter("Mx2_epKp > .08 && Mx2_epKp < 0.48", "Cut: Kaon Missing Mass Squared in [0.08,.48] GeV^2")
@@ -607,6 +729,12 @@ ROOT::RDF::RNode ApplyFinalDVEPSelections(ROOT::RDF::RNode df) {
   //.Filter("invMass_KpKm > 0.9874 && invMass_KpKm < 1.12", "Cut: invMass_KpKm in [0.9874,1.12] GeV");
 }
 
+ROOT::RDF::RNode ApplyFinalGenDVEPSelections(ROOT::RDF::RNode df) {
+  return df
+      // 4. Q2 > 1
+      .Filter("Q2 > 0.8", "Cut: Q2 > 0.8 GeV^2")
+      .Filter("W > 1.8", "Cut: W > 1.8 && W < 2.5 GeV");
+}
 
 /////// mathematica functions
 void PrintEdges(const std::string& label, const std::vector<double>& edges) {
@@ -618,20 +746,7 @@ void PrintEdges(const std::string& label, const std::vector<double>& edges) {
   std::cout << std::endl;
 }
 
-// Writes a compact 3-line binning CSV for RunMDiffradNew.
-// Format — pure CSV, key is first field, values follow:
-//   beam_momentum,W2_lo,W2_hi
-//   Q2_edges,e0,e1,...,eN
-//   tprime_edges,e0,e1,...,eM
-// RunMDiffradNew derives tmin, |t|, etc. internally from these edges +
-// beam_momentum.  No derived quantities are stored here.
-static void ExportBinningCSV(const std::vector<double>& q2Edges,
-                              const std::vector<double>& tpEdges,
-                              double beamMom,
-                              double W2lo,
-                              double W2hi,
-                              const std::string& outPath)
-{
+static void ExportBinningCSV(const std::vector<double>& q2Edges, const std::vector<double>& tpEdges, double beamMom, double W2lo, double W2hi, const std::string& outPath) {
   std::ofstream csv(outPath);
   if (!csv.is_open()) {
     std::cerr << "[ExportBinningCSV] ERROR: cannot open " << outPath << std::endl;
@@ -645,7 +760,7 @@ static void ExportBinningCSV(const std::vector<double>& q2Edges,
 
   // Line 1: metadata
   csv << "beam_momentum," << beamMom << "\n";
-  csv << "W2_range,"      << W2lo    << "," << W2hi << "\n";
+  csv << "W2_range," << W2lo << "," << W2hi << "\n";
 
   // Line 2: Q² edges
   csv << "Q2_edges";
@@ -663,8 +778,7 @@ static void ExportBinningCSV(const std::vector<double>& q2Edges,
   int nQ2 = (int)q2Edges.size() - 1;
   int nTp = (int)tpEdges.size() - 1;
   std::cout << std::fixed << std::setprecision(4);
-  std::cout << "[ExportBinningCSV] " << outPath
-            << "  (" << nQ2 << " Q2 bins × " << nTp << " t' bins"
+  std::cout << "[ExportBinningCSV] " << outPath << "  (" << nQ2 << " Q2 bins × " << nTp << " t' bins"
             << ", E_beam=" << beamMom << " GeV)\n"
             << "  Q2 edges:";
   for (auto e : q2Edges) std::cout << " " << e;
@@ -674,15 +788,15 @@ static void ExportBinningCSV(const std::vector<double>& q2Edges,
 }
 
 double computeLuminosity(double Q_mC) {
-  const double e      = 1.602e-19;          // C
-  const double NA     = 6.022e23;           // /mol
-  const double rho    = 0.07151;            // g/cm³
-  const double ell    = 5.0;               // cm
-  const double Aw     = 1.00794;            // g/mol
-  const double target_areal_density = NA * rho * ell / Aw; // ~2.136e22 cm⁻²
+  const double e = 1.602e-19;                               // C
+  const double NA = 6.022e23;                               // /mol
+  const double rho = 0.07151;                               // g/cm³
+  const double ell = 5.0;                                   // cm
+  const double Aw = 1.00794;                                // g/mol
+  const double target_areal_density = NA * rho * ell / Aw;  // ~2.136e22 cm⁻²
   // 1 cm⁻² = 1e33 nb⁻¹
   double n_electrons = (Q_mC * 1e-3) / e;
-  return n_electrons * target_areal_density * 1e-33; // nb⁻¹
+  return n_electrons * target_areal_density * 1e-33;  // nb⁻¹
 }
 
 /*double computeLuminosity(double Q_coulombs) {

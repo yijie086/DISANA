@@ -6,6 +6,11 @@
 #include <TTree.h>
 
 #include <ROOT/RDataFrame.hxx>
+#include <algorithm>
+#include <atomic>
+#include <cmath>
+#include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,10 +46,13 @@ class DISANAplotter {
 
   // for Phi Analysis
   DISANAplotter(PhiModeTag, ROOT::RDF::RNode df_phi_data, double beamEnergy, double luminosity, std::optional<ROOT::RDF::RNode> df_gen_phimc = std::nullopt,
-                std::optional<ROOT::RDF::RNode> df_accept_phimc = std::nullopt, std::optional<ROOT::RDF::RNode> df_phimc_radRatio = std::nullopt)
+                std::optional<ROOT::RDF::RNode> df_accept_phimc = std::nullopt, std::optional<ROOT::RDF::RNode> df_phimc_bkg = std::nullopt,
+                std::optional<ROOT::RDF::RNode> df_phimc_nobkg = std::nullopt, std::optional<ROOT::RDF::RNode> df_phimc_radRatio = std::nullopt)
       : rdf(std::move(df_phi_data)),
         rdf_gen_phimc(std::move(df_gen_phimc)),
         rdf_accept_phimc(std::move(df_accept_phimc)),
+        rdf_phimc_bkg(std::move(df_phimc_bkg)),
+        rdf_phimc_nobkg(std::move(df_phimc_nobkg)),
         rdf_phimc_radRatio(std::move(df_phimc_radRatio)),
         beam_energy(beamEnergy),
         luminosity_nb_inv(luminosity) {}
@@ -82,6 +90,10 @@ class DISANAplotter {
       for (auto* h : row) delete h;
     }
     phi_accept_QW_.clear();
+    for (auto& row : phi_eff_QW_) {
+      for (auto* h : row) delete h;
+    }
+    phi_eff_QW_.clear();
     for (auto& row : phi_rad_QW_)
       for (auto* h : row) delete h;
     phi_rad_QW_.clear();
@@ -135,6 +147,8 @@ class DISANAplotter {
   const std::vector<std::vector<TH1D*>>& GetPhiALUZPhi3D() const { return phi_alu_zphi_QW_; }
   const std::vector<std::vector<TH1D*>>& GetPhiAcceptance3D() const { return phi_accept_QW_; }
   std::vector<std::vector<TH1D*>>& GetPhiAcceptance3D() { return phi_accept_QW_; }
+  const std::vector<std::vector<TH1D*>>& GetPhiEfficiency3D() const { return phi_eff_QW_; }
+  std::vector<std::vector<TH1D*>>& GetPhiEfficiency3D() { return phi_eff_QW_; }
   const std::vector<std::vector<TH1D*>>& GetPhiRadCorr3D() const { return phi_rad_QW_; }
   std::vector<std::vector<TH1D*>>& GetPhiRadCorr3D() { return phi_rad_QW_; }
 
@@ -157,6 +171,47 @@ class DISANAplotter {
     return phi_mean_GammaV_QW_[iq][iw][it];
   }
 
+
+  // ---------- R = sigma_L/sigma_T getters ----------
+  const std::vector<std::vector<TH1D*>>& GetPhiRLT3D()  const { return phi_rlt_QW_; }
+  std::vector<std::vector<TH1D*>>&       GetPhiRLT3D()        { return phi_rlt_QW_; }
+  const std::vector<std::vector<TH1D*>>& GetPhiR04_003D() const { return phi_r04_QW_; }
+  std::vector<std::vector<TH1D*>>&       GetPhiR04_003D()       { return phi_r04_QW_; }
+
+  // ---------- xB-binned accessors (gluon radius extraction) ----------
+  const std::vector<TH1D*>& GetPhiDSigmaDt_XBT()   const { return phi_dsdt_xBt_; }
+  std::vector<TH1D*>&       GetPhiDSigmaDt_XBT()         { return phi_dsdt_xBt_; }
+  const std::vector<TH1D*>& GetPhiRawCounts_XBT()  const { return phi_nsig_xBt_; }
+  const std::vector<TH1D*>& GetPhiAcceptance_XBT() const { return phi_accept_xBt_; }
+  const std::vector<TH1D*>& GetPhiEfficiency_XBT() const { return phi_eff_xBt_; }
+  const std::vector<TH1D*>& GetPhiRadCorr_XBT()    const { return phi_rad_xBt_; }
+
+  // Per-(xB, t') mean kinematics; it = 0-based t' bin index
+  double GetPhiMeanW_XBT   (size_t ixB, size_t it) const {
+    if (ixB >= phi_mean_W_xBt_.size())   return std::numeric_limits<double>::quiet_NaN();
+    if (it  >= phi_mean_W_xBt_[ixB].size()) return std::numeric_limits<double>::quiet_NaN();
+    return phi_mean_W_xBt_[ixB][it];
+  }
+  double GetPhiMeanQ2_XBT  (size_t ixB, size_t it) const {
+    if (ixB >= phi_mean_Q2_xBt_.size())  return std::numeric_limits<double>::quiet_NaN();
+    if (it  >= phi_mean_Q2_xBt_[ixB].size()) return std::numeric_limits<double>::quiet_NaN();
+    return phi_mean_Q2_xBt_[ixB][it];
+  }
+  double GetPhiMeanXB_XBT  (size_t ixB, size_t it) const {
+    if (ixB >= phi_mean_xB_xBt_.size())  return std::numeric_limits<double>::quiet_NaN();
+    if (it  >= phi_mean_xB_xBt_[ixB].size()) return std::numeric_limits<double>::quiet_NaN();
+    return phi_mean_xB_xBt_[ixB][it];
+  }
+  double GetPhiMeanTmin_XBT(size_t ixB, size_t it) const {
+    if (ixB >= phi_mean_tmin_xBt_.size()) return std::numeric_limits<double>::quiet_NaN();
+    if (it  >= phi_mean_tmin_xBt_[ixB].size()) return std::numeric_limits<double>::quiet_NaN();
+    return phi_mean_tmin_xBt_[ixB][it];
+  }
+  double GetPhiMeanGammaV_XBT(size_t ixB, size_t it) const {
+    if (ixB >= phi_mean_GammaV_xBt_.size()) return std::numeric_limits<double>::quiet_NaN();
+    if (it  >= phi_mean_GammaV_xBt_[ixB].size()) return std::numeric_limits<double>::quiet_NaN();
+    return phi_mean_GammaV_xBt_[ixB][it];
+  }
 
   void GenerateKinematicHistos(const std::string& type) {
     std::vector<std::string> vars = {"p", "theta", "phi"};  // for DVCS analysis
@@ -821,244 +876,110 @@ class DISANAplotter {
 
         for (size_t it = 0; it < nT; ++it) {
           const double tLo = tPrimeEdges[it], tHi = tPrimeEdges[it + 1];
-          const double dT  = tHi - tLo;
-          const double dQ2 = qHi - qLo;
-          // W is in GeV → W² in GeV²; use d(W²) so every dimension is GeV²
-          // dσ/dt   [nb/GeV²]   uses binVol = dT   (Q2,W are bin labels)
-          // dσ/dQ²dt [nb/GeV⁴] uses binVol = dQ2 * dT
-          // d⁴σ/dQ²dW²dt [nb/GeV⁶] uses binVol = dQ2 * dW2 * dT
-          const double dW2 = hasW ? (wHi * wHi - wLo * wLo) : 1.0;  // GeV²
-          // Default: dσ/dt — divide only by dT; Q2 and W are bin labels
-          double binVol = dT;
+          const double dT     = tHi - tLo;
+          const double binVol = dT;   // dσ/dt — divide only by Δt'
 
-          // auto df_bin = df_qw.Filter([=](double t){ return t > tLo && t <= tHi; }, {"t"});
-          auto df_bin = df_qw.Filter([=](double mtp) { return mtp > tLo && mtp <= tHi; }, {"mtprime"});
-          static std::atomic<unsigned long> uid{0};
-          auto hname = Form("hM_%zu_%zu_%zu_%lu", iq, iw, it, uid.fetch_add(1));
-          auto hR = df_bin.Histo1D(ROOT::RDF::TH1DModel(hname, ";M_{K^{+}K^{-}} [GeV];Counts", 200, 0.8, 1.8), "invMass_KpKm");
-          hR.GetValue();
-          TH1D* h = (TH1D*)hR.GetPtr();
-          if (!h || h->GetEntries() <= 20) {
-            // still record an empty point in dσ/dt if we're computing it
+          auto df_bin = df_qw.Filter(
+              [=](double mtp) { return mtp > tLo && mtp <= tHi; }, {"mtprime"});
+
+          // ── Bin label for output files ──────────────────────────────────
+          auto tagRawBin = hasW
+              ? Form("Q2_%.1f_%.1f__W_%.1f_%.2f__tprime_%.1f_%.1f",
+                     qLo, qHi, wLo, wHi, tLo, tHi)
+              : Form("Q2_%.1f_%.1f__tprime_%.1f_%.1f",
+                     qLo, qHi, tLo, tHi);
+          std::string tagBin = tagRawBin;
+          std::replace(tagBin.begin(), tagBin.end(), '.', '_');
+
+          // ── Shared mass-fit kernel (same function as acceptance & eff) ──
+          const auto yData = FitPhiMassYieldAndSave(
+              df_bin, outDirPerModel, tagBin, "",
+              nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac);
+
+          if (!yData.valid) {
             if (luminosity_nb_inv > 0.0 && phi_dsdt_QW_[iq][iw]) {
-              const int b = static_cast<int>(it + 1);
-              phi_dsdt_QW_[iq][iw]->SetBinContent(b, 0.0);
-              phi_dsdt_QW_[iq][iw]->SetBinError(b, 0.0);
+              phi_dsdt_QW_[iq][iw]->SetBinContent((int)it + 1, 0.0);
+              phi_dsdt_QW_[iq][iw]->SetBinError  ((int)it + 1, 0.0);
             }
             continue;
           }
 
+          const double Nsig     = yData.N;
+          const double Nsig_err = yData.dN;
+
+          // ── Mean kinematics (needed for CSV / Gamma_v export) ───────────
           const double mean_xB = *df_bin.Mean("xB");
           const double mean_W  = *df_bin.Mean("W");
-          const double mean_Gv = *df_bin.Mean("Gamma_v");  // optional but recommended
-          // ---- (existing) pretty clone for drawing ----
-          TH1D* hDraw = (TH1D*)h->Clone(Form("%s_draw", h->GetName()));
-          hDraw->SetDirectory(0);
-          hDraw->SetTitle("");
-          hDraw->SetLineColor(kBlue + 1);
-          hDraw->SetLineWidth(2);
-          hDraw->GetYaxis()->SetTitleOffset(1.2);
-          hDraw->SetFillColorAlpha(kBlue - 9, 0.3);
-          hDraw->SetMarkerStyle(20);
-          hDraw->SetMarkerSize(1.2);
-          hDraw->SetMarkerColor(kBlue + 2);
-          hDraw->GetXaxis()->SetTitle("M(K^{+}K^{-}) [GeV]");
-          hDraw->GetYaxis()->SetTitle("Counts");
-          hDraw->GetXaxis()->SetRangeUser(mMin - 0.02, mMax + .020);
+          const double mean_Gv = *df_bin.Mean("Gamma_v");
 
-          const double bw = hDraw->GetXaxis()->GetBinWidth(1);
-          std::cout << Form("[MakePhiMassFitCanvases3D] Fitting %s with %.0f bins, M=[%.4f,%.4f], BW=%.4f GeV", hDraw->GetName(), (double)hDraw->GetNbinsX(), mMin, mMax, bw)
-                    << std::endl;
-
-          std::string formula = Form(
-              // Background: [0]*(x-0.9874)^[1] * exp(-[2]*(x-0.9874))
-              "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))"
-              " + "
-              // Signal (counts/bin): [3] (=Nsig) * bw * Gaussian_pdf(x; [4]=mean, [5]=sigma)
-              "[3]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[4])/([5]),2))/TMath::Abs([5])",
-              bw);
-
-          TF1* fTot = new TF1(Form("fitTotal_%s", hname), formula.c_str(), mMin, mMax);
-
-          //[0]*0.398942*bw*TMath::Exp(-0.5*((x-[1])/([2]))*((x-[1])/([2])))/TMath::Abs([2])
-          // params: [0]=Abkg(scale), [1]=alpha, [2]=lambda, [3]=Nsig(yield), [4]=mu, [5]=sigma
-          fTot->SetParNames("A", "alpha", "lambda", "N", "mu", "sigma");
-          fTot->SetParameters(4, 0.9, 2, 10, 1.02, 0.010);
-          fTot->SetParLimits(4, 1.005, 1.022);
-          fTot->SetParLimits(5, 0.0025, 0.025);
-          fTot->SetParLimits(3, 0.000001, 100000.0);
-          fTot->SetLineColor(kRed + 1);
-          fTot->SetLineWidth(3);
-          hDraw->Fit(fTot, "R0QL");
-          fTot->Draw("SAME C");
-
-          const double A = fTot->GetParameter(0);
-          const double alpha = fTot->GetParameter(1);
-          const double lambda = fTot->GetParameter(2);
-          const double N = fTot->GetParameter(3);
-          const double mu = fTot->GetParameter(4);
-          const double sigma = fTot->GetParameter(5);
-          const double chi2 = fTot->GetChisquare();
-          const double ndf = fTot->GetNDF();
-
-          const double mLo = mu - 3.0 * sigma;
-          const double mHi = mu + 3.0 * sigma;
-
-          TF1* fSig = new TF1(Form("fSig_%s", hname), Form("[0]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[1])/([2]),2))/TMath::Abs([2])", bw), mMin, mMax);
-          fSig->SetParameters(N, mu, sigma);
-          fSig->SetLineColor(kOrange + 1);
-          fSig->SetLineStyle(2);
-          fSig->SetLineWidth(2);
-          fSig->SetFillColorAlpha(kOrange - 3, 0.3);
-          fSig->SetFillStyle(1001);
-          fSig->Draw("SAME FC");
-
-          TF1* fBkg = new TF1(Form("fBkg_%s", hname), "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))", mMin, mMax);
-          fBkg->SetParameters(A, alpha, lambda);
-          fBkg->SetLineColor(kGreen + 2);
-          fBkg->SetLineStyle(3);
-          fBkg->SetLineWidth(2);
-          fBkg->SetFillColorAlpha(kGreen - 7, 0.3);
-          fBkg->SetFillStyle(1001);
-          fBkg->Draw("SAME FC");
-
-          double Nbkg = 0.0;
-          const double Nsig = fTot->GetParameter(3);
-          const double Nsig_err = fTot->GetParError(3);
-
-          // window counts & signal
-          auto dfWin = df_bin.Filter([=](float m) { return m > mLo && m < mHi; }, {"invMass_KpKm"});
-          const ULong64_t Nwin = *dfWin.Count();
-
+          // ── Cross-section computation ───────────────────────────────────
           if (luminosity_nb_inv > 0.0 && phi_dsdt_QW_[iq][iw]) {
             double Aeps = 1.0;
-          
-          if (doacceptcorr && iq < phi_accept_QW_.size()
-              && phi_accept_QW_[iq][iw] != nullptr) {
-              const double a = phi_accept_QW_[iq][iw]->GetBinContent(int(it+1));
+            if (doacceptcorr && iq < phi_accept_QW_.size()
+                && iw < phi_accept_QW_[iq].size()
+                && phi_accept_QW_[iq][iw] != nullptr) {
+              const double a = phi_accept_QW_[iq][iw]->GetBinContent((int)it + 1);
               if (a > 0.0) Aeps = a;
-          }
-            const int b = static_cast<int>(it + 1);
-            double val = 0.0, err = 0.0;
-            val = Nsig / (luminosity_nb_inv * Aeps * branching * binVol);
-            err = Nsig_err / (luminosity_nb_inv * Aeps * branching * binVol);
-            
+            }
 
-            if (doradiativecorr && iq < phi_rad_QW_.size() && iw < phi_rad_QW_[iq].size() && phi_rad_QW_[iq][iw]) {
-              const int b = int(it + 1);
+            double Ceff = 1.0;
+            if (doefficiencycorr && iq < phi_eff_QW_.size()
+                && iw < phi_eff_QW_[iq].size()
+                && phi_eff_QW_[iq][iw] != nullptr) {
+              const double e = phi_eff_QW_[iq][iw]->GetBinContent((int)it + 1);
+              if (e > 0.0) Ceff = e;
+            }
+
+            const int b = (int)it + 1;
+            double val = Nsig     / (luminosity_nb_inv * Aeps * branching * binVol);
+            double err = Nsig_err / (luminosity_nb_inv * Aeps * branching * binVol);
+
+            if (doefficiencycorr && Ceff > 0.0) { val /= Ceff; err /= Ceff; }
+
+            if (doradiativecorr
+                && iq < phi_rad_QW_.size()
+                && iw < phi_rad_QW_[iq].size()
+                && phi_rad_QW_[iq][iw]) {
               const double Crad = phi_rad_QW_[iq][iw]->GetBinContent(b);
-              if (Crad > 0.0) {
-                val /= Crad;
-                err /= Crad;
-              }
+              if (Crad > 0.0) { val /= Crad; err /= Crad; }
             }
             phi_dsdt_QW_[iq][iw]->SetBinContent(b, val);
-            phi_dsdt_QW_[iq][iw]->SetBinError(b, err);
+            phi_dsdt_QW_[iq][iw]->SetBinError  (b, err);
 
-            // Store raw fit yield (Nsig, Nsig_err) regardless of corrections
             if (phi_nsig_QW_[iq][iw]) {
               phi_nsig_QW_[iq][iw]->SetBinContent(b, Nsig);
-              phi_nsig_QW_[iq][iw]->SetBinError(b, Nsig_err);
+              phi_nsig_QW_[iq][iw]->SetBinError  (b, Nsig_err);
             }
           }
-          phi_mean_xB_QW_[iq][iw][it]     = mean_xB;
-          phi_mean_W_QW_[iq][iw][it]      = mean_W;
+
+          phi_mean_xB_QW_   [iq][iw][it] = mean_xB;
+          phi_mean_W_QW_     [iq][iw][it] = mean_W;
           phi_mean_GammaV_QW_[iq][iw][it] = mean_Gv;
-          // ---- (existing) canvas beautification & save ----
-          TCanvas* c = new TCanvas(Form("c_%s", hname), "K^{+}K^{-} mass", 1200, 1000);
-          gStyle->Reset();
-          gStyle->SetOptStat(0);
-          gStyle->SetOptFit(0);
-          gStyle->SetTitleFont(42, "XYZ");
-          gStyle->SetLabelFont(42, "XYZ");
-          gStyle->SetTitleSize(0.05, "XYZ");
-          gStyle->SetLabelSize(0.04, "XYZ");
-          c->SetTicks(1, 1);
-          c->SetTopMargin(0.04);
-          c->SetRightMargin(0.03);
-          c->SetBottomMargin(0.11);
-          c->SetLeftMargin(0.13);
-          gStyle->SetCanvasColor(0);
-          gStyle->SetPadColor(0);
-          c->SetFillColor(0);
-          if (c->GetPad(0)) c->GetPad(0)->SetFillColor(0);
-          c->cd();
-          hDraw->SetMinimum(0.0);
-          hDraw->Draw("PE");
-          fTot->SetLineColor(kRed + 1);
-          fBkg->Draw("SAME FC");
-          fSig->Draw("SAME FC");
-          fTot->Draw("SAME C");
 
-          double yMax = hDraw->GetMaximum();
-          TLine* L1 = new TLine(mLo, 0.0, mLo, yMax * 0.75);
-          TLine* L2 = new TLine(mHi, 0.0, mHi, yMax * 0.75);
-          L1->SetLineColor(kMagenta + 2);
-          L2->SetLineColor(kMagenta + 2);
-          L1->SetLineStyle(2);
-          L2->SetLineStyle(2);
-          L1->SetLineWidth(2);
-          L2->SetLineWidth(2);
-          L1->Draw("SAME");
-          L2->Draw("SAME");
-
-          TLegend* leg = new TLegend(0.55, 0.5, 0.85, 0.75);
-          leg->SetBorderSize(0);
-          leg->SetFillStyle(0);
-          leg->AddEntry(hDraw, "K^{+}K^{-} Inv. Mass", "lep");
-          leg->AddEntry(fTot, "Total Fit: Exp + Gauss", "l");
-          leg->AddEntry(fSig, "Signal (Gauss)", "f");
-          leg->AddEntry(fBkg, "Background (Exp)", "f");
-          leg->AddEntry(L1, "#pm 3#sigma", "l");
-          leg->Draw();
-
-          TLatex latex;
-          latex.SetNDC();
-          latex.SetTextSize(0.035);
-          latex.DrawLatex(0.45, 0.89, Form("Q^{2}[%.2f,%.2f]  %s  -t'[%.2f,%.2f]", qLo, qHi, hasW ? Form("W[%.1f,%.1f]", wLo, wHi) : "", tLo, tHi));
-          latex.DrawLatex(0.55, 0.85, Form("#mu = %.3f GeV, #sigma = %.3f GeV", mu, sigma));
-          const double chi2ndf = fTot->GetNDF() > 0 ? fTot->GetChisquare() / fTot->GetNDF() : 0.0;
-          latex.DrawLatex(0.55, 0.81, Form("#chi^{2}/ndf = %.2f", chi2ndf));
-          latex.DrawLatex(0.55, 0.77, Form("N_{#phi} (total) = %.1f #pm %.1f", Nsig, Nsig_err));
-
-          auto tagRaw = hasW ? Form("Q2_%.1f_%.1f__W_%.1f_%.2f__tprime_%.1f_%.1f", qLo, qHi, wLo, wHi, tLo, tHi) : Form("Q2_%.1f_%.1f__tprime_%.1f_%.1f", qLo, qHi, tLo, tHi);
-          std::string tag = tagRaw;
-          std::replace(tag.begin(), tag.end(), '.', '_');
-          c->SaveAs(Form("%s/KKmass_%s.pdf", outDirPerModel.c_str(), tag.c_str()));
-
-          // pack draw products
+          // ── Fill PhiMassDraw (canvas already saved to disk above) ───────
           PhiMassDraw pack;
-          pack.h = hDraw;
-          pack.fTot = fTot;
-          pack.fSig = fSig;
-          pack.fBkg = fBkg;
-          pack.mu = mu;
-          pack.sigma = sigma;
-          pack.mLo = mLo;
-          pack.mHi = mHi;
-          pack.c = c;
-          pack.name = tag;
+          pack.mu    = yData.mu;
+          pack.sigma = yData.sigma;
+          pack.mLo   = yData.mLo;
+          pack.mHi   = yData.mHi;
+          pack.name  = tagBin;
           out[iq][iw][it] = pack;
 
-          // clean transient objects we don't cache (canvas snapshot saved already)
-          delete c;
-          // delete hDraw;
-          if (gPad) {
-            gPad->Clear();
-            gPad->Update();
-            gPad->SetSelected(nullptr);
-          }
-          delete leg;
-          delete L1;
-          delete L2;
-        }  // it (t bins)
+        }  // it (t' bins)
       }  // iw (W bins)
     }  // iq (Q2 bins)
     return out;
   }
 
-  inline std::vector<std::vector<TH1D*>> MakePhiAcceptanceCorrection3D(const BinManager& bins, const std::string& outDirPerModel, const std::string& genTPrimeVar = "mtprime",
-                                                                       const std::string& recTPrimeVar = "mtprime", int minGenEntries = 10) {
+  inline std::vector<std::vector<TH1D*>> MakePhiAcceptanceCorrection3D(
+      const BinManager& bins,
+      const std::string& outDirPerModel,
+      const std::string& genTPrimeVar  = "mtprime",
+      const std::string& recTPrimeVar  = "mtprime",
+      int    minGenEntries  = 10,
+      bool   constrainSigma = true,
+      double sigmaRef       = 0.004,
+      double sigmaFrac      = 0.25) {
     // ── Guard: both MC RDFs must be present ─────────────────────────────────
     if (!rdf_gen_phimc || !rdf_accept_phimc) {
       std::cerr << "[MakePhiAcceptanceCorrection3D] "
@@ -1146,96 +1067,24 @@ class DISANAplotter {
         for (size_t it = 0; it < nT; ++it) {
           const double tLo = tPrimeEdges[it], tHi = tPrimeEdges[it + 1];
 
-          // Filter reconstructed MC to this t' bin
           auto df_rec_bin = df_rec_qw.Filter(
               [=](double mtp) { return mtp > tLo && mtp <= tHi; }, {"mtprime"});
 
-          static std::atomic<unsigned long> uid_mfit{0};
-          const auto hmname = Form("hMrec_acc_Q%zu_W%zu_T%zu_%lu", iq, iw, it, uid_mfit.fetch_add(1));
+          // ── Bin label ────────────────────────────────────────────────────
+          auto tagRaw = hasW
+              ? Form("MCrecMassFit_Q2_%.2f_%.2f__W_%.2f_%.2f__T_%.3f_%.3f",
+                     qLo, qHi, wLo, wHi, tLo, tHi)
+              : Form("MCrecMassFit_Q2_%.2f_%.2f__T_%.3f_%.3f",
+                     qLo, qHi, tLo, tHi);
 
-          // Build K+K- invariant mass histogram for MC rec in this bin
-          auto hMrecR = df_rec_bin.Histo1D(
-              ROOT::RDF::TH1DModel(hmname, ";M_{K^{+}K^{-}} [GeV];Counts", 200, 0.8, 1.8),
-              "invMass_KpKm");
-          hMrecR.GetValue();
-          TH1D* hMrec = (TH1D*)hMrecR.GetPtr();
+          // ── Shared mass-fit kernel (same as XS and efficiency) ───────────
+          const auto yRec = FitPhiMassYieldAndSave(
+              df_rec_bin, outDirPerModel, tagRaw, "",
+              200, 0.8, 1.8, constrainSigma, sigmaRef, sigmaFrac);
 
-          if (!hMrec || hMrec->GetEntries() < 5) {
-            std::cout << Form(
-                "[MakePhiAcceptanceCorrection3D] "
-                "MC rec: too few events in Q2[%.2f,%.2f] %s t'[%.3f,%.3f] "
-                "(%.0f entries) — N_rec set to 0.\n",
-                qLo, qHi, hasW ? Form("W[%.2f,%.2f]", wLo, wHi) : "",
-                tLo, tHi, hMrec ? (double)hMrec->GetEntries() : 0.0);
-            continue;
-          }
-
-          // ── Same fit model as MakePhiMassFitCanvases3D ──────────────────────
-          // Background: A*(x-0.9874)^alpha * exp(-lambda*(x-0.9874))
-          // Signal:     Nsig * bw * Gauss(x; mu, sigma) / |sigma|
-          const double mMin_fit = 0.9874, mMax_fit = 1.120;
-          const double bw = hMrec->GetXaxis()->GetBinWidth(1);
-
-          std::string formula = Form(
-              "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))"
-              " + "
-              "[3]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[4])/([5]),2))/TMath::Abs([5])",
-              bw);
-
-          TF1* fMC = new TF1(Form("fMCrec_%s", hmname), formula.c_str(), mMin_fit, mMax_fit);
-          fMC->SetParNames("A", "alpha", "lambda", "Nsig", "mu", "sigma");
-          fMC->SetParameters(4, 0.9, 2, 10, 1.019, 0.004);
-          fMC->SetParLimits(4, 1.005, 1.022);   // mu
-          fMC->SetParLimits(5, 0.0025, 0.025);  // sigma
-          fMC->SetParLimits(3, 0.0, 1e7);        // Nsig >= 0
-          fMC->SetLineColor(kRed + 1);
-          fMC->SetLineWidth(2);
-
-          // Save the mass-fit canvas for MC rec alongside the acceptance canvas
-          TH1D* hMrecDraw = (TH1D*)hMrec->Clone(Form("%s_draw", hmname));
-          hMrecDraw->SetDirectory(nullptr);
-          hMrecDraw->Fit(fMC, "R0QL");
-
-          const double Nsig_rec    = fMC->GetParameter(3);
-          const double Nsig_rec_err= fMC->GetParError(3);
-
-          // Save mass-fit canvas for MC rec (diagnostic)
-          {
-            auto tagRaw = hasW
-                ? Form("MCrecMassFit_Q2_%.2f_%.2f__W_%.2f_%.2f__T_%.3f_%.3f", qLo, qHi, wLo, wHi, tLo, tHi)
-                : Form("MCrecMassFit_Q2_%.2f_%.2f__T_%.3f_%.3f",              qLo, qHi,             tLo, tHi);
-            std::string tagStr = tagRaw;
-            std::replace(tagStr.begin(), tagStr.end(), '.', '_');
-
-            std::unique_ptr<TCanvas> cMfit(new TCanvas(
-                Form("c_mcrec_%s", tagStr.c_str()), "MC Rec K+K- mass", 900, 700));
-            gStyle->SetOptStat(0);
-            gStyle->SetOptFit(0);
-            hMrecDraw->SetLineColor(kBlue + 1);
-            hMrecDraw->SetLineWidth(2);
-            hMrecDraw->SetMarkerStyle(20);
-            hMrecDraw->GetXaxis()->SetTitle("M(K^{+}K^{-}) [GeV]");
-            hMrecDraw->GetYaxis()->SetTitle("Counts");
-            hMrecDraw->GetXaxis()->SetRangeUser(mMin_fit - 0.02, mMax_fit + 0.02);
-            hMrecDraw->Draw("PE");
-            fMC->SetLineColor(kRed + 1);
-            fMC->Draw("SAME C");
-
-            TLatex lx;
-            lx.SetNDC(); lx.SetTextSize(0.035);
-            lx.DrawLatex(0.55, 0.85, Form("N_{#phi}^{rec} = %.1f #pm %.1f", Nsig_rec, Nsig_rec_err));
-            lx.DrawLatex(0.55, 0.81, Form("#mu = %.4f GeV,  #sigma = %.4f GeV",
-                                          fMC->GetParameter(4), fMC->GetParameter(5)));
-
-            cMfit->SaveAs(Form("%s/%s.pdf", outDirPerModel.c_str(), tagStr.c_str()));
-          }
-
-          delete hMrecDraw;
-          delete fMC;
-
-          if (Nsig_rec > 0.0) {
-            nRecFit[it]    = Nsig_rec;
-            nRecFitErr[it] = Nsig_rec_err;
+          if (yRec.valid && yRec.N > 0.0) {
+            nRecFit[it]    = yRec.N;
+            nRecFitErr[it] = yRec.dN;
           }
         }
 
@@ -1382,6 +1231,102 @@ class DISANAplotter {
     return out;
   }
 
+  inline std::vector<std::vector<TH1D*>> MakePhiEfficiencyCorrection3D(
+      const BinManager& bins,
+      const std::string& outDirPerModel,
+      const std::string& bkgTPrimeVar = "mtprime",
+      const std::string& nobkgTPrimeVar = "mtprime",
+      int minEntries = 10,
+      int nMassBins = 120,
+      double mMin = 0.98,
+      double mMax = 1.08,
+      bool constrainSigma = true,
+      double sigmaRef = 0.004,
+      double sigmaFrac = 0.25) {
+    if (!rdf_phimc_bkg || !rdf_phimc_nobkg) {
+      std::cerr << "[MakePhiEfficiencyCorrection3D] rdf_phimc_bkg or rdf_phimc_nobkg is not set.\n";
+      return {};
+    }
+
+    gSystem->mkdir(outDirPerModel.c_str(), /*recursive=*/true);
+
+    const auto& q2Edges = bins.GetQ2Bins();
+    const auto& tPrimeEdges = bins.GetTprimeBins();
+    const auto& wEdges = bins.GetWBins();
+    const bool hasW = !wEdges.empty();
+
+    const size_t nQ = q2Edges.size() > 1 ? q2Edges.size() - 1 : 0;
+    const size_t nW = hasW ? (wEdges.size() > 1 ? wEdges.size() - 1 : 0) : 1;
+    const size_t nT = tPrimeEdges.size() > 1 ? tPrimeEdges.size() - 1 : 0;
+
+    if (nQ == 0 || nT == 0 || (hasW && nW == 0)) {
+      std::cerr << "[MakePhiEfficiencyCorrection3D] Empty Q2, W, or t' bin list.\n";
+      return {};
+    }
+
+    phi_eff_QW_.assign(nQ, std::vector<TH1D*>(nW, nullptr));
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      const double qLo = q2Edges[iq], qHi = q2Edges[iq + 1];
+      auto df_q_bkg = rdf_phimc_bkg.value().Filter([=](double Q2) { return Q2 > qLo && Q2 <= qHi; }, {"Q2"});
+      auto df_q_nobkg = rdf_phimc_nobkg.value().Filter([=](double Q2) { return Q2 > qLo && Q2 <= qHi; }, {"Q2"});
+
+      for (size_t iw = 0; iw < nW; ++iw) {
+        const double wLo = hasW ? wEdges[iw] : 0.0;
+        const double wHi = hasW ? wEdges[iw + 1] : 1e9;
+        auto df_qw_bkg = df_q_bkg.Filter([=](double W) { return (!hasW) || (W > wLo && W <= wHi); }, {"W"});
+        auto df_qw_nobkg = df_q_nobkg.Filter([=](double W) { return (!hasW) || (W > wLo && W <= wHi); }, {"W"});
+
+        auto* hEff = new TH1D(Form("hPhiEff_Q%zu_W%zu", iq, iw), ";-t' [GeV^{2}];C_{eff}", (int)nT, tPrimeEdges.data());
+        hEff->SetDirectory(nullptr);
+        hEff->Sumw2();
+
+        for (size_t it = 0; it < nT; ++it) {
+          const double tLo = tPrimeEdges[it], tHi = tPrimeEdges[it + 1];
+          auto df_bkg_bin = df_qw_bkg.Filter([=](double mtprime) { return mtprime > tLo && mtprime <= tHi; }, {bkgTPrimeVar});
+          auto df_nobkg_bin = df_qw_nobkg.Filter([=](double mtprime) { return mtprime > tLo && mtprime <= tHi; }, {nobkgTPrimeVar});
+
+          const double nRecoBkg = static_cast<double>(*df_bkg_bin.Count());
+          const double nRecoNoBkg = static_cast<double>(*df_nobkg_bin.Count());
+          if (nRecoBkg < minEntries || nRecoNoBkg < minEntries) {
+            hEff->SetBinContent((int)it + 1, 1.0);
+            hEff->SetBinError((int)it + 1, 0.0);
+            continue;
+          }
+
+          const std::string tagBase = hasW
+              ? Form("eff_Q%.2f_%.2f_W%.2f_%.2f_t%.3f_%.3f", qLo, qHi, wLo, wHi, tLo, tHi)
+              : Form("eff_Q%.2f_%.2f_t%.3f_%.3f", qLo, qHi, tLo, tHi);
+
+          const auto yBkg = FitPhiMassYieldAndSave(df_bkg_bin, outDirPerModel, tagBase + "_bkg", "B",
+                                                   nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac);
+          const auto yNoBkg = FitPhiMassYieldAndSave(df_nobkg_bin, outDirPerModel, tagBase + "_nobkg", "N",
+                                                     nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac);
+
+          double ceff = 1.0;
+          double dceff = 0.0;
+          if (yBkg.N > 0.0 && yNoBkg.N > 0.0) {
+            ceff = yBkg.N / yNoBkg.N;
+            const double relB = (yBkg.dN > 0.0) ? (yBkg.dN / yBkg.N) : 0.0;
+            const double relN = (yNoBkg.dN > 0.0) ? (yNoBkg.dN / yNoBkg.N) : 0.0;
+            dceff = ceff * std::sqrt(relB * relB + relN * relN);
+          }
+
+          hEff->SetBinContent((int)it + 1, ceff);
+          hEff->SetBinError((int)it + 1, dceff);
+        }
+
+        phi_eff_QW_[iq][iw] = hEff;
+
+        TFile fOut((outDirPerModel + "/phi_effCorr_Q" + std::to_string(iq) + "_W" + std::to_string(iw) + ".root").c_str(), "RECREATE");
+        hEff->Write();
+        fOut.Close();
+      }
+    }
+
+    return phi_eff_QW_;
+  }
+
   inline std::vector<std::vector<TH1D*>> MakePhiRadiativeCorrection3D_FromRatio(
     const BinManager& bins,
     const std::string& outDirPerModel,
@@ -1488,17 +1433,50 @@ class DISANAplotter {
 }
 
 
+  // Result of a single K+K- mass peak fit.
+  // Shared by MakePhiMassFitCanvases3D, MakePhiAcceptanceCorrection3D,
+  // MakePhiEfficiencyCorrection3D, and the BSA helpers.
   struct YieldRes {
-    double N{0.0}, dN{0.0};
-    double mu{0.0}, sigma{0.0};
-    double mLo{0.0}, mHi{0.0};
+    // Signal yield
+    double N{0.0},      dN{0.0};
+    // Peak parameters
+    double mu{0.0},     sigma{0.0};
+    double mLo{0.0},    mHi{0.0};        // ±3σ signal window
+    // Background parameters (for diagnostics / cross-checks)
+    double A{0.0},      alpha{0.0},  lambda{0.0};
+    // Fit quality
+    double chi2{0.0};
+    int    ndf{0};
+    // true when fit converged and N > 0; always check before using N
+    bool   valid{false};
   };
 
-  inline YieldRes FitPhiMassYieldAndSave(ROOT::RDF::RNode df_in, const std::string& outDir, const std::string& tagRaw,
-                                         const std::string& helTag,  // "P" or "M"
-                                         int nMassBins, double mMin, double mMax, bool constrainSigma, double sigmaRef, double sigmaFrac) {
+  // ── Single-bin K+K- mass fit ─────────────────────────────────────────────
+  // This is the ONE fitting kernel used by the cross-section computation,
+  // the acceptance correction, and the efficiency correction.
+  //
+  // Parameters
+  //   df_in          — RDataFrame already filtered to the kinematic bin
+  //   outDir         — directory for the saved canvas PDF
+  //   tagRaw         — human-readable bin label (dots are replaced internally)
+  //   label          — optional suffix appended to the filename, e.g. "bkg" or
+  //                    "nobkg" for efficiency pairs; leave empty for data/acceptance
+  //   nMassBins..    — fit window and sigma-constraint options
+  //
+  // Returns a fully-populated YieldRes.  Check .valid before using .N.
+  inline YieldRes FitPhiMassYieldAndSave(ROOT::RDF::RNode df_in,
+                                         const std::string& outDir,
+                                         const std::string& tagRaw,
+                                         const std::string& label = "",
+                                         int    nMassBins     = 120,
+                                         double mMin          = 0.98,
+                                         double mMax          = 1.08,
+                                         bool   constrainSigma= true,
+                                         double sigmaRef      = 0.004,
+                                         double sigmaFrac     = 0.25) {
     static std::atomic<unsigned long> uid{0};
-    const auto hname = Form("hM_BSA_%s_%s_%lu", tagRaw.c_str(), helTag.c_str(), uid.fetch_add(1));
+    const auto hname = Form("hM_phi_%s_%s_%lu",
+                            tagRaw.c_str(), label.c_str(), uid.fetch_add(1));
 
     auto hR = df_in.Histo1D(ROOT::RDF::TH1DModel(hname, ";M_{K^{+}K^{-}} [GeV];Counts", nMassBins, mMin, mMax), "invMass_KpKm");
     hR.GetValue();
@@ -1616,9 +1594,13 @@ class DISANAplotter {
 
     std::string tag = tagRaw;
     std::replace(tag.begin(), tag.end(), '.', '_');
-    c->SaveAs(Form("%s/KKmass_%s_hel%s.pdf", outDir.c_str(), tag.c_str(), helTag.c_str()));
+    const std::string suffix = label.empty() ? "" : ("_" + label);
+    c->SaveAs(Form("%s/KKmass_%s%s.pdf", outDir.c_str(), tag.c_str(), suffix.c_str()));
 
-    return {Nsig, dNsig, mu, sigma, mLo, mHi};
+    return {Nsig, dNsig, mu, sigma, mLo, mHi,
+            A, alpha, lambda,
+            fTot->GetChisquare(), fTot->GetNDF(),
+            /*valid=*/(Nsig > 0.0)};
   }
 
   // ---------------- NEW: build A_LU(cos#theta_{KK}) cache and save helicity-separated mass-fit canvases ---------------
@@ -2258,7 +2240,594 @@ class DISANAplotter {
     }  // iq
   }
 
+  // ============================================================
+  //  MakePhiRLTFromCosTheta3D
+  //  Extract R = sigma_L/sigma_T and r04_00 as a function of t'
+  //  per (Q2, W) bin by fitting the cos(theta_H) decay angular
+  //  distribution with  W(cos θ) = (3/4)[(1-r) + (3r-1)cos²θ].
+  //  From Eq. (65)-(66) of the proposal (PR12-12-007).
+  //
+  //  Signal yields per cos_theta bin are obtained via sideband
+  //  subtraction using ONE inclusive mass fit per (Q2,W,t') bin
+  //  to get µ and σ, then counting events in [µ-3σ, µ+3σ] with
+  //  background estimated from symmetric sidebands [µ±(3-6)σ].
+  //  This avoids the low-statistics Gaussian fit failure per sub-bin.
+  // ============================================================
+  inline void MakePhiRLTFromCosTheta3D(
+      const BinManager& bins,
+      const std::string& outDirPerModel,
+      int    nMassBins     = 40,
+      double mMin          = 0.988,
+      double mMax          = 1.15,
+      bool   constrainSigma= true,
+      double sigmaRef      = 0.004,
+      double sigmaFrac     = 0.25,
+      double beamEnergyGeV = 10.6)
+  {
+    gSystem->mkdir(outDirPerModel.c_str(), /*recursive=*/true);
+
+    const auto& q2Edges     = bins.GetQ2Bins();
+    const auto& tPrimeEdges = bins.GetTprimeBins();
+    const auto& wEdges      = bins.GetWBins();
+    const auto& cEdges      = bins.GetCosThetaKKBins();
+    const bool  hasW        = !wEdges.empty();
+
+    const size_t nQ = (q2Edges.size()     > 1) ? q2Edges.size()     - 1 : 0;
+    const size_t nT = (tPrimeEdges.size() > 1) ? tPrimeEdges.size() - 1 : 0;
+    const size_t nW = hasW ? (wEdges.size() - 1) : 1;
+    const size_t nC = (cEdges.size() > 1) ? cEdges.size() - 1 : 0;
+
+    if (!nQ || !nT || !nC) {
+      std::cerr << "[MakePhiRLTFromCosTheta3D] need Q2, t', and cos(theta_KK) bins.\n";
+      return;
+    }
+    for (size_t i = 1; i < cEdges.size(); ++i) {
+      if (!(cEdges[i] > cEdges[i - 1])) {
+        std::cerr << "[MakePhiRLTFromCosTheta3D] cos(theta_KK) edges not strictly increasing!\n";
+        return;
+      }
+    }
+
+    // ---- Allocate / reset output caches ----
+    for (auto& row : phi_rlt_QW_)  { for (auto* h : row) delete h; } phi_rlt_QW_.clear();
+    for (auto& row : phi_r04_QW_)  { for (auto* h : row) delete h; } phi_r04_QW_.clear();
+    phi_rlt_QW_.assign(nQ, std::vector<TH1D*>(nW, nullptr));
+    phi_r04_QW_.assign(nQ, std::vector<TH1D*>(nW, nullptr));
+
+    static std::atomic<unsigned long> uid{0};
+    const double E = beamEnergyGeV;
+
+    // Bin width for mass histogram (for Nsig normalisation)
+    const double bw = (mMax - mMin) / nMassBins;
+
+    for (size_t iq = 0; iq < nQ; ++iq) {
+      const double qLo = q2Edges[iq], qHi = q2Edges[iq + 1];
+      auto df_q = rdf.Filter([=](double Q2){ return Q2 > qLo && Q2 <= qHi; }, {"Q2"});
+
+      for (size_t iw = 0; iw < nW; ++iw) {
+        const double wLo = hasW ? wEdges[iw]     : 0.0;
+        const double wHi = hasW ? wEdges[iw + 1] : 1e9;
+        auto df_qw = df_q.Filter([=](double W){ return (!hasW)||(W > wLo && W <= wHi); }, {"W"});
+
+        // ---- Allocate per-(Q,W) output histograms ----
+        const auto uId = uid.fetch_add(1);
+        {
+          auto hname  = Form("phi_rlt_Q%zu_W%zu_%lu",  iq, iw, uId);
+          auto hname2 = Form("phi_r04_Q%zu_W%zu_%lu",  iq, iw, uId);
+          const char* title  = ";-t' [GeV^{2}];R = #sigma_{L}/#sigma_{T}";
+          const char* title2 = ";-t' [GeV^{2}];r^{04}_{00}";
+          phi_rlt_QW_[iq][iw] = new TH1D(hname,  title,  (int)nT, tPrimeEdges.data());
+          phi_r04_QW_[iq][iw] = new TH1D(hname2, title2, (int)nT, tPrimeEdges.data());
+          phi_rlt_QW_[iq][iw]->SetDirectory(nullptr);
+          phi_r04_QW_[iq][iw]->SetDirectory(nullptr);
+        }
+
+        // ---- Loop over t' bins ----
+        for (size_t it = 0; it < nT; ++it) {
+          const double tLo = tPrimeEdges[it], tHi = tPrimeEdges[it + 1];
+          auto df_t = df_qw.Filter([=](double mtprime){ return mtprime > tLo && mtprime <= tHi; }, {"mtprime"});
+
+          // ---- ε from mean kinematics ----
+          double mean_y  = *df_t.Mean("y");
+          double mean_Q2 = *df_t.Mean("Q2");
+          if (std::isnan(mean_y)) mean_y = 0.3;
+          const double Q2over4E2 = mean_Q2 / (4.0 * E * E);
+          const double num_eps   = 1.0 - mean_y - Q2over4E2;
+          const double den_eps   = 1.0 - mean_y + 0.5 * mean_y * mean_y + Q2over4E2;
+          const double eps       = (den_eps > 0.0) ? std::max(0.0, num_eps / den_eps) : 0.0;
+
+          // --------------------------------------------------------
+          //  Step 1: ONE inclusive mass fit over the full (Q,W,t') bin
+          //          to determine µ and σ of the φ peak.
+          // --------------------------------------------------------
+          const auto hnameInc = Form("hM_incl_Q%zu_W%zu_t%zu_%lu", iq, iw, it, uId);
+          auto hIncR = df_t.Histo1D(
+              ROOT::RDF::TH1DModel(hnameInc, ";M(K^{+}K^{-}) [GeV];Counts",
+                                   nMassBins, mMin, mMax),
+              "invMass_KpKm");
+          hIncR.GetValue();
+          TH1D* hInc = (TH1D*)hIncR.GetPtr();
+
+          // Skip bin if too few events for a meaningful mass fit
+          if (!hInc || hInc->GetEntries() < 10) {
+            std::cout << Form("[MakePhiRLTFromCosTheta3D] Q[%zu] W[%zu] t'[%zu]"
+                              "  SKIP (only %g entries in inclusive mass hist)\n",
+                              iq, iw, it,
+                              hInc ? hInc->GetEntries() : 0.0);
+            continue;
+          }
+
+          // Build inclusive fit: background + signal Gaussian
+          std::string formula = Form(
+              "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))"
+              " + [3]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[4])/([5]),2))/TMath::Abs([5])",
+              bw);
+          TF1 fInc(Form("fInc_%s", hnameInc), formula.c_str(), mMin, mMax);
+          fInc.SetParNames("A","alpha","lambda","Nsig","mu","sigma");
+          const double peakY = hInc->GetMaximum();
+          fInc.SetParameters(std::max(1.0, peakY), 0.9, 2.0,
+                             std::max(1.0, peakY * bw * 10.0), 1.019, sigmaRef);
+          fInc.SetParLimits(3, 0.0, 1e9);
+          fInc.SetParLimits(4, 1.005, 1.022);
+          if (constrainSigma)
+            fInc.SetParLimits(5, sigmaRef * (1.0 - sigmaFrac), sigmaRef * (1.0 + sigmaFrac));
+          else
+            fInc.SetParLimits(5, 0.0025, 0.025);
+
+          hInc->Fit(&fInc, "R0Q");
+
+          const double mu_fit    = fInc.GetParameter(4);
+          const double sigma_fit = std::fabs(fInc.GetParameter(5));
+
+          // Signal and sideband windows (in mass)
+          const double sigWinLo = mu_fit - 3.0 * sigma_fit;
+          const double sigWinHi = mu_fit + 3.0 * sigma_fit;
+          // Symmetric sidebands: [µ-6σ, µ-3σ] ∪ [µ+3σ, µ+6σ]
+          const double sbLo1 = mu_fit - 6.0 * sigma_fit;
+          const double sbHi1 = mu_fit - 3.0 * sigma_fit;
+          const double sbLo2 = mu_fit + 3.0 * sigma_fit;
+          const double sbHi2 = mu_fit + 6.0 * sigma_fit;
+
+          // --------------------------------------------------------
+          //  Step 2: Per cos_theta bin — count events in signal window
+          //          and subtract background using symmetric sidebands.
+          // --------------------------------------------------------
+          std::vector<double> N_sig(nC, 0.0), dN_sig(nC, 0.0);
+
+          for (size_t ic = 0; ic < nC; ++ic) {
+            const double cLo = cEdges[ic], cHi = cEdges[ic + 1];
+
+            // Count events in signal mass window
+            // invMass_KpKm is stored as float in the TTree
+            auto df_cos_sig = df_t.Filter(
+                [=](double c, float m){
+                  return c > cLo && c <= cHi && m > sigWinLo && m < sigWinHi;
+                }, {"cos_thetaKK", "invMass_KpKm"});
+
+            // Count events in sideband (both sides)
+            auto df_cos_sb = df_t.Filter(
+                [=](double c, float m){
+                  return c > cLo && c <= cHi &&
+                         ((m > sbLo1 && m < sbHi1) || (m > sbLo2 && m < sbHi2));
+                }, {"cos_thetaKK", "invMass_KpKm"});
+
+            const double N_win = (double)(*df_cos_sig.Count());
+            const double N_sb  = (double)(*df_cos_sb.Count());
+
+            // Scale sideband to signal window width
+            // signal window width = 6σ, each sideband = 3σ, total sideband = 6σ → ratio = 1
+            const double sb_scale = (sigWinHi - sigWinLo) /
+                                    ((sbHi1 - sbLo1) + (sbHi2 - sbLo2));
+            const double N_bkg_est = N_sb * sb_scale;
+
+            const double Nsig_this  = N_win - N_bkg_est;
+            // Statistical uncertainty: sqrt(N_win + N_sb * sb_scale^2) by error propagation
+            const double dNsig_this = std::sqrt(N_win + N_sb * sb_scale * sb_scale);
+
+            N_sig[ic]  = Nsig_this;
+            dN_sig[ic] = std::max(dNsig_this, 1.0);
+          }  // ic
+
+          // --------------------------------------------------------
+          //  Step 3: Save inclusive mass fit canvas with signal window
+          // --------------------------------------------------------
+          {
+            auto tagInc = hasW
+                ? Form("RLT_Q%.2f_%.2f_W%.2f_%.2f_t%.3f_%.3f",
+                       qLo, qHi, wLo, wHi, tLo, tHi)
+                : Form("RLT_Q%.2f_%.2f_t%.3f_%.3f",
+                       qLo, qHi, tLo, tHi);
+            std::string tagS = tagInc;
+            std::replace(tagS.begin(), tagS.end(), '.', '_');
+
+            std::unique_ptr<TCanvas> cMass(new TCanvas(
+                Form("c_mass_incl_%zu_%zu_%zu_%lu", iq, iw, it, uId), "", 1200, 1000));
+            gStyle->SetOptStat(0);
+            hInc->SetLineColor(kBlue+1); hInc->SetLineWidth(2);
+            hInc->SetMarkerStyle(20); hInc->SetMarkerSize(1.1);
+            hInc->SetMinimum(0.0);
+            hInc->Draw("PE");
+            fInc.SetLineColor(kRed+1); fInc.SetLineWidth(3);
+            fInc.Draw("SAME C");
+
+            // Signal window lines
+            const double yTop = hInc->GetMaximum();
+            TLine lLo(sigWinLo, 0.0, sigWinLo, yTop * 0.75);
+            TLine lHi(sigWinHi, 0.0, sigWinHi, yTop * 0.75);
+            lLo.SetLineColor(kMagenta+2); lLo.SetLineStyle(2); lLo.SetLineWidth(2); lLo.Draw();
+            lHi.SetLineColor(kMagenta+2); lHi.SetLineStyle(2); lHi.SetLineWidth(2); lHi.Draw();
+
+            TLatex lat2; lat2.SetNDC(); lat2.SetTextFont(42); lat2.SetTextSize(0.033);
+            lat2.DrawLatex(0.55, 0.85, Form("#mu = %.4f GeV,  #sigma = %.4f GeV", mu_fit, sigma_fit));
+            lat2.DrawLatex(0.55, 0.81, Form("N_{#phi} = %.1f (inclusive)", fInc.GetParameter(3)));
+
+            cMass->SaveAs(Form("%s/KKmass_%s_incl.pdf", outDirPerModel.c_str(), tagS.c_str()));
+          }
+
+          // --------------------------------------------------------
+          //  Step 4: Fill cos(θ) histogram and fit
+          // --------------------------------------------------------
+          TH1D h_costh(Form("h_costh_fit_%zu_%zu_%zu_%lu", iq, iw, it, uId),
+                       ";cos#theta_{H};Signal yield (sideband-subtracted)",
+                       (int)nC, cEdges.data());
+          h_costh.SetDirectory(nullptr);
+          for (size_t ic = 0; ic < nC; ++ic) {
+            h_costh.SetBinContent((int)(ic + 1), N_sig[ic]);
+            h_costh.SetBinError  ((int)(ic + 1), dN_sig[ic]);
+          }
+
+          // Check we have enough non-zero, positive bins to attempt a fit
+          int nGoodBins = 0;
+          for (size_t ic = 0; ic < nC; ++ic)
+            if (N_sig[ic] > 0.0) ++nGoodBins;
+
+          if (nGoodBins < 3) {
+            std::cout << Form("[MakePhiRLTFromCosTheta3D] Q[%zu] W[%zu] t'[%zu]"
+                              "  SKIP cos fit (only %d bins with signal > 0)\n",
+                              iq, iw, it, nGoodBins);
+            continue;
+          }
+
+          // Fit  W(cosθ) = p0 + p1·cos²θ
+          // p0 = norm·(3/4)·(1−r04),  p1 = norm·(3/4)·(3r04−1)
+          // r04_00 = (p0+p1) / (3p0+p1)   [normalisation-independent]
+          const double integral = h_costh.Integral();
+          TF1 fitFunc(Form("fRLT_%zu_%zu_%zu_%lu", iq, iw, it, uId),
+                      "[0] + [1]*x*x", -1.0, 1.0);
+          fitFunc.SetParameter(0, integral * 0.5 * 0.75);
+          fitFunc.SetParameter(1, 0.0);
+          // Bound p0 > 0 (non-negative isotropic term)
+          fitFunc.SetParLimits(0, 0.0, 1e9);
+
+          const int fitStatus = h_costh.Fit(&fitFunc, "Q N S");
+
+          double r04  = std::numeric_limits<double>::quiet_NaN();
+          double dr04 = std::numeric_limits<double>::quiet_NaN();
+          double R    = std::numeric_limits<double>::quiet_NaN();
+          double dR   = std::numeric_limits<double>::quiet_NaN();
+
+          if (fitStatus == 0 || fitStatus == 4000) {
+            const double p0  = fitFunc.GetParameter(0);
+            const double p1  = fitFunc.GetParameter(1);
+            const double dp0 = fitFunc.GetParError(0);
+            const double dp1 = fitFunc.GetParError(1);
+            const double denom34 = 3.0 * p0 + p1;
+
+            if (std::fabs(denom34) > 1e-9 && dp0 > 0.0 && dp1 > 0.0) {
+              r04 = (p0 + p1) / denom34;
+              // dr/dp0 = −2p1/D²,  dr/dp1 = +2p0/D²
+              const double dr_dp0 = -2.0 * p1 / (denom34 * denom34);
+              const double dr_dp1 =  2.0 * p0 / (denom34 * denom34);
+              dr04 = std::sqrt(dr_dp0*dr_dp0*dp0*dp0 + dr_dp1*dr_dp1*dp1*dp1);
+
+              r04 = std::clamp(r04, 0.0, 1.0);
+
+              if (eps > 1e-6 && r04 < 1.0 - 1e-6) {
+                R  = r04 / (eps * (1.0 - r04));
+                dR = dr04 / (eps * (1.0 - r04) * (1.0 - r04));
+              }
+            }
+
+            // Save cos(θ) fit canvas
+            TCanvas cFit(Form("c_costh_fit_%zu_%zu_%zu_%lu", iq, iw, it, uId), "", 800, 600);
+            gPad->SetTicks(1,1);
+            h_costh.SetMarkerStyle(20);
+            h_costh.SetMarkerSize(1.2);
+            h_costh.SetLineColor(kBlue+1);
+            h_costh.Draw("E1X0");
+            fitFunc.SetLineColor(kRed+1);
+            fitFunc.SetLineWidth(2);
+            fitFunc.Draw("SAME");
+            TLatex lat;
+            lat.SetNDC(); lat.SetTextFont(42); lat.SetTextSize(0.034);
+            const char* qwlbl = hasW
+                ? Form("Q^{2}[%.2f,%.2f] W[%.2f,%.2f] -t'[%.3f,%.3f]",
+                       qLo, qHi, wLo, wHi, tLo, tHi)
+                : Form("Q^{2}[%.2f,%.2f] -t'[%.3f,%.3f]",
+                       qLo, qHi, tLo, tHi);
+            lat.DrawLatex(0.12, 0.93, qwlbl);
+            lat.DrawLatex(0.12, 0.87, Form("#varepsilon = %.3f", eps));
+            if (!std::isnan(r04)) {
+              lat.DrawLatex(0.12, 0.81, Form("r^{04}_{00} = %.3f #pm %.3f", r04, dr04));
+              if (!std::isnan(R))
+                lat.DrawLatex(0.12, 0.75, Form("R = %.3f #pm %.3f", R, dR));
+            }
+            const char* fout = hasW
+                ? Form("%s/costh_fit_Q%zu_W%zu_t%zu.pdf", outDirPerModel.c_str(), iq, iw, it)
+                : Form("%s/costh_fit_Q%zu_t%zu.pdf",      outDirPerModel.c_str(), iq, it);
+            cFit.SaveAs(fout);
+          }
+
+          const int b = (int)(it + 1);
+          if (!std::isnan(r04)) {
+            phi_r04_QW_[iq][iw]->SetBinContent(b, r04);
+            phi_r04_QW_[iq][iw]->SetBinError  (b, std::isnan(dr04) ? 0.0 : dr04);
+          }
+          if (!std::isnan(R)) {
+            phi_rlt_QW_[iq][iw]->SetBinContent(b, R);
+            phi_rlt_QW_[iq][iw]->SetBinError  (b, std::isnan(dR) ? 0.0 : dR);
+          }
+
+          std::cout << Form("[MakePhiRLTFromCosTheta3D] Q[%zu] W[%zu] t'[%zu]"
+                            "  eps=%.3f  r04=%.3f  R=%.3f  (mu=%.4f sig=%.4f)\n",
+                            iq, iw, it, eps,
+                            std::isnan(r04) ? -99.0 : r04,
+                            std::isnan(R)   ? -99.0 : R,
+                            mu_fit, sigma_fit);
+        }  // it
+      }  // iw
+    }  // iq
+  }
+
+  // =========================================================================
+  // MakePhiMassFitCanvases_XBBins
+  // =========================================================================
+  // Same mass-fit logic as MakePhiMassFitCanvases3D, but with the OUTER
+  // loop running over x_B bins (from bins.GetXBBins()) instead of (Q2,W).
+  // The inner loop is t' (from bins.GetTprimeBins()).
+  //
+  // This is the correct binning for extracting the gluon transverse radius
+  // ⟨b²⟩_g: at fixed x_B, W is kinematically determined, so |t_min| is
+  // well-defined and the data-weighted mean W per (x_B, t') bin is stored
+  // in phi_mean_W_xBt_[ixB][it] for downstream use.
+  //
+  // Output caches filled:
+  //   phi_dsdt_xBt_[ixB]          – dσ/dt' histogram vs t' for this x_B bin
+  //   phi_nsig_xBt_[ixB]          – raw fit yield Nsig vs t'
+  //   phi_mean_W_xBt_[ixB][it]    – data-weighted mean W
+  //   phi_mean_Q2_xBt_[ixB][it]   – data-weighted mean Q²
+  //   phi_mean_xB_xBt_[ixB][it]   – data-weighted mean x_B
+  //   phi_mean_tmin_xBt_[ixB][it] – mean |t_min|(Q²,W) per event in bin
+  //   phi_mean_GammaV_xBt_[ixB][it] – mean virtual-photon flux Γ_v
+  // =========================================================================
+  inline void MakePhiMassFitCanvases_XBBins(
+      const BinManager& bins,
+      const std::string& outDirPerModel,
+      int    nMassBins      = 200,
+      double mMin           = 0.9874,
+      double mMax           = 1.120,
+      bool   constrainSigma = true,
+      double sigmaRef       = 0.004,
+      double sigmaFrac      = 0.30,
+      double branching      = 0.492)
+  {
+    if (luminosity_nb_inv <= 0.0)
+      std::cerr << "[MakePhiMassFitCanvases_XBBins] luminosity<=0 – dσ/dt will NOT be computed.\n";
+
+    gSystem->mkdir(outDirPerModel.c_str(), true);
+
+    const auto& xBEdges     = bins.GetXBBins();
+    const auto& tPrimeEdges = bins.GetTprimeBins();
+
+    const size_t nXB = xBEdges.size() > 1 ? xBEdges.size() - 1 : 0;
+    const size_t nT  = tPrimeEdges.size() > 1 ? tPrimeEdges.size() - 1 : 0;
+
+    if (!nXB || !nT) {
+      std::cerr << "[MakePhiMassFitCanvases_XBBins] Empty x_B or t' bin list.\n";
+      return;
+    }
+
+    // ---- allocate output caches ----
+    phi_dsdt_xBt_  .assign(nXB, nullptr);
+    phi_nsig_xBt_  .assign(nXB, nullptr);
+    phi_accept_xBt_.assign(nXB, nullptr);
+    phi_eff_xBt_   .assign(nXB, nullptr);
+    phi_rad_xBt_   .assign(nXB, nullptr);
+    phi_mean_xB_xBt_   .assign(nXB, std::vector<double>(nT, std::numeric_limits<double>::quiet_NaN()));
+    phi_mean_W_xBt_    .assign(nXB, std::vector<double>(nT, std::numeric_limits<double>::quiet_NaN()));
+    phi_mean_Q2_xBt_   .assign(nXB, std::vector<double>(nT, std::numeric_limits<double>::quiet_NaN()));
+    phi_mean_tmin_xBt_ .assign(nXB, std::vector<double>(nT, std::numeric_limits<double>::quiet_NaN()));
+    phi_mean_GammaV_xBt_.assign(nXB, std::vector<double>(nT, std::numeric_limits<double>::quiet_NaN()));
+
+    static std::atomic<unsigned long> uid_xb{0};
+
+    for (size_t ixB = 0; ixB < nXB; ++ixB) {
+      const double xBLo = xBEdges[ixB];
+      const double xBHi = xBEdges[ixB + 1];
+
+      // Filter data to this x_B slice
+      auto df_xb = rdf.Filter([=](double xb) { return xb > xBLo && xb <= xBHi; }, {"xB"});
+
+      // Create dσ/dt' and Nsig histograms for this x_B bin
+      if (luminosity_nb_inv > 0.0) {
+        auto hname_xs = Form("phi_dsdt_xB%zu_%lu", ixB, uid_xb.fetch_add(1));
+        TH1D* hXS = new TH1D(hname_xs,
+                             Form("d#sigma/dt';  -t' [GeV^{2}];  nb/GeV^{2}  (x_{B}#in[%.2f,%.2f])", xBLo, xBHi),
+                             static_cast<int>(nT), tPrimeEdges.data());
+        hXS->SetDirectory(nullptr);
+        phi_dsdt_xBt_[ixB] = hXS;
+
+        auto hname_n = Form("phi_nsig_xB%zu_%lu", ixB, uid_xb.load());
+        TH1D* hN = new TH1D(hname_n, ";-t' [GeV^{2}];N_{sig}", static_cast<int>(nT), tPrimeEdges.data());
+        hN->SetDirectory(nullptr);
+        hN->Sumw2();
+        phi_nsig_xBt_[ixB] = hN;
+      }
+
+      for (size_t it = 0; it < nT; ++it) {
+        const double tLo = tPrimeEdges[it];
+        const double tHi = tPrimeEdges[it + 1];
+        const double dT  = tHi - tLo;
+
+        auto df_bin = df_xb.Filter([=](double mtp) { return mtp > tLo && mtp <= tHi; }, {"mtprime"});
+
+        static std::atomic<unsigned long> uid_m{0};
+        auto hname = Form("hM_xB%zu_t%zu_%lu", ixB, it, uid_m.fetch_add(1));
+        auto hR = df_bin.Histo1D(
+            ROOT::RDF::TH1DModel(hname, ";M_{K^{+}K^{-}} [GeV];Counts",
+                                 nMassBins, mMin - 0.12, mMax + 0.06),
+            "invMass_KpKm");
+        hR.GetValue();
+        TH1D* h = (TH1D*)hR.GetPtr();
+
+        if (!h || h->GetEntries() <= 20) continue;
+
+        // ---- data-weighted means (computed once per bin) ----
+        const double mean_xB  = *df_bin.Mean("xB");
+        const double mean_W   = *df_bin.Mean("W");
+        const double mean_Q2  = *df_bin.Mean("Q2");
+        const double mean_Gv  = rdf.HasColumn("Gamma_v")
+                                  ? *df_bin.Mean("Gamma_v")
+                                  : std::numeric_limits<double>::quiet_NaN();
+        // Per-event |t_min| computed from (Q², W) and averaged
+        // We define a helper column and take its mean.
+        auto df_tmin = df_bin.Define("event_tmin",
+            [](double Q2ev, double Wev) {
+              return DISANAplotter::PhiTmin(Q2ev, Wev);
+            }, {"Q2", "W"});
+        const double mean_tmin = *df_tmin.Mean("event_tmin");
+
+        phi_mean_xB_xBt_   [ixB][it] = mean_xB;
+        phi_mean_W_xBt_    [ixB][it] = mean_W;
+        phi_mean_Q2_xBt_   [ixB][it] = mean_Q2;
+        phi_mean_tmin_xBt_ [ixB][it] = mean_tmin;
+        phi_mean_GammaV_xBt_[ixB][it] = mean_Gv;
+
+        // ---- mass fit (identical to MakePhiMassFitCanvases3D) ----
+        TH1D* hDraw = (TH1D*)h->Clone(Form("%s_draw", h->GetName()));
+        hDraw->SetDirectory(nullptr);
+        const double bw = hDraw->GetXaxis()->GetBinWidth(1);
+
+        std::string formula = Form(
+            "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))"
+            " + [3]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[4])/([5]),2))/TMath::Abs([5])",
+            bw);
+        TF1* fTot = new TF1(Form("fitTotal_%s", hname), formula.c_str(), mMin, mMax);
+        fTot->SetParNames("A", "alpha", "lambda", "N", "mu", "sigma");
+        fTot->SetParameters(4, 0.9, 2, 10, 1.02, 0.010);
+        fTot->SetParLimits(4, 1.005, 1.022);
+        fTot->SetParLimits(5, 0.0025, 0.025);
+        fTot->SetParLimits(3, 0.000001, 100000.0);
+        if (constrainSigma)
+          fTot->SetParLimits(5, sigmaRef * (1.0 - sigmaFrac), sigmaRef * (1.0 + sigmaFrac));
+
+        hDraw->Fit(fTot, "R0QL");
+
+        const double mu      = fTot->GetParameter(4);
+        const double sigma   = fTot->GetParameter(5);
+        const double Nsig    = fTot->GetParameter(3);
+        const double Nsig_err = fTot->GetParError(3);
+        const double mLo_win = mu - 3.0 * sigma;
+        const double mHi_win = mu + 3.0 * sigma;
+
+        // ---- fill dσ/dt' cache ----
+        if (luminosity_nb_inv > 0.0 && phi_dsdt_xBt_[ixB]) {
+          double Aeps = 1.0;
+          if (doacceptcorr && ixB < phi_accept_xBt_.size() && phi_accept_xBt_[ixB]) {
+            const double a = phi_accept_xBt_[ixB]->GetBinContent(int(it + 1));
+            if (a > 0.0) Aeps = a;
+          }
+
+          double Ceff = 1.0;
+          if (doefficiencycorr && ixB < phi_eff_xBt_.size() && phi_eff_xBt_[ixB]) {
+            const double e = phi_eff_xBt_[ixB]->GetBinContent(int(it + 1));
+            if (e > 0.0) Ceff = e;
+          }
+
+          double val = Nsig / (luminosity_nb_inv * Aeps * branching * dT);
+          double err = Nsig_err / (luminosity_nb_inv * Aeps * branching * dT);
+
+          if (doefficiencycorr && Ceff > 0.0) { val /= Ceff; err /= Ceff; }
+
+          if (doradiativecorr && ixB < phi_rad_xBt_.size() && phi_rad_xBt_[ixB]) {
+            const double Crad = phi_rad_xBt_[ixB]->GetBinContent(int(it + 1));
+            if (Crad > 0.0) { val /= Crad; err /= Crad; }
+          }
+          phi_dsdt_xBt_[ixB]->SetBinContent(int(it + 1), val);
+          phi_dsdt_xBt_[ixB]->SetBinError  (int(it + 1), err);
+
+          if (phi_nsig_xBt_[ixB]) {
+            phi_nsig_xBt_[ixB]->SetBinContent(int(it + 1), Nsig);
+            phi_nsig_xBt_[ixB]->SetBinError  (int(it + 1), Nsig_err);
+          }
+        }
+
+        // ---- save canvas ----
+        TF1* fSig = new TF1(Form("fSig_%s", hname),
+            Form("[0]*0.398942*%g*TMath::Exp(-0.5*TMath::Power((x-[1])/([2]),2))/TMath::Abs([2])", bw),
+            mMin, mMax);
+        fSig->SetParameters(Nsig, mu, sigma);
+        fSig->SetLineColor(kOrange + 1); fSig->SetLineStyle(2); fSig->SetLineWidth(2);
+        fSig->SetFillColorAlpha(kOrange - 3, 0.3); fSig->SetFillStyle(1001);
+
+        TF1* fBkg = new TF1(Form("fBkg_%s", hname),
+            "[0]*TMath::Power(x-0.9874,[1])*TMath::Exp(-[2]*(x-0.9874))", mMin, mMax);
+        fBkg->SetParameters(fTot->GetParameter(0), fTot->GetParameter(1), fTot->GetParameter(2));
+        fBkg->SetLineColor(kGreen + 2); fBkg->SetLineStyle(3); fBkg->SetLineWidth(2);
+        fBkg->SetFillColorAlpha(kGreen - 7, 0.3); fBkg->SetFillStyle(1001);
+
+        TCanvas* c = new TCanvas(Form("c_%s", hname), "K^{+}K^{-} mass", 1200, 1000);
+        gStyle->SetOptStat(0); gStyle->SetOptFit(0);
+        c->SetTicks(1, 1);
+        hDraw->SetMinimum(0.0);
+        hDraw->Draw("PE");
+        fTot->SetLineColor(kRed + 1); fTot->SetLineWidth(3); fTot->Draw("SAME C");
+        fBkg->Draw("SAME FC"); fSig->Draw("SAME FC");
+
+        TLatex latex; latex.SetNDC(); latex.SetTextSize(0.035);
+        latex.DrawLatex(0.14, 0.93,
+            Form("x_{B}#in[%.3f,%.3f]  -t'#in[%.3f,%.3f]  <W>=%.2f  <Q^{2}>=%.2f",
+                 xBLo, xBHi, tLo, tHi, mean_W, mean_Q2));
+        latex.DrawLatex(0.55, 0.85, Form("#mu=%.3f  #sigma=%.3f  N_{#phi}=%.1f#pm%.1f",
+                                          mu, sigma, Nsig, Nsig_err));
+        latex.DrawLatex(0.55, 0.81, Form("<|t_{min}|>=%.4f GeV^{2}", mean_tmin));
+
+        // tag for file name
+        auto mkTag = [](double lo, double hi) {
+          std::string s = Form("%.3f_%.3f", lo, hi);
+          for (char& c : s) if (c == '.') c = 'p';
+          return s;
+        };
+        c->SaveAs(Form("%s/KKmass_xB%s_tp%s.pdf",
+                       outDirPerModel.c_str(),
+                       mkTag(xBLo, xBHi).c_str(),
+                       mkTag(tLo,  tHi ).c_str()));
+        delete c; delete fSig; delete fBkg; delete fTot; delete hDraw;
+
+      }  // it
+    }  // ixB
+  }  // MakePhiMassFitCanvases_XBBins
+
  private:
+  // ---------------------------------------------------------------------------
+  // Helper: compute |t_min| for phi electroproduction from Q² and W
+  //   using the exact 4-momentum formula (same as Python script).
+  // ---------------------------------------------------------------------------
+  static double PhiTmin(double Q2, double W,
+                        double Mp = 0.9382720813,
+                        double Mphi = 1.019461) {
+    if (W <= Mp + Mphi || Q2 < 0.0) return 0.0;
+    const double W2  = W * W;
+    const double mf2 = Mphi * Mphi;
+    const double M2  = Mp * Mp;
+    const double Eg  = (W2 - M2 - Q2) / (2.0 * W);
+    const double pg  = std::sqrt(std::max(Eg * Eg + Q2, 0.0));
+    const double Ef  = (W2 + mf2 - M2) / (2.0 * W);
+    const double pf2 = Ef * Ef - mf2;
+    if (pf2 < 0.0) return 0.0;
+    const double pf  = std::sqrt(pf2);
+    return std::fabs((Eg - Ef) * (Eg - Ef) - (pg - pf) * (pg - pf));
+  }
   std::vector<std::string> disvars = {"Q2", "xB", "t", "W", "phi"};
   std::vector<std::string> Phivars = {"Q2", "xB", "t", "W", "phi", "mtprime"};
   std::map<std::string, std::pair<double, double>> axisRanges = {{"Q2", {0.0, 15.0}}, {"xB", {0.0, 1.0}},       {"W", {1.0, 10.0}},
@@ -2284,6 +2853,21 @@ class DISANAplotter {
   std::vector<std::vector<std::vector<double>>> phi_mean_xB_QW_;
   std::vector<std::vector<std::vector<double>>> phi_mean_W_QW_;
   std::vector<std::vector<std::vector<double>>> phi_mean_GammaV_QW_;
+
+  // ---- xB-binned cross section for gluon radius extraction ----
+  // Indexed [ixB][it]:  x_B bin (outer) × t' bin (inner)
+  // Each TH1D has one bin per t' slice; stored as a flat 1D histogram vs t'.
+  std::vector<TH1D*> phi_dsdt_xBt_;      // dσ/dt' per x_B bin (flat TH1 vs t')
+  std::vector<TH1D*> phi_nsig_xBt_;      // raw Nsig per x_B bin
+  std::vector<TH1D*> phi_accept_xBt_;    // acceptance per x_B bin
+  std::vector<TH1D*> phi_eff_xBt_;       // efficiency per x_B bin
+  std::vector<TH1D*> phi_rad_xBt_;       // rad-corr per x_B bin
+  // Per-(xB, t') data-weighted means  [ixB][it]
+  std::vector<std::vector<double>> phi_mean_xB_xBt_;
+  std::vector<std::vector<double>> phi_mean_W_xBt_;
+  std::vector<std::vector<double>> phi_mean_Q2_xBt_;
+  std::vector<std::vector<double>> phi_mean_tmin_xBt_;   // mean |t_min| in the bin
+  std::vector<std::vector<double>> phi_mean_GammaV_xBt_;
   
   std::vector<ROOT::RDF::RResultPtr<TH1>> kinematicHistos, disHistos;
   std::vector<std::vector<TH1D*>> phi_dsdt_QW_;
@@ -2293,8 +2877,13 @@ class DISANAplotter {
   std::vector<std::vector<TH1D*>> phi_bsa_trentophi_QW_;
   std::vector<std::vector<TH1D*>> phi_alu_zphi_QW_;
 
+  // R = sigma_L / sigma_T  and  r04_00  as a function of t' per (Q2, W) bin
+  std::vector<std::vector<TH1D*>> phi_rlt_QW_;   // R  = sigma_L / sigma_T  vs t'
+  std::vector<std::vector<TH1D*>> phi_r04_QW_;   // r04_00 (SDME) vs t'
+
   std::vector<std::shared_ptr<TH1>> acceptHistos;
   std::vector<std::vector<TH1D*>> phi_accept_QW_;
+  std::vector<std::vector<TH1D*>> phi_eff_QW_;
   std::vector<std::vector<TH1D*>> phi_rad_QW_;
 
   //
@@ -2314,6 +2903,8 @@ class DISANAplotter {
   // rdfs for phi analysis
   std::optional<ROOT::RDF::RNode> rdf_gen_phimc;
   std::optional<ROOT::RDF::RNode> rdf_accept_phimc;
+  std::optional<ROOT::RDF::RNode> rdf_phimc_bkg;
+  std::optional<ROOT::RDF::RNode> rdf_phimc_nobkg;
   std::optional<ROOT::RDF::RNode> rdf_phimc_radRatio;
 
   AccEffProvider accEffProvider_ = [](double, double, double, double, double, double) { return 1.0; };

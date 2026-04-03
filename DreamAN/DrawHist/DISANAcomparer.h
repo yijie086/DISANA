@@ -8,6 +8,7 @@
 // STL headers
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -83,46 +84,45 @@ class DISANAcomparer {
     plotters.push_back(std::move(plotter));
   }
 
-
-void AddModelPhi(ROOT::RDF::RNode df_data,
-                 const std::string& label,
-                 double beamEnergy,
-                 double luminosity)
-{
-  auto plotter = std::make_unique<DISANAplotter>(
-      PhiModeTag{}, df_data, beamEnergy, luminosity);
-  labels.push_back(label);
+  void AddModelPhi(ROOT::RDF::RNode df_data, const std::string& label, double beamEnergy, double luminosity) {
+    auto plotter = std::make_unique<DISANAplotter>(PhiModeTag{}, df_data, beamEnergy, luminosity);
+    labels.push_back(label);
     plotter->GeneratePhiKinematicHistos("el");
     plotter->GeneratePhiKinematicHistos("pro");
     plotter->GeneratePhiKinematicHistos("kMinus");
     plotter->GeneratePhiKinematicHistos("kPlus");
-  plotters.push_back(std::move(plotter));
-}
+    plotters.push_back(std::move(plotter));
+  }
 
-void AddModelPhi(ROOT::RDF::RNode df_data,
-                 const std::string& label,
-                 double beamEnergy,
-                 double luminosity,
-                 ROOT::RDF::RNode df_gen,
-                 ROOT::RDF::RNode df_rec,
-                 ROOT::RDF::RNode df_radRatio,
-                 bool fAcc=false, bool fEff=false, bool fRad=false)
-{
-  auto plotter = std::make_unique<DISANAplotter>(
-      PhiModeTag{}, df_data, beamEnergy, luminosity,
-      df_gen, df_rec, df_radRatio);
+  void AddModelPhi(ROOT::RDF::RNode df_data, const std::string& label, double beamEnergy, double luminosity, ROOT::RDF::RNode df_gen, ROOT::RDF::RNode df_rec,
+                   ROOT::RDF::RNode df_radRatio, bool fAcc = false, bool fEff = false, bool fRad = false) {
+    auto plotter = std::make_unique<DISANAplotter>(PhiModeTag{}, df_data, beamEnergy, luminosity, df_gen, df_rec, std::nullopt, std::nullopt, df_radRatio);
     plotter->GeneratePhiKinematicHistos("el");
     plotter->GeneratePhiKinematicHistos("pro");
     plotter->GeneratePhiKinematicHistos("kMinus");
     plotter->GeneratePhiKinematicHistos("kPlus");
-  plotter->SetPlotApplyAcceptanceCorrection(fAcc);
-  plotter->SetPlotApplyEfficiencyCorrection(fEff);
-  plotter->SetPlotApplyRadiativeCorrection(fRad);
+    plotter->SetPlotApplyAcceptanceCorrection(fAcc);
+    plotter->SetPlotApplyEfficiencyCorrection(fEff);
+    plotter->SetPlotApplyRadiativeCorrection(fRad);
 
-  labels.push_back(label);
-  plotters.push_back(std::move(plotter));
-}
+    labels.push_back(label);
+    plotters.push_back(std::move(plotter));
+  }
 
+  void AddModelPhi(ROOT::RDF::RNode df_data, const std::string& label, double beamEnergy, double luminosity, ROOT::RDF::RNode df_gen, ROOT::RDF::RNode df_rec,
+                   ROOT::RDF::RNode df_bkg, ROOT::RDF::RNode df_nobkg, ROOT::RDF::RNode df_radRatio, bool fAcc = false, bool fEff = false, bool fRad = false) {
+    auto plotter = std::make_unique<DISANAplotter>(PhiModeTag{}, df_data, beamEnergy, luminosity, df_gen, df_rec, df_bkg, df_nobkg, df_radRatio);
+    plotter->GeneratePhiKinematicHistos("el");
+    plotter->GeneratePhiKinematicHistos("pro");
+    plotter->GeneratePhiKinematicHistos("kMinus");
+    plotter->GeneratePhiKinematicHistos("kPlus");
+    plotter->SetPlotApplyAcceptanceCorrection(fAcc);
+    plotter->SetPlotApplyEfficiencyCorrection(fEff);
+    plotter->SetPlotApplyRadiativeCorrection(fRad);
+
+    labels.push_back(label);
+    plotters.push_back(std::move(plotter));
+  }
 
   // Set the output directory for saving plots
   void SetOutputDir(const std::string& outdir) {
@@ -1680,7 +1680,8 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
   }
   // === Add to DISANAcomparer (public): =========================
   void PlotPhiInvMassPerBin_AllModels(const std::string& baseOutDir = "PhiInvMassFits", int nBins = 120, double mMin = 0.98, double mMax = 1.08, bool constrainSigma = true,
-                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0, bool doAcceptanceCorr = false, bool doRadCorr = false) {
+                                      double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0, bool doAcceptanceCorr = false, bool doEfficiencyCorr = false,
+                                      bool doRadCorr = false) {
     if (plotters.empty()) {
       std::cerr << "[PlotPhiInvMassPerBin_AllModels] no models.\n";
       return;
@@ -1698,11 +1699,14 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
                 << ", RadCorr=" << (doRadCorr ? "ON" : "OFF") << ")\n";
 
       if (doAcceptanceCorr) {
-        p->MakePhiAcceptanceCorrection3D(fXbins, subdir + "/acc/");
+        p->MakePhiAcceptanceCorrection3D(fXbins, subdir + "/acc/", "mtprime", "mtprime", /*minGenEntries=*/10, constrainSigma, sigmaRef, sigmaFrac);
       }
-      if (doRadCorr) {
-        p->MakePhiRadiativeCorrection3D_FromRatio( fXbins, subdir + "/rad/", "rad_corr", "mtprime" );
 
+      if (doRadCorr) {
+        p->MakePhiRadiativeCorrection3D_FromRatio(fXbins, subdir + "/rad/", "rad_corr", "mtprime");
+      }
+      if (doEfficiencyCorr) {
+        p->MakePhiEfficiencyCorrection3D(fXbins, subdir + "/eff/");
       }
 
       p->SetPlotApplyAcceptanceCorrection(doAcceptanceCorr);
@@ -1712,14 +1716,251 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
     }
   }
 
-  void PlotPhiDSigmaDt_FromCache(bool plotData = true, bool plotAcc = false, bool plotRadCorr = false, bool writeCSV = true) {
+  // =========================================================================
+  // PlotPhiInvMassPerBin_XBBins_AllModels
+  // =========================================================================
+  // Drives MakePhiMassFitCanvases_XBBins() for every loaded model.
+  // Bins dσ/dt' in (x_B, t') — the correct binning for gluon radius
+  // extraction because at fixed x_B the value of W (and hence |t_min|)
+  // is kinematically determined event-by-event instead of smeared across
+  // a wide W range.
+  // =========================================================================
+  void PlotPhiInvMassPerBin_XBBins_AllModels(const std::string& baseOutDir = "PhiInvMassFits_xBBins", int nBins = 120, double mMin = 0.98, double mMax = 1.08,
+                                             bool constrainSigma = true, double sigmaRef = 0.004, double sigmaFrac = 0.25, double branching = 1.0, bool doAcceptanceCorr = false,
+                                             bool doEfficiencyCorr = false, bool doRadCorr = false) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiInvMassPerBin_XBBins_AllModels] no models.\n";
+      return;
+    }
+
+    // Require x_B binning to be set
+    const auto& xbEdges = fXbins.GetXBBins();
+    if (xbEdges.size() < 2) {
+      std::cerr << "[PlotPhiInvMassPerBin_XBBins_AllModels] "
+                   "No x_B bins found in BinManager. "
+                   "Call SetXBinsRanges() with a BinManager that has GetXBBins() set.\n";
+      return;
+    }
+
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      DISANAplotter* p = plotters[i].get();
+      if (!p) continue;
+
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      gSystem->Exec(Form("mkdir -p %s", subdir.c_str()));
+
+      std::cout << "→ [xB-binned] Fitting K^{+}K^{-} mass for model: " << labels[i] << " → " << subdir << "  (AccCorr=" << (doAcceptanceCorr ? "ON" : "OFF")
+                << ", RadCorr=" << (doRadCorr ? "ON" : "OFF") << ")\n";
+
+      p->SetPlotApplyAcceptanceCorrection(doAcceptanceCorr);
+      p->SetPlotApplyRadiativeCorrection(doRadCorr);
+
+      p->MakePhiMassFitCanvases_XBBins(fXbins, subdir, nBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, branching);
+    }
+  }
+
+  // =========================================================================
+  // PlotPhiDSigmaDt_XBBins_FromCache
+  // =========================================================================
+  // Plots and exports dσ/dt' vs t' in each x_B bin for all models.
+  // The CSV written per (model, x_B bin) has columns designed so that the
+  // Python script can compute a physically correct |t_min| from the
+  // data-weighted mean W (stored as W_mean) rather than from bin-boundary
+  // arithmetic. The key columns written are:
+  //
+  //   tprime_center, tprime_lo, tprime_hi
+  //   xB_lo, xB_hi
+  //   W_mean        ← data-weighted mean W  (use this for tmin)
+  //   Q2_mean       ← data-weighted mean Q²
+  //   xB_mean       ← data-weighted mean x_B
+  //   tmin_mean     ← mean |t_min|(Q²_i, W_i) averaged event-by-event
+  //   GammaV_mean
+  //   CrossSection, CrossSection_Err
+  //   RawCounts, RawCounts_Err
+  // =========================================================================
+  void PlotPhiDSigmaDt_XBBins_FromCache(bool writeCSV = true, bool plotData = true) {
+    if (plotters.empty()) return;
+
+    const auto& xbEdges = fXbins.GetXBBins();
+    const auto& tpEdges = fXbins.GetTprimeBins();
+    if (xbEdges.size() < 2 || tpEdges.size() < 2) {
+      std::cerr << "[PlotPhiDSigmaDt_XBBins_FromCache] "
+                   "Missing x_B or t' bin edges in BinManager.\n";
+      return;
+    }
+
+    const size_t nXB = xbEdges.size() - 1;
+    const size_t nT = tpEdges.size() - 1;
+
+    // ---- CSV writer --------------------------------------------------------
+    auto writeCSVForXBBin = [&](size_t im, size_t ixB) {
+      TH1D* hXS = nullptr;
+      TH1D* hAcc = nullptr;
+      TH1D* hEff = nullptr;
+      TH1D* hRad = nullptr;
+      TH1D* hNsig = nullptr;
+
+      {
+        auto& H = plotters[im]->GetPhiDSigmaDt_XBT();
+        if (ixB < H.size()) hXS = H[ixB];
+      }
+      {
+        auto& A = plotters[im]->GetPhiAcceptance_XBT();
+        if (ixB < A.size()) hAcc = A[ixB];
+      }
+      {
+        auto& E = plotters[im]->GetPhiEfficiency_XBT();
+        if (ixB < E.size()) hEff = E[ixB];
+      }
+      {
+        auto& R = plotters[im]->GetPhiRadCorr_XBT();
+        if (ixB < R.size()) hRad = R[ixB];
+      }
+      {
+        auto& N = plotters[im]->GetPhiRawCounts_XBT();
+        if (ixB < N.size()) hNsig = N[ixB];
+      }
+      if (!hXS) return;
+
+      // Sanitise label for directory name
+      std::string safeLabel = labels[im];
+      for (char& ch : safeLabel)
+        if (ch == ' ' || ch == '/' || ch == '\\') ch = '_';
+
+      const std::string csvDir = outputDir + "/CSVs_xBBins/" + safeLabel;
+      gSystem->Exec(Form("mkdir -p \"%s\"", csvDir.c_str()));
+
+      const std::string fname = Form("%s/dsdt_xB%zu.csv", csvDir.c_str(), ixB);
+
+      std::ofstream csv(fname);
+      if (!csv.is_open()) {
+        std::cerr << "[writeCSV_xB] Cannot open " << fname << "\n";
+        return;
+      }
+
+      // Header — all quantities needed for tmin and xB extraction downstream
+      csv << "tprime_center,tprime_lo,tprime_hi"
+          << ",xB_lo,xB_hi"
+          << ",xB_mean"    // data-weighted mean x_B in this (xB, t') cell
+          << ",W_mean"     // data-weighted mean W  — USE THIS for tmin/xB
+          << ",Q2_mean"    // data-weighted mean Q²
+          << ",tmin_mean"  // mean |t_min|(Q²_i,W_i) averaged event-by-event
+          << ",GammaV_mean"
+          << ",CrossSection,CrossSection_Err"
+          << ",Acceptance,Efficiency,RadCorr"
+          << ",RawCounts,RawCounts_Err\n";
+      csv << std::setprecision(6) << std::scientific;
+
+      const double xbLo = xbEdges[ixB];
+      const double xbHi = xbEdges[ixB + 1];
+
+      for (int ib = 1; ib <= hXS->GetNbinsX(); ++ib) {
+        const size_t it = static_cast<size_t>(ib - 1);
+        const double tp_cen = hXS->GetBinCenter(ib);
+        const double tp_lo = hXS->GetBinLowEdge(ib);
+        const double tp_hi = hXS->GetBinLowEdge(ib + 1);
+
+        const double xs = hXS->GetBinContent(ib);
+        const double xs_err = hXS->GetBinError(ib);
+        const double acc = hAcc ? hAcc->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double eff = hEff ? hEff->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double rad = hRad ? hRad->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double nsig = hNsig ? hNsig->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double nsig_err = hNsig ? hNsig->GetBinError(ib) : std::numeric_limits<double>::quiet_NaN();
+
+        // Per-(xB,t') data-weighted means from new getters
+        const double xb_mean = plotters[im]->GetPhiMeanXB_XBT(ixB, it);
+        const double w_mean = plotters[im]->GetPhiMeanW_XBT(ixB, it);
+        const double q2_mean = plotters[im]->GetPhiMeanQ2_XBT(ixB, it);
+        const double tmin_mean = plotters[im]->GetPhiMeanTmin_XBT(ixB, it);
+        const double gv_mean = plotters[im]->GetPhiMeanGammaV_XBT(ixB, it);
+
+        csv << tp_cen << "," << tp_lo << "," << tp_hi << "," << xbLo << "," << xbHi << "," << xb_mean << "," << w_mean << "," << q2_mean << "," << tmin_mean << "," << gv_mean
+            << "," << xs << "," << xs_err << "," << acc << "," << eff << "," << rad << "," << nsig << "," << nsig_err << "\n";
+      }
+      csv.close();
+      std::cout << "[CSV-xB] Written → " << fname << "\n";
+    };
+
+    // ---- Plotting ----------------------------------------------------------
+    auto doOnePlot = [&](size_t ixB) {
+      const double xbLo = xbEdges[ixB];
+      const double xbHi = xbEdges[ixB + 1];
+      const TString head = Form("x_{B} #in [%.3f, %.3f]", xbLo, xbHi);
+
+      TCanvas* c = new TCanvas(Form("c_phi_dsdt_xB%zu", ixB), "", 1200, 900);
+      styleCrossSection_.StylePad((TPad*)gPad);
+      gPad->SetTicks(1, 1);
+      gPad->SetLogy();
+
+      TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+      leg->SetBorderSize(0);
+      leg->SetFillStyle(0);
+      leg->SetTextSize(0.035);
+
+      bool first = true;
+      for (size_t im = 0; im < plotters.size(); ++im) {
+        auto& H = plotters[im]->GetPhiDSigmaDt_XBT();
+        if (ixB >= H.size() || !H[ixB]) continue;
+        TH1D* h = H[ixB];
+
+        styleCrossSection_.StyleTH1(h);
+        auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+        const int colorIdx = 5500 + (int)im * 20;
+        if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+        h->SetLineColor(colorIdx);
+        h->SetMarkerColor(colorIdx);
+        h->SetMarkerStyle(20);
+        h->SetMarkerSize(1.0);
+        h->SetTitle("");
+        h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
+        h->GetYaxis()->SetTitle("d#sigma/dt' [nb/GeV^{2}]");
+
+        if (first) {
+          h->Draw("E1X0");
+          TLatex latex;
+          latex.SetNDC();
+          latex.SetTextFont(42);
+          latex.SetTextSize(0.040);
+          latex.DrawLatex(0.14, 0.93, head);
+
+          // Annotate with mean kinematics from the lowest-t' bin (bin 0)
+          const double wmean = plotters[im]->GetPhiMeanW_XBT(ixB, 0);
+          const double q2mean = plotters[im]->GetPhiMeanQ2_XBT(ixB, 0);
+          if (std::isfinite(wmean) && std::isfinite(q2mean)) latex.DrawLatex(0.14, 0.88, Form("<W> = %.2f GeV,  <Q^{2}> = %.2f GeV^{2}", wmean, q2mean));
+          first = false;
+        } else {
+          h->Draw("E1X0 SAME");
+        }
+        leg->AddEntry(h, labels[im].c_str(), "lep");
+      }
+      leg->Draw();
+
+      const TString out = Form("%s/phi_dsdt_xBBin_%zu.pdf", outputDir.c_str(), ixB);
+      c->SaveAs(out);
+      delete leg;
+      delete c;
+    };
+
+    // ---- Main loop ---------------------------------------------------------
+    for (size_t ixB = 0; ixB < nXB; ++ixB) {
+      if (plotData) doOnePlot(ixB);
+      if (writeCSV) {
+        for (size_t im = 0; im < plotters.size(); ++im) writeCSVForXBBin(im, ixB);
+      }
+    }
+  }
+
+  void PlotPhiDSigmaDt_FromCache(bool plotData = true, bool plotAcc = false, bool plotRadCorr = false, bool plotEff = false, bool writeCSV = true) {
     if (plotters.empty()) return;
 
     const auto& q2 = fXbins.GetQ2Bins();
-    const auto& w  = fXbins.GetWBins();
-    const auto& t_edges  = fXbins.GetTBins();       // |t| bin edges (may be empty)
-    const bool hasW      = !w.empty();
-    const bool hasT      = (t_edges.size() > 1);
+    const auto& w = fXbins.GetWBins();
+    const auto& t_edges = fXbins.GetTBins();  // |t| bin edges (may be empty)
+    const bool hasW = !w.empty();
+    const bool hasT = (t_edges.size() > 1);
 
     const size_t nQ = (q2.size() > 1) ? (q2.size() - 1) : 0;
     const size_t nW = hasW ? (w.size() - 1) : 1;
@@ -1735,9 +1976,10 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
     // -----------------------------------------------------------------------
     auto writeCSVForBin = [&](size_t im, size_t iq, size_t iw) {
       // --- gather the three histograms (xs mandatory, acc/rad optional) ---
-      TH1D* hXS   = nullptr;
-      TH1D* hAcc  = nullptr;
-      TH1D* hRad  = nullptr;
+      TH1D* hXS = nullptr;
+      TH1D* hAcc = nullptr;
+      TH1D* hEff = nullptr;
+      TH1D* hRad = nullptr;
       TH1D* hNsig = nullptr;
 
       {
@@ -1747,6 +1989,10 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
       {
         auto& A = plotters[im]->GetPhiAcceptance3D();
         if (iq < A.size() && iw < A[iq].size()) hAcc = A[iq][iw];
+      }
+      {
+        auto& E = plotters[im]->GetPhiEfficiency3D();
+        if (iq < E.size() && iw < E[iq].size()) hEff = E[iq][iw];
       }
       {
         auto& R = plotters[im]->GetPhiRadCorr3D();
@@ -1782,82 +2028,80 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
       }
 
       // --- convenience bin-centre/edge values for outer axes ---
-      const double q2_lo  = q2[iq];
-      const double q2_hi  = q2[iq + 1];
+      const double q2_lo = q2[iq];
+      const double q2_hi = q2[iq + 1];
       const double q2_cen = 0.5 * (q2_lo + q2_hi);
 
-      const double w_lo   = hasW ? w[iw]       : std::numeric_limits<double>::quiet_NaN();
-      const double w_hi   = hasW ? w[iw + 1]   : std::numeric_limits<double>::quiet_NaN();
-      const double w_cen  = hasW ? 0.5*(w_lo + w_hi) : std::numeric_limits<double>::quiet_NaN();
+      const double w_lo = hasW ? w[iw] : std::numeric_limits<double>::quiet_NaN();
+      const double w_hi = hasW ? w[iw + 1] : std::numeric_limits<double>::quiet_NaN();
+      // NOTE: w_cen is the arithmetic midpoint of the W bin boundaries (e.g. 5.9 GeV
+      // for a 1.8–10 GeV bin).  It is only used for W2 columns; the per-row W_mean
+      // below comes from the actual data-weighted mean and is the physically meaningful
+      // quantity for tmin and xB computation.
+      const double w_cen = hasW ? 0.5 * (w_lo + w_hi) : std::numeric_limits<double>::quiet_NaN();
 
       // --- write header ---
       csv << "tprime_center,tprime_lo,tprime_hi"
           << ",t_center,t_lo,t_hi"
           << ",Q2_center,Q2_lo,Q2_hi";
-      if (hasW) csv << ",W2_center,W2_lo,W2_hi,W_center,W_lo,W_hi";
+      if (hasW)
+        csv << ",W2_center,W2_lo,W2_hi"
+            << ",W_lo,W_hi"  // bin boundaries kept for reference
+            << ",W_center";  // data-weighted mean W (correct for tmin/xB)
 
       // NEW mean-kin columns (per (Q2,W,t') bin)
       csv << ",xB_mean,W_mean,GammaV_mean";
 
       csv << ",CrossSection,CrossSection_Err,tprime_mean"
-          << ",Acceptance,RadCorr"
+          << ",Acceptance,Efficiency,RadCorr"
           << ",RawCounts,RawCounts_Err\n";
       csv << std::setprecision(6) << std::scientific;
 
       const int nBins = hXS->GetNbinsX();
       for (int ib = 1; ib <= nBins; ++ib) {
         const double tp_cen = hXS->GetBinCenter(ib);
-        const double tp_lo  = hXS->GetBinLowEdge(ib);
-        const double tp_hi  = hXS->GetBinLowEdge(ib + 1);
+        const double tp_lo = hXS->GetBinLowEdge(ib);
+        const double tp_hi = hXS->GetBinLowEdge(ib + 1);
 
         // |t| from t-edges array if available, else fall back to tprime bin
         double t_cen, t_lo_val, t_hi_val;
         if (hasT && (ib - 1) < (int)(t_edges.size() - 1)) {
           t_lo_val = t_edges[ib - 1];
           t_hi_val = t_edges[ib];
-          t_cen    = 0.5 * (t_lo_val + t_hi_val);
+          t_cen = 0.5 * (t_lo_val + t_hi_val);
         } else {
-          // tprime = t - t_min; without t_min info just report tprime values
-          t_cen    = tp_cen;
+          t_cen = tp_cen;
           t_lo_val = tp_lo;
           t_hi_val = tp_hi;
         }
 
-        const double xs  = hXS->GetBinContent(ib);
+        const double xs = hXS->GetBinContent(ib);
         const double err = hXS->GetBinError(ib);
-        // Use the histogram's stored mean for this bin (GetBinCenter is bin centre;
-        // the statistical mean within the bin is not directly stored in TH1 – we
-        // report GetBinCenter as "mean" which is the standard cross-section convention)
-        const double mean_val = tp_cen;  // bin-centre as representative mean
+        const double mean_val = tp_cen;
 
-        const double acc  = hAcc  ? hAcc->GetBinContent(ib)  : std::numeric_limits<double>::quiet_NaN();
-        const double rad  = hRad  ? hRad->GetBinContent(ib)  : std::numeric_limits<double>::quiet_NaN();
+        const double acc = hAcc ? hAcc->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double eff = hEff ? hEff->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
+        const double rad = hRad ? hRad->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
         const double nsig = hNsig ? hNsig->GetBinContent(ib) : std::numeric_limits<double>::quiet_NaN();
         const double nsig_err = hNsig ? hNsig->GetBinError(ib) : std::numeric_limits<double>::quiet_NaN();
-        const int ib0 = ib - 1; // convert TH1 bin (1..nBins) -> 0-based index for your getter
+        const int ib0 = ib - 1;
 
         const double xBmean = plotters[im]->GetPhiMeanXB(iq, iw, ib0);
-        const double Wmean  = plotters[im]->GetPhiMeanW(iq, iw, ib0);
+        const double Wmean = plotters[im]->GetPhiMeanW(iq, iw, ib0);
         const double Gvmean = plotters[im]->GetPhiMeanGammaV(iq, iw, ib0);
 
-        
+        // W_center: use data-weighted mean W when available (finite and physical),
+        // fall back to bin-boundary midpoint only as last resort.
+        const double W_center_out = (std::isfinite(Wmean) && Wmean > 0.5) ? Wmean : w_cen;
 
-        csv << tp_cen    << "," << tp_lo  << "," << tp_hi
-            << "," << t_cen   << "," << t_lo_val << "," << t_hi_val
-            << "," << q2_cen  << "," << q2_lo    << "," << q2_hi;
+        csv << tp_cen << "," << tp_lo << "," << tp_hi << "," << t_cen << "," << t_lo_val << "," << t_hi_val << "," << q2_cen << "," << q2_lo << "," << q2_hi;
 
-        if (hasW)
-          csv << "," << w_cen*w_cen << "," << w_lo*w_lo << "," << w_hi*w_hi
-              << "," << w_cen       << "," << w_lo       << "," << w_hi;
+        if (hasW) csv << "," << w_cen * w_cen << "," << w_lo * w_lo << "," << w_hi * w_hi << "," << w_lo << "," << w_hi << "," << W_center_out;
 
         // NEW means
-        csv << "," << xBmean
-            << "," << Wmean
-            << "," << Gvmean;
+        csv << "," << xBmean << "," << Wmean << "," << Gvmean;
 
-        csv << "," << xs << "," << err << "," << mean_val
-            << "," << acc << "," << rad
-            << "," << nsig << "," << nsig_err << "\n";
+        csv << "," << xs << "," << err << "," << mean_val << "," << acc << "," << eff << "," << rad << "," << nsig << "," << nsig_err << "\n";
       }
 
       csv.close();
@@ -1901,7 +2145,7 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
             h->SetTitle("");
             h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
             h->GetYaxis()->SetTitle(yTitle);
-            if (yTitle == "d#sigma/dt' [nb/GeV^{2}]"){
+            if (yTitle == "d#sigma/dt' [nb/GeV^{2}]") {
               gPad->SetLogy();
             }
 
@@ -1933,12 +2177,11 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
 
     // ---- Run enabled plot types ----
     if (plotData) {
-      doOne("phi_dsdt", "d#sigma/dt' [nb/GeV^{2}]", 0.0, 10.0,
-            [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
-              auto& H = P->GetPhiDSigmaDt3D();
-              if (iq >= H.size() || iw >= H[iq].size()) return nullptr;
-              return H[iq][iw];
-            });
+      doOne("phi_dsdt", "d#sigma/dt' [nb/GeV^{2}]", 0.0, 10.0, [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+        auto& H = P->GetPhiDSigmaDt3D();
+        if (iq >= H.size() || iw >= H[iq].size()) return nullptr;
+        return H[iq][iw];
+      });
     }
 
     if (plotAcc) {
@@ -1946,6 +2189,13 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
         auto& A = P->GetPhiAcceptance3D();
         if (iq >= A.size() || iw >= A[iq].size()) return nullptr;
         return A[iq][iw];
+      });
+    }
+    if (plotEff) {
+      doOne("phi_efficiency", "Efficiency", 0.0, .05, [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+        auto& E = P->GetPhiEfficiency3D();
+        if (iq >= E.size() || iw >= E[iq].size()) return nullptr;
+        return E[iq][iw];
       });
     }
 
@@ -1962,117 +2212,9 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
     if (writeCSV) {
       for (size_t im = 0; im < plotters.size(); ++im)
         for (size_t iq = 0; iq < nQ; ++iq)
-          for (size_t iw = 0; iw < nW; ++iw)
-            writeCSVForBin(im, iq, iw);
+          for (size_t iw = 0; iw < nW; ++iw) writeCSVForBin(im, iq, iw);
     }
   }
-
-  /*void PlotPhiDSigmaDt_FromCache(bool logy = true) {
-    if (plotters.empty()) return;
-
-    const auto& q2 = fXbins.GetQ2Bins();
-    const auto& tprime = fXbins.GetTprimeBins();
-    const auto& w = fXbins.GetWBins();
-    const bool hasW = !w.empty();
-
-    const size_t nQ = q2.size() ? q2.size() - 1 : 0;
-    const size_t nW = hasW ? (w.size() - 1) : 1;
-
-    for (size_t iq = 0; iq < nQ; ++iq) {
-      for (size_t iw = 0; iw < nW; ++iw) {
-        auto c = new TCanvas(Form("c_phi_dsdt_Q%zu_W%zu", iq, iw), "", 1200, 900);
-        styleCrossSection_.StylePad((TPad*)gPad);
-        gPad->SetFillStyle(4000);
-        gPad->SetTicks(1, 1);
-        if (logy) gPad->SetLogy();
-
-        // legend in the same spirit as DVCS cross-section plots
-        TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
-        leg->SetBorderSize(0);
-        leg->SetFillStyle(0);
-        leg->SetTextSize(0.035);
-
-        // find a sensible common Y-range across models for this (Q2,W) slice
-        double yMinPos = std::numeric_limits<double>::infinity();
-        double yMaxVal = 0.0;
-        for (size_t im = 0; im < plotters.size(); ++im) {
-          const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
-          if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
-          TH1D* h = xs3D[iq][iw];
-          if (!h) continue;
-          const double I = h->Integral(1, h->GetNbinsX());  // sum of contents
-          // if (I > 0)  h->Scale(1.0 / I);
-          for (int b = 1; b <= h->GetNbinsX(); ++b) {
-            const double v = h->GetBinContent(b);
-            if (v > 0.0 && v < yMinPos) yMinPos = v;
-            if (v > yMaxVal) yMaxVal = v;
-          }
-        }
-        if (!std::isfinite(yMinPos)) yMinPos = 1e-4;
-        if (yMaxVal <= 0.0) yMaxVal = 1.0;
-        if (logy) {
-          yMinPos *= 0.5;
-          yMaxVal *= 3.0;
-        }
-
-        // header text (bin labels)
-        const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
-
-        bool first = true;
-        for (size_t im = 0; im < plotters.size(); ++im) {
-          const auto& xs3D = plotters[im]->GetPhiDSigmaDt3D();
-          if (iq >= xs3D.size() || iw >= xs3D[iq].size()) continue;
-          TH1D* h = xs3D[iq][iw];
-          if (!h) continue;
-
-          // apply cross-section style + consistent palette
-          styleCrossSection_.StyleTH1(h);
-          auto [cr, cg, cb] = modelShades[im % modelShades.size()];
-          const int colorIdx = 4000 + int(im) * 20;
-          if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
-          h->SetLineColor(colorIdx);
-          h->SetMarkerColor(colorIdx);
-          h->SetMarkerStyle(20);
-          h->SetMarkerSize(1.0);
-          h->SetLineWidth(1);
-
-          // axis cosmetics consistent with DVCS cross-section look
-          h->SetTitle("");
-          h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
-          h->GetYaxis()->SetTitle("d#sigma/dt [arb.unit]");
-          h->GetXaxis()->CenterTitle(true);
-          h->GetYaxis()->CenterTitle(true);
-          h->GetXaxis()->SetNdivisions(505);
-          h->GetYaxis()->SetNdivisions(510);
-          if (logy) h->GetYaxis()->SetRangeUser(yMinPos, yMaxVal);
-
-          if (first) {
-            h->Draw("E1X0");
-            TLatex latex;
-            latex.SetNDC();
-            latex.SetTextFont(42);
-            latex.SetTextSize(0.040);
-            latex.DrawLatex(0.14, 0.93, head);
-          } else {
-            h->Draw("E1X0 SAME");
-          }
-
-          leg->AddEntry(h, labels[im].c_str(), "lep");
-          first = false;
-        }
-
-        leg->Draw();
-        c->Update();
-
-        // save inside the configured outputDir
-        TString out = hasW ? Form("%s/phi_dsdtvs_prime_Q%zu_W%zu.pdf", outputDir.c_str(), iq, iw) : Form("%s/phi_dsdtvs_prime_Q%zu.pdf", outputDir.c_str(), iq);
-        c->SaveAs(out);
-
-        delete leg;
-        delete c;
-      }
-    }
-  };*/
 
   // Generic per-(Q2,W) grid plotter of TH1 vs t'
   void PlotPhiPerBin_FromCache(const std::string& tag,                                       // used in output filename + canvas name
@@ -2485,6 +2627,147 @@ void AddModelPhi(ROOT::RDF::RNode df_data,
         delete leg;
         delete c;
       }
+    }
+  }
+
+  // ================================================================
+  //  R = sigma_L / sigma_T  extraction from cos(theta_H) angular fit
+  // ================================================================
+
+  /// Step 1 — run mass fits per (Q2, W, t', cos θ) bin and fill the
+  ///          r04_00 / R cache in each plotter.
+  void PlotPhiRLTPerBin_AllModels(const std::string& baseOutDir = "PhiRLTFits", int nMassBins = 40, double mMin = 0.988, double mMax = 1.15, bool constrainSigma = true,
+                                  double sigmaRef = 0.004, double sigmaFrac = 0.25, double beamEnergyGeV = 10.6) {
+    if (plotters.empty()) {
+      std::cerr << "[PlotPhiRLTPerBin_AllModels] no models.\n";
+      return;
+    }
+    gSystem->Exec(Form("mkdir -p %s", baseOutDir.c_str()));
+    for (size_t i = 0; i < plotters.size(); ++i) {
+      const std::string subdir = baseOutDir + "/" + labels[i];
+      std::cout << "→ Extracting R=sigma_L/sigma_T from cos(theta_KK) angular fit for model: " << labels[i] << " → " << subdir << std::endl;
+      plotters[i]->MakePhiRLTFromCosTheta3D(fXbins, subdir, nMassBins, mMin, mMax, constrainSigma, sigmaRef, sigmaFrac, beamEnergyGeV);
+    }
+  }
+
+  /// Step 2 — plot R and r04_00 vs t' (one canvas per Q2 bin) and
+  ///          write a summary CSV.
+  void PlotPhiRLT_FromCache(const std::string& outDir = "PhiRLT") {
+    if (plotters.empty()) return;
+
+    const std::string outBase = outputDir + "/" + outDir;
+    gSystem->Exec(Form("mkdir -p \"%s\"", outBase.c_str()));
+
+    const auto& q2 = fXbins.GetQ2Bins();
+    const auto& w = fXbins.GetWBins();
+    const bool hasW = !w.empty();
+    const size_t nQ = q2.size() > 1 ? q2.size() - 1 : 0;
+    const size_t nW = hasW ? (w.size() - 1) : 1;
+
+    // ---- Helper lambda: draw one observable (R or r04_00) ----
+    auto drawObs = [&](const std::string& tag, const std::string& yTitle, double yLo, double yHi, std::function<TH1D*(DISANAplotter*, size_t, size_t)> getter, bool drawZeroLine) {
+      for (size_t iq = 0; iq < nQ; ++iq) {
+        for (size_t iw = 0; iw < nW; ++iw) {
+          TCanvas* c = new TCanvas(Form("c_%s_Q%zu_W%zu", tag.c_str(), iq, iw), "", 1200, 900);
+          styleCrossSection_.StylePad((TPad*)gPad);
+          gPad->SetTicks(1, 1);
+
+          TLegend* leg = new TLegend(0.60, 0.72, 0.92, 0.90);
+          leg->SetBorderSize(0);
+          leg->SetFillStyle(0);
+          leg->SetTextSize(0.035);
+
+          const TString head = hasW ? Form("Q^{2}[%.2f, %.2f]   W[%.1f, %.1f]", q2[iq], q2[iq + 1], w[iw], w[iw + 1]) : Form("Q^{2}[%.2f, %.2f]", q2[iq], q2[iq + 1]);
+
+          bool first = true;
+          for (size_t im = 0; im < plotters.size(); ++im) {
+            TH1D* h = getter(plotters[im].get(), iq, iw);
+            if (!h) continue;
+            styleCrossSection_.StyleTH1(h);
+            auto [cr, cg, cb] = modelShades[im % modelShades.size()];
+            const int colorIdx = 6000 + (int)im * 20;
+            if (!gROOT->GetColor(colorIdx)) new TColor(colorIdx, cr, cg, cb);
+            h->SetLineColor(colorIdx);
+            h->SetMarkerColor(colorIdx);
+            h->SetMarkerStyle(20);
+            h->SetMarkerSize(1.0);
+            h->SetTitle("");
+            h->GetXaxis()->SetTitle("-t' [GeV^{2}]");
+            h->GetYaxis()->SetTitle(yTitle.c_str());
+            h->GetXaxis()->CenterTitle(true);
+            h->GetYaxis()->CenterTitle(true);
+            h->GetYaxis()->SetRangeUser(yLo, yHi);
+            if (first) {
+              h->Draw("E1X0");
+              if (drawZeroLine) {
+                TLine zl(h->GetXaxis()->GetXmin(), 0.0, h->GetXaxis()->GetXmax(), 0.0);
+                zl.SetLineStyle(2);
+                zl.SetLineWidth(2);
+                zl.Draw("SAME");
+              }
+              TLatex latex;
+              latex.SetNDC();
+              latex.SetTextFont(42);
+              latex.SetTextSize(0.040);
+              latex.DrawLatex(0.14, 0.93, head);
+              first = false;
+            } else {
+              h->Draw("E1X0 SAME");
+            }
+            leg->AddEntry(h, labels[im].c_str(), "lep");
+          }
+          leg->Draw();
+          TString out = hasW ? Form("%s/%s_Q%zu_W%zu.pdf", outBase.c_str(), tag.c_str(), iq, iw) : Form("%s/%s_Q%zu.pdf", outBase.c_str(), tag.c_str(), iq);
+          c->SaveAs(out);
+          delete leg;
+          delete c;
+        }
+      }
+    };
+
+    // ---- Draw R vs t' ----
+    drawObs(
+        "phi_RLT", "R = #sigma_{L}/#sigma_{T}", 0.0, 5.0,
+        [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+          auto& H = P->GetPhiRLT3D();
+          if (iq >= H.size() || iw >= H[iq].size()) return nullptr;
+          return H[iq][iw];
+        },
+        false);
+
+    // ---- Draw r04_00 vs t' ----
+    drawObs(
+        "phi_r04_00", "r^{04}_{00}", 0.0, 1.0,
+        [](DISANAplotter* P, size_t iq, size_t iw) -> TH1D* {
+          auto& H = P->GetPhiR04_003D();
+          if (iq >= H.size() || iw >= H[iq].size()) return nullptr;
+          return H[iq][iw];
+        },
+        false);
+
+    // ---- Write summary CSV ----
+    const std::string csvPath = outBase + "/RLT_summary.csv";
+    std::ofstream csv(csvPath);
+    if (csv.is_open()) {
+      csv << "model,Q2_lo,Q2_hi,W_lo,W_hi,tprime_center,r04_00,r04_00_err,R,R_err\n";
+      csv << std::setprecision(6) << std::scientific;
+      for (size_t im = 0; im < plotters.size(); ++im) {
+        auto& Hrlt = plotters[im]->GetPhiRLT3D();
+        auto& Hr04 = plotters[im]->GetPhiR04_003D();
+        for (size_t iq = 0; iq < nQ; ++iq) {
+          for (size_t iw = 0; iw < nW; ++iw) {
+            TH1D* hR = (iq < Hrlt.size() && iw < Hrlt[iq].size()) ? Hrlt[iq][iw] : nullptr;
+            TH1D* hr04 = (iq < Hr04.size() && iw < Hr04[iq].size()) ? Hr04[iq][iw] : nullptr;
+            if (!hR || !hr04) continue;
+            for (int b = 1; b <= hR->GetNbinsX(); ++b) {
+              csv << labels[im] << "," << q2[iq] << "," << q2[iq + 1] << "," << (hasW ? w[iw] : 0.0) << "," << (hasW ? w[iw + 1] : 0.0) << "," << hR->GetBinCenter(b) << ","
+                  << hr04->GetBinContent(b) << "," << hr04->GetBinError(b) << "," << hR->GetBinContent(b) << "," << hR->GetBinError(b) << "\n";
+            }
+          }
+        }
+      }
+      csv.close();
+      std::cout << "[CSV] R=sigma_L/sigma_T summary → " << csvPath << "\n";
     }
   }
 

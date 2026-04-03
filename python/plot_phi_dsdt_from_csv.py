@@ -18,11 +18,13 @@ Fixes in this version:
     falls back to nearest centroid with a printed warning if no bin matches
   - --beam-energy kept as optional fallback for unknown model names
   - --print-table / --table-outdir : prints + saves per-bin tables with
-      raw_xs, Gamma_v, reduced_xs, Acceptance, xs_acc_corrected, RadCorr, xs_rad_corrected
+      raw_xs, Gamma_v, reduced_xs, Acceptance, Efficiency,
+      xs_acc_corrected, xs_eff_corrected, RadCorr, xs_rad_corrected
   - Corrections panel ratio is a TRUE correction-factor plot:
       ratio = Final / Variant   (log-scale)
-  - Acceptance group y-range forced to 0.0 0.05
+  - Acceptance / Efficiency group y-range forced for correction-factor plots
 """
+#python3 ./../../../../../source/python/plot_phi_dsdt_from_csv.py --csv-root ./../ --models "Sp18_inb" "Sp18_outb" "Fall18_inb" "Fall18_outb" "Sp19_inb" --outdir plots_phi_dsdt --plot-reduced --use-external-radcorr --print-table
 #python3 ./../../../../../source/python/plot_phi_dsdt_from_csv.py --csv-root ./../ --models "Sp18_inb" "Sp18_outb" "Fall18_inb" "Fall18_outb" "Sp19_inb" --outdir plots_phi_dsdt --plot-reduced --use-external-radcorr --print-table
 
 import os
@@ -44,7 +46,8 @@ from matplotlib.ticker import AutoMinorLocator
 # -----------------------------------------------------------------------------
 K_RADCORR_FILE_10P2 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p2GeV/diffrad_rc_results.csv"
 K_RADCORR_FILE_10P6 = "/w/hallb-scshelf2102/clas12/singh/Softwares/Generators/PhiEventGen/DIFFRAD/diffradstn/outputs/10p6GeV/diffrad_rc_results.csv"
-
+# -----------------------------------------------------------------------------
+W_MEAN_GEV = (1.8 + 2.5) / 2  # hardcoded mean W (requested)
 # -----------------------------------------------------------------------------
 #  Per-model beam energy lookup  (case-insensitive substring match on model name)
 # -----------------------------------------------------------------------------
@@ -252,6 +255,7 @@ def _make_hs_fit_plot(df, res, iq, iw, model_label, outdir, logy=True,
 
         ax_m.set_ylabel(r"$\mathrm{d}\sigma/\mathrm{d}t'\ [\mathrm{nb/GeV}^2]$")
         ax_m.tick_params(labelbottom=False)
+        ax_m.set_ylim(YLIM_XS)
 
         # Annotation
         chi2_str = (f"chi2/ndf = {res['chi2']:.1f}/{res['ndf']}" if res.get("ndf", 0) > 0 else "")
@@ -299,8 +303,7 @@ M_PHI_GEV = 1.019461        # (1020) mass [GeV], PDG 2022
 
 # -----------------------------------------------------------------------------
 #  Hardcoded kinematics fallbacks (TOP, as requested)
-# -----------------------------------------------------------------------------
-W_MEAN_GEV = 2.8  # hardcoded mean W (requested)
+
 
 # If Q2_center is missing, use an IQ->Q2 mean lookup (EDIT if needed)
 Q2_MEAN_BY_IQ_GEV2 = {
@@ -392,11 +395,11 @@ def _make_hs_gff_plot(df, res, iq, iw, model_label, outdir,
             ax.set_title(title, fontsize=LEG_TITLE_FS)
             ax.legend(frameon=False, fontsize=LEG_FS - 2, loc="lower right")
 
-            if show_lattice:
-                ax.text(0.98, 0.02,
-                        "Lattice: Hackett, Pefkou, Shanahan\nPRL 132, 251904 (2024), Table I",
-                        transform=ax.transAxes, ha="right", va="bottom",
-                        fontsize=max(LEG_FS - 4, 8), style="italic", color="gray")
+            #if show_lattice:
+                #ax.text(0.98, 0.2,
+                 #       "Lattice: Hackett, Pefkou, Shanahan\nPRL 132, 251904 (2024), Table I",
+                  #      transform=ax.transAxes, ha="right", va="bottom",
+                   #     fontsize=max(LEG_FS - 4, 8), style="italic", color="gray")
 
             stem = stem_base + ("_with_lattice" if show_lattice else "")
             _save(fig, outdir, stem)
@@ -805,6 +808,7 @@ def ensure_q2_w_centers(df, iq=None, w_mean=W_MEAN_GEV):
 def dump_xs_table(df, variants, label, outdir):
     raw_xs, raw_err = variants["raw"]
     acc_xs, acc_err = variants["acc"]
+    eff_xs, eff_err = variants["eff"]
     fin_xs, fin_err = variants["final"]
 
     n = len(df)
@@ -814,6 +818,7 @@ def dump_xs_table(df, variants, label, outdir):
 
     tcent  = col_or_nan("tprime_center")
     A      = col_or_nan("Acceptance")
+    Eff    = col_or_nan("Efficiency")
     Crad   = col_or_nan("RadCorr")
     Gamma  = col_or_nan("Gamma_v")
 
@@ -826,11 +831,14 @@ def dump_xs_table(df, variants, label, outdir):
         "Gamma_v":               Gamma,
         "reduced_xs":            reduced,
         "Acceptance":            A,
+        "Efficiency":            Eff,
         "xs_acc_corrected":      acc_xs,
+        "xs_eff_corrected":      eff_xs,
         "RadCorr":               Crad,
         "xs_rad_corrected":      fin_xs,
         "raw_xs_err":            raw_err,
         "xs_acc_corrected_err":  acc_err,
+        "xs_eff_corrected_err":  eff_err,
         "xs_rad_corrected_err":  fin_err,
     })
 
@@ -845,11 +853,12 @@ def dump_xs_table(df, variants, label, outdir):
 # -----------------------------------------------------------------------------
 MODEL_COLORS = ["#1F4FD8", "#E07010", "#009999", "#008800", "#7733CC", "#CC1A33", "#666666"]
 
-CORR_COLORS = {"raw": "#000000", "acc": "#1F4FD8", "final": "#009900"}
+CORR_COLORS = {"raw": "#000000", "acc": "#1F4FD8", "eff": "#7A3DB8", "final": "#009900"}
 CORR_LABELS = {
     "raw":   "Raw  (no corr.)",
     "acc":   "Acceptance corr. only",
-    "final": "Acc. + Rad. (final)",
+    "eff":   "Acc. + Eff. corr.",
+    "final": "Acc. + Eff. + Rad. (final)",
 }
 
 PANEL_RC = {
@@ -876,24 +885,32 @@ PANEL_RC = {
 
 LEG_FS       = 18
 LEG_TITLE_FS = 18
-YLIM_XS      = (1e-5, 40.0)
+YLIM_XS      = (1e-5, 80.0)
+YLIM_XS_RAW      = (1e-8, 1e-4)
+
 XLIM_T       = (0.0, 6.0)
-YLIM_RED     = (1e-5, 30.0)  # reduced cross-section comparison y-limits
+YLIM_RED     = (1e-5, 50.0)  # reduced cross-section comparison y-limits
 NCOLS_GRP    = 2
 
 _CANVAS_CFG = {
     "xs": dict(
         col="CrossSection", err_col="CrossSection_Err",
-        ylabel=r"$\mathrm{d}\sigma/\mathrm{d}t'\ [\mathrm{nb/GeV}^2]$",
+        #ylabel=r"$\mathrm{d}\sigma/\mathrm{d}t'\ [\mathrm{nb/GeV}^2]$",
+        ylabel=r"Yields (arb. units)",
         logy=True, tag="dsdt", title="Cross-section (final)"),
     "red": dict(
         col="ReducedCrossSection", err_col="ReducedCrossSection_Err",
-        ylabel=r"$\sigma_\mathrm{red} = (\mathrm{d}\sigma/\mathrm{d}t')/\Gamma_v\ [\mathrm{nb}]$",
+        #ylabel=r"$\sigma_\mathrm{red} = (\mathrm{d}\sigma/\mathrm{d}t')/\Gamma_v\ [\mathrm{nb}]$",
+        ylabel=r"Yields (arb. units)",
         logy=True, tag="dsdt_reduced", title="Reduced cross-section"),
     "acc": dict(
         col="Acceptance", err_col=None,
         ylabel=r"Acceptance $A(\varepsilon)$",
         logy=False, tag="acceptance", title="Acceptance"),
+    "eff": dict(
+        col="Efficiency", err_col=None,
+        ylabel=r"Efficiency $\varepsilon$",
+        logy=False, tag="efficiency", title="Efficiency"),
     "rad": dict(
         col="RadCorr", err_col=None,
         ylabel=r"$C_\mathrm{rad}$",
@@ -916,7 +933,7 @@ def _bin_label(df):
     if "W_lo" in df.columns and "W_hi" in df.columns and pd.notna(df["W_lo"].iloc[0]):
         wlo = float(df["W_lo"].iloc[0])
         whi = float(df["W_hi"].iloc[0])
-        lbl += rf"$\quad W \in [{wlo:.2f},\,{whi:.2f}]\ \mathrm{{GeV}}$"
+        #lbl += rf"$\quad W \in [{wlo:.2f},\,{whi:.2f}]\ \mathrm{{GeV}}$"
     return lbl
 
 def _save(fig, outdir, stem):
@@ -1008,12 +1025,17 @@ def _build_variants(df, luminosity=None, branching=None):
     xs   = _safe_col(df, "CrossSection")
     xerr = _safe_col(df, "CrossSection_Err")
     A    = _safe_col(df, "Acceptance")
+    Ceff = _safe_col(df, "Efficiency")
     Crad = _safe_col(df, "RadCorr")
     Nsig = _safe_col(df, "RawCounts")
     Nerr = _safe_col(df, "RawCounts_Err")
     dT   = df["tprime_hi"].to_numpy(float) - df["tprime_lo"].to_numpy(float)
 
     A_s    = np.where(np.isfinite(A)    & (A    > 0), A,    1.0)
+    # Clamp efficiency to (0, 1]: values >1 or <=0 are unphysical (low MC stats)
+    # and are replaced with 1.0 so they don't corrupt xs_eff_corrected.
+    Ceff_valid = np.isfinite(Ceff) & (Ceff > 0) & (Ceff <= 1.0)
+    Ceff_s = np.where(Ceff_valid, Ceff, 1.0)
     Crad_s = np.where(np.isfinite(Crad) & (Crad > 0), Crad, 1.0)
     dT_s   = np.where(dT > 0, dT, 1.0)
 
@@ -1024,24 +1046,29 @@ def _build_variants(df, luminosity=None, branching=None):
         BR = branching
         denom_raw   = L * BR * dT_s
         denom_acc   = L * BR * dT_s * A_s
-        denom_final = L * BR * dT_s * A_s * Crad_s
+        denom_eff   = L * BR * dT_s * A_s * Ceff_s
+        denom_final = L * BR * dT_s * A_s * Ceff_s * Crad_s
 
         raw_v   = np.where(denom_raw   > 0, Nsig / denom_raw,   np.nan)
         acc_v   = np.where(denom_acc   > 0, Nsig / denom_acc,   np.nan)
+        eff_v   = np.where(denom_eff   > 0, Nsig / denom_eff,   np.nan)
         final_v = np.where(denom_final > 0, Nsig / denom_final, np.nan)
         raw_e   = np.where(denom_raw   > 0, Nerr / denom_raw,   np.nan)
         acc_e   = np.where(denom_acc   > 0, Nerr / denom_acc,   np.nan)
+        eff_e   = np.where(denom_eff   > 0, Nerr / denom_eff,   np.nan)
         final_e = np.where(denom_final > 0, Nerr / denom_final, np.nan)
     else:
-        # CrossSection already fully corrected  reconstruct variants
+        # CrossSection already fully corrected — reconstruct intermediate variants
         final_v = xs.copy()
         final_e = xerr.copy()
-        acc_v   = xs   * Crad_s          # undo RadCorr
-        acc_e   = xerr * Crad_s
-        raw_v   = xs   * A_s * Crad_s    # undo both
-        raw_e   = xerr * A_s * Crad_s
+        eff_v   = xs   * Crad_s                 # undo RadCorr only
+        eff_e   = xerr * Crad_s
+        acc_v   = xs   * Ceff_s * Crad_s       # undo Eff and RadCorr
+        acc_e   = xerr * Ceff_s * Crad_s
+        raw_v   = xs   * A_s * Ceff_s * Crad_s # undo Acceptance, Eff, RadCorr
+        raw_e   = xerr * A_s * Ceff_s * Crad_s
 
-    return {"raw": (raw_v, raw_e), "acc": (acc_v, acc_e), "final": (final_v, final_e)}
+    return {"raw": (raw_v, raw_e), "acc": (acc_v, acc_e), "eff": (eff_v, eff_e), "final": (final_v, final_e)}
 
 # -----------------------------------------------------------------------------
 #  Corrections canvas (before/after)
@@ -1106,7 +1133,7 @@ def make_corrections_canvas(csv_root, models, iq, iw, outdir, logy=True,
             final_v, final_e = variants["final"]
             ref_safe = np.where(np.isfinite(final_v) & (final_v > 0), final_v, np.nan)
 
-            for vkey in ("raw", "acc"):
+            for vkey in ("raw", "acc", "eff"):
                 val, err = variants[vkey]
                 denom    = np.where(np.isfinite(val) & (val != 0), val, np.nan)
                 ratio    = ref_safe / denom
@@ -1188,7 +1215,11 @@ def _draw_panel(ax, models, csv_root, iq, iw, canvas_key, logy):
             header = _bin_label(df)
         x    = df["tprime_center"].to_numpy(float)
         y    = _safe_col(df, col)
-        mask = np.isfinite(y) & (y > 0)
+        # For efficiency, only plot physically valid values (0 < eff <= 1)
+        if canvas_key == "eff":
+            mask = np.isfinite(y) & (y > 0) & (y <= 1.0)
+        else:
+            mask = np.isfinite(y) & (y > 0)
         if not mask.any():
             continue
         color = MODEL_COLORS[im % len(MODEL_COLORS)]
@@ -1257,6 +1288,9 @@ def make_group_plot(csv_root, models, bin_keys, canvas_key, outdir, logy=True):
                     ax.set_ylim(YLIM_RED)
                 elif canvas_key == "acc":
                     ax.set_ylim(0.0, 0.035)   # <-- requested
+                elif canvas_key == "eff":
+                    ax.set_ylim(0.6, 1.05)
+                    ax.axhline(1.0, color="gray", lw=1.2, ls="--", zorder=1)
                 elif canvas_key == "rad":
                     ax.set_ylim(0.6, 1.0)
                     ax.axhline(1.0, color="gray", lw=1.2, ls="--", zorder=1)
@@ -1451,7 +1485,11 @@ def make_comparison_with_ratio(csv_root, models, iq, iw, canvas_key, outdir, log
             yerr  = _safe_col(df, ec) if ec else np.zeros_like(y)
             xlo   = t - df["tprime_lo"].to_numpy(float)
             xhi   = df["tprime_hi"].to_numpy(float) - t
-            mask  = np.isfinite(y) & (y > 0)
+            # For efficiency, mask out unphysical values (>1 or <=0)
+            if canvas_key == "eff":
+                mask = np.isfinite(y) & (y > 0) & (y <= 1.0)
+            else:
+                mask  = np.isfinite(y) & (y > 0)
             if not mask.any():
                 continue
 
@@ -1480,15 +1518,45 @@ def make_comparison_with_ratio(csv_root, models, iq, iw, canvas_key, outdir, log
                             markersize=6, mfc="white", mew=1.8, lw=1.5, zorder=5 + im,
                         )
 
+        # --- Weighted average (only for reduced cross-section) ---
+        if canvas_key == "red" and len(dfs) >= 2:
+            avg_df = _weighted_average_reduced_xs(list(dfs.values()))
+            if avg_df is not None and len(avg_df) > 0:
+                t_a   = avg_df["tprime_center"].to_numpy(float)
+                y_a   = avg_df["ReducedCrossSection"].to_numpy(float)
+                ye_a  = avg_df["ReducedCrossSection_Err"].to_numpy(float)
+                xlo_a = (t_a - avg_df["tprime_lo"].to_numpy(float)
+                         if "tprime_lo" in avg_df.columns
+                         else np.zeros_like(t_a))
+                xhi_a = (avg_df["tprime_hi"].to_numpy(float) - t_a
+                         if "tprime_hi" in avg_df.columns
+                         else np.zeros_like(t_a))
+                mask_a = np.isfinite(t_a) & np.isfinite(y_a) & (y_a > 0)
+                if mask_a.any():
+                    h_avg = ax_m.errorbar(
+                        t_a[mask_a], y_a[mask_a],
+                        yerr=ye_a[mask_a],
+                        xerr=(np.where(np.isfinite(xlo_a[mask_a]), xlo_a[mask_a], 0.0),
+                              np.where(np.isfinite(xhi_a[mask_a]), xhi_a[mask_a], 0.0)),
+                        fmt="o", color="#111111", ecolor="#111111",
+                        elinewidth=2.0, capsize=4,
+                        markersize=8, mfc="white", mew=2.2, lw=2.0,
+                        zorder=20,
+                    )
+                    handles.append(h_avg)
+                    labels_l.append("Weighted avg.")
+
         # axes formatting
         ax_m.set_xlim(XLIM_T)
 
-        if cfg["logy"] and logy and canvas_key not in ("acc", "rad"):
+        if cfg["logy"] and logy and canvas_key not in ("acc", "rad", "eff"):
             ax_m.set_yscale("log")
             ax_m.set_ylim(YLIM_RED if canvas_key == "red" else YLIM_XS)
         elif canvas_key == "acc":
             ax_m.set_ylim(0.0, 0.035)
-
+        elif canvas_key == "eff":
+            ax_m.axhline(1.0, color="gray", lw=1.2, ls="--", zorder=0)
+            ax_m.set_ylim(0.0, 1.05)
         elif canvas_key == "rad":
             ax_m.axhline(1.0, color="gray", lw=1.2, ls="--", zorder=0)
             ax_m.set_ylim(0.6, 1.0)
@@ -1514,6 +1582,79 @@ def make_comparison_with_ratio(csv_root, models, iq, iw, canvas_key, outdir, log
 
 def make_final_xs_group(csv_root, models, bin_keys, outdir, logy=True):
     make_group_plot(csv_root, models, bin_keys, "xs", outdir, logy=logy)
+
+
+def make_raw_yields_per_bin(csv_root, models, bin_keys, outdir,
+                            logy=True, luminosity=None, branching=None):
+    """Per-(Q²,W) bin plot of the raw (uncorrected) dσ/dt' vs t'.
+
+    Plots the same data points as the black "Raw (no corr.)" series in the
+    corrections canvas — i.e. the cross-section with both acceptance and
+    radiative corrections undone (xs × A × C_rad), and without any virtual
+    photon flux division.  One file per kinematic bin, all models overlaid.
+    """
+    os.makedirs(outdir, exist_ok=True)
+
+    for (iq, iw) in bin_keys:
+        dfs = {m: df for m in models
+               if (df := load_csv(csv_root, m, iq, iw)) is not None}
+        if not dfs:
+            continue
+
+        ref_df = next(iter(dfs.values()))
+
+        with mpl.rc_context(PANEL_RC):
+            fig, ax_m = plt.subplots(figsize=(10, 8))
+            _style_ax(ax_m)
+
+            handles, labels_l = [], []
+            for im, (m, df) in enumerate(dfs.items()):
+                color    = MODEL_COLORS[im % len(MODEL_COLORS)]
+                t        = df["tprime_center"].to_numpy(float)
+                xlo      = t - df["tprime_lo"].to_numpy(float)
+                xhi      = df["tprime_hi"].to_numpy(float) - t
+
+                variants = _build_variants(df, luminosity, branching)
+                raw_v, raw_e = variants["raw"]
+
+                mask = np.isfinite(raw_v) & (raw_v > 0)
+                if not mask.any():
+                    continue
+
+                h = ax_m.errorbar(
+                    t[mask], raw_v[mask],
+                    yerr=raw_e[mask],
+                    xerr=(xlo[mask], xhi[mask]),
+                    fmt="o", color=color, ecolor=color,
+                    elinewidth=1.5, capsize=3,
+                    markersize=7, mfc="white", mew=2.0, lw=1.8,
+                    zorder=5 + im,
+                    label=m.replace("_", " "),
+                )
+                handles.append(h)
+                labels_l.append(m.replace("_", " "))
+
+            if not handles:
+                plt.close(fig)
+                continue
+
+            ax_m.set_xlim(XLIM_T)
+            if logy:
+                ax_m.set_yscale("log")
+                ax_m.set_ylim(YLIM_XS_RAW)
+            ax_m.set_xlabel(r"$-t'\ [\mathrm{GeV}^2]$")
+            ax_m.set_ylabel(
+                #r"$\mathrm{d}\sigma/\mathrm{d}t'\ [\mathrm{nb/GeV}^2]$"
+                r"Yields (arb. units)"
+                "\n(raw: no acc. / rad. corr.)"
+            )
+            ax_m.legend(handles, labels_l, loc="upper right",
+                        frameon=False, fontsize=LEG_FS, ncol=1)
+            fig.suptitle(_bin_label(ref_df), fontsize=LEG_TITLE_FS + 2, y=0.97)
+
+            stem = (f"raw_yields_Q{iq}" if iw is None
+                    else f"raw_yields_Q{iq}_W{iw}")
+            _save(fig, outdir, stem)
 
 
 def make_reduced_xs_group(csv_root, models, bin_keys, outdir, logy=True):
@@ -1580,10 +1721,27 @@ def _fit_hs_Ds0_from_dsdt(df, model_name,
         return None
 
     tprime = df["tprime_center"].to_numpy(float)
-    tmin_abs = float(df["tmin_abs"].iloc[0]) if "tmin_abs" in df.columns else 0.0
-    if not np.isfinite(tmin_abs):
-        tmin_abs = 0.0
+
+    # Robustly compute |t_min|. Prefer per-row column; fall back to
+    # computing from Q2_center + W_MEAN_GEV so it is never silently 0.
+    tmin_abs = 0.0
+    if "tmin_abs" in df.columns:
+        val = float(df["tmin_abs"].iloc[0])
+        if np.isfinite(val) and val > 1e-6:
+            tmin_abs = val
+    if tmin_abs < 1e-6 and "Q2_center" in df.columns:
+        q2c = float(df["Q2_center"].iloc[0])
+        wc  = float(df["W_center"].iloc[0]) if "W_center" in df.columns else W_MEAN_GEV
+        w_hs = min(wc, W_MEAN_GEV) if np.isfinite(wc) else W_MEAN_GEV
+        tmin_computed = t_min_phi(q2c, w_hs)
+        if np.isfinite(tmin_computed) and tmin_computed > 1e-6:
+            tmin_abs = tmin_computed
+
     t_abs = tprime + tmin_abs
+
+    # HS model validity: restrict to |t| < 1 GeV^2 (paper recommendation).
+    hs_t_abs_max = 2.0
+    tprime_max_eff = min(float(tprime_max), max(0.05, hs_t_abs_max - tmin_abs))
 
     y = df["ReducedCrossSection"].to_numpy(float)
     yerr = df["ReducedCrossSection_Err"].to_numpy(float) if "ReducedCrossSection_Err" in df.columns else np.zeros_like(y)
@@ -1591,7 +1749,7 @@ def _fit_hs_Ds0_from_dsdt(df, model_name,
     mask = (
         np.isfinite(tprime) & np.isfinite(t_abs) &
         np.isfinite(y) & (y > 0) &
-        (tprime >= float(tprime_min)) & (tprime <= float(tprime_max))
+        (tprime >= float(tprime_min)) & (tprime <= tprime_max_eff)
     )
     if int(mask.sum()) < 3:
         print(f"  [WARN] {model_name}: only {int(mask.sum())} ds/dt points in t' "
@@ -1642,7 +1800,7 @@ def _fit_hs_Ds0_from_dsdt(df, model_name,
         chi2=chi2, ndf=ndf,
         tmin_abs=tmin_abs,
         tprime_min=float(tprime_min),
-        tprime_max=float(tprime_max),
+        tprime_max=float(tprime_max_eff),
         t_abs_fit=x_f, y_fit=y_f, yerr_fit=s_f,
     )
 
@@ -2417,7 +2575,9 @@ def _make_param_vs_Q2_plots(sumtab, models, outdir):
                         continue
                     color = MODEL_COLORS[im % len(MODEL_COLORS)]
                     ax.errorbar(
-                        ms["Q2_center"], ms[par], yerr=ms[dpar],
+                        ms["Q2_center"].to_numpy(float),
+                        ms[par].to_numpy(float),
+                        yerr=ms[dpar].to_numpy(float),
                         fmt="o-", color=color, ecolor=color,
                         elinewidth=1.8, capsize=4,
                         markersize=8, mfc="white", mew=2.2, lw=1.8,
@@ -2464,7 +2624,9 @@ def _make_param_vs_W_plots(sumtab, models, outdir):
                         continue
                     color = MODEL_COLORS[im % len(MODEL_COLORS)]
                     ax.errorbar(
-                        ms["W_center"], ms[par], yerr=ms[dpar],
+                        ms["W_center"].to_numpy(float),
+                        ms[par].to_numpy(float),
+                        yerr=ms[dpar].to_numpy(float),
                         fmt="o-", color=color, ecolor=color,
                         elinewidth=1.8, capsize=4,
                         markersize=8, mfc="white", mew=2.2, lw=1.8,
@@ -3124,11 +3286,11 @@ def make_hs_ds0_summary_plots(ds0_table, outdir, prefer_combined=True):
                     ax.set_xscale(xscale)
                 ax.legend(frameon=False, fontsize=LEG_FS - 2, loc="center left")
 
-                if show_lattice:
-                    ax.text(0.98, 0.97,
-                            "Lattice: Hackett, Pefkou, Shanahan\nPRL 132, 251904 (2024), Table I",
-                            transform=ax.transAxes, ha="right", va="top",
-                            fontsize=max(LEG_FS - 4, 8), style="italic", color="gray")
+                #if show_lattice:
+                 #   ax.text(0.98, 0.97,
+                  #          "Lattice: Hackett, Pefkou, Shanahan\nPRL 132, 251904 (2024), Table I",
+                   #         transform=ax.transAxes, ha="right", va="top",
+                    #        fontsize=max(LEG_FS - 4, 8), style="italic", color="gray")
 
                 out_stem = stem + ("_with_lattice" if show_lattice else "")
                 _save(fig, outdir, out_stem)
@@ -3260,7 +3422,7 @@ def _run_hs_ds0_workflow(*, csv_root, models, bin_keys, outdir,
 
 def main():
     ap = argparse.ArgumentParser(
-        description=" d/dt analysis: corrections, acceptance, RadCorr, "
+        description=" d/dt analysis: corrections, acceptance, efficiency, RadCorr, "
                     "final cross-section, dipole fits."
     )
     ap.add_argument("--csv-root",  default=".",
@@ -3280,6 +3442,11 @@ def main():
     ap.add_argument("--plot-reduced", action="store_true",
                     help="Also produce the group-overview reduced cross-section plots "
                          "(dipole fits on reduced XS are always produced).")
+    ap.add_argument("--plot-raw-yields", action="store_true",
+                    help="Produce a group-overview plot of raw (uncorrected) yields "
+                         "N_raw vs t' for all Q² bins. Saved to <outdir>/0a_RawYields_group. "
+                         "Use this for presentations: show raw data first, then corrections, "
+                         "then the final reduced cross-sections.")
     ap.add_argument("--fits-only", action="store_true",
                     help="Skip all correction/overview plots and run only the dipole and HS fit stages using the existing CSVs.")
     ap.add_argument("--use-external-radcorr", action="store_true",
@@ -3292,16 +3459,16 @@ def main():
                     help="Where to save tables (default: <outdir>/0_Tables).")
     ap.add_argument("--no-logy", action="store_true",
                     help="Disable log-y on cross-section canvases.")
-    ap.add_argument("--t-min", type=float, default=0.1,
+    ap.add_argument("--t-min", type=float, default=0.2,
                     help="Min tprime for fitting [GeV^2].")
-    ap.add_argument("--t-max", type=float, default=3.5,
+    ap.add_argument("--t-max", type=float, default=3.0,
                     help="Max |t| for fitting [GeV].")
 
     ap.add_argument("--extract-ds0", action="store_true",
                     help="Extract strange D-term Ds(0) using HS-inspired template fit to final dσ/dt'.")
-    ap.add_argument("--ds0-tprime-min", type=float, default=0.10,
+    ap.add_argument("--ds0-tprime-min", type=float, default=0.20,
                     help="Min t' for Ds0 fit [GeV^2].")
-    ap.add_argument("--ds0-tprime-max", type=float, default=3.5,
+    ap.add_argument("--ds0-tprime-max", type=float, default=3.0,
                     help="Max t' for Ds0 fit [GeV^2].")
     ap.add_argument("--hs-As0", type=float, default=HS_AS0_DEFAULT,
                     help="HS As(0) (default 0.04).")
@@ -3326,6 +3493,7 @@ def main():
     lumi         = args.luminosity
     br           = args.branching
     plot_red     = args.plot_reduced
+    plot_raw     = args.plot_raw_yields
     table_outdir = args.table_outdir or os.path.join(outdir, "0_Tables")
 
     print("Beam energy assignment:")
@@ -3367,6 +3535,14 @@ def main():
         return
 
     d1 = os.path.join(outdir, "1_Corrections_beforeafter")
+    # ------------------------------------------------------------------
+    #  0a) Raw yields overview  (show this first in presentations)
+    # ------------------------------------------------------------------
+    if plot_raw:
+        make_raw_yields_per_bin(csv_root, present, bin_keys,
+                                os.path.join(outdir, "0a_RawYields"),
+                                logy=logy, luminosity=lumi, branching=br)
+
     for (iq, iw) in bin_keys:
         make_corrections_canvas(
             csv_root, present, iq, iw, d1, logy,
@@ -3377,6 +3553,9 @@ def main():
     make_group_plot(csv_root, present, bin_keys, "acc",
                     os.path.join(outdir, "2_Acceptance_group"), logy=False)
 
+    make_group_plot(csv_root, present, bin_keys, "eff",
+                    os.path.join(outdir, "2b_Efficiency_group"), logy=False)
+
     make_group_plot(csv_root, present, bin_keys, "rad",
                     os.path.join(outdir, "3_RadCorr_group"), logy=False)
 
@@ -3385,11 +3564,13 @@ def main():
 
     d5xs  = os.path.join(outdir, "5_Comparison_xs")
     d5acc = os.path.join(outdir, "5_Comparison_acc")
+    d5eff = os.path.join(outdir, "5_Comparison_eff")
     d5rad = os.path.join(outdir, "5_Comparison_rad")
     d5red = os.path.join(outdir, "5_Comparison_reduced")
     for (iq, iw) in bin_keys:
         make_comparison_with_ratio(csv_root, present, iq, iw, "xs",  d5xs,  logy)
         make_comparison_with_ratio(csv_root, present, iq, iw, "acc", d5acc, False, show_ratio=False)
+        make_comparison_with_ratio(csv_root, present, iq, iw, "eff", d5eff, False, show_ratio=False)
         make_comparison_with_ratio(csv_root, present, iq, iw, "rad", d5rad, False)
         if plot_red:
             make_comparison_with_ratio(csv_root, present, iq, iw, "red", d5red, logy, show_ratio=False)

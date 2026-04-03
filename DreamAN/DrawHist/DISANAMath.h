@@ -321,6 +321,10 @@ class DISANAMath {
 
   double DeltaE_{};
 
+  // Inelasticity / radiative-photon quantities
+  double vm_cut_{-999.0};      // maximal inelasticity  [GeV^2]
+  double Egamma_star_{-999.0}; // radiative-photon energy in CM(X) [GeV]
+
  public:
   DISANAMath() = default;
 
@@ -426,6 +430,46 @@ class DISANAMath {
   double GetDeltaPhi_pi0() const { return delta_phi_pi0_; }
 
   double GetCoplanarity_had_normals_deg() const { return coplanarity_had_normals_deg_; }
+
+  double GetVmCut()       const { return vm_cut_; }
+  double GetEgammaStar()  const { return Egamma_star_; }
+
+  // -------------------------------------------------------------------------
+  // ComputeVmApprox  —  approximate maximal inelasticity for diffractive
+  // vector-meson electroproduction  (see Vcut.pdf notes, Section 6)
+  //
+  //   vm(t) = (m_v^2 * W^2) / (M_p * Q^2 * Sx)
+  //            * |t| * ( (W^2 - m_v^2)/2 - |t| )
+  //
+  // with  S  = 2 M_p E_beam
+  //       y  = Q^2 / (xB * S)
+  //       Sx = y * S
+  //       W^2 = M_p^2 + Sx - Q^2
+  //
+  // Returns max(vm, 0).  Returns -999 for unphysical kinematics.
+  // -------------------------------------------------------------------------
+  static double ComputeVmApprox(double Q2, double xB, double t,
+                                 double mv, double beam_energy)
+  {
+    if (Q2 <= 0.0 || xB <= 0.0 || beam_energy <= 0.0) return -999.0;
+
+    const double S   = 2.0 * m_p * beam_energy;
+    const double y   = Q2 / (xB * S);
+    if (y <= 0.0 || y >= 1.0) return 0.0;
+
+    const double Sx  = y * S;
+    const double W2  = m_p * m_p + Sx - Q2;
+    if (W2 <= 0.0) return 0.0;
+
+    const double mv2     = mv * mv;
+    const double t_abs   = std::abs(t);
+    const double bracket = (W2 - mv2) / 2.0 - t_abs;
+    if (bracket <= 0.0) return 0.0;          // past the kinematic endpoint
+
+    const double pref = (mv2 * W2) / (m_p * Q2 * Sx);
+    const double vm   = pref * t_abs * bracket;
+    return std::max(vm, 0.0);
+  }
 
   // Helpers
   // got from the PAC39 need for tmin, Källén function λ(x,y,z) = x^2 + y^2 + z^2 − 2xy − 2xz − 2yz
@@ -573,6 +617,23 @@ class DISANAMath {
 
     Theta_e_phimeson_ = electron_out.Angle(phi.Vect()) * 180. / pi;
     DeltaE_ = (electron_in.E() + proton_in.E()) - (electron_out.E() + proton_out.E() + phi.E());
+
+    // ------------------------------------------------------------------
+    // Radiative-photon energy in the CM frame of the missing system X
+    //   E_gamma* = (M_X^2 - M_p^2) / (2 * M_X)
+    // where M_X^2 = mx2_eKpKm_ = (p + q - phi)^2
+    // vm_cut is computed per-event as a column in DISANAMMUtils (needs
+    // beam_energy), but E_gamma* can be computed here.
+    // ------------------------------------------------------------------
+    {
+      const double Mx2 = mx2_eKpKm_;
+      if (Mx2 > 0.0) {
+        const double Mx      = std::sqrt(Mx2);
+        Egamma_star_ = (Mx2 - m_p * m_p) / (2.0 * Mx);
+      } else {
+        Egamma_star_ = -999.0;
+      }
+    }
     double coplanarity_had_normals_deg_ = std::numeric_limits<double>::quiet_NaN();
     if (n_qphi.Mag() > 0 && n_pphi.Mag() > 0) {
       n_qphi = n_qphi.Unit();
