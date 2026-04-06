@@ -8,6 +8,7 @@
 struct RECForwardTagger {
     static const std::vector<std::string>& All();
     static const std::vector<std::string>& Extend();
+    static const std::vector<std::string>& ForFiducialCut();
         // Minimal set needed for matching to REC::Particle
 
     using AllTypes = std::tuple<

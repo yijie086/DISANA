@@ -396,6 +396,11 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   PhiTask->SetMaxEvents(0);                // Set the maximum number of events to process, 0 means no
   PhiTask->SetQADBCuts(qadbCuts);          // <-- this now matters
 
+  // Column optimisation: set true to snapshot only the columns the analysis
+  // actually uses (smaller files, faster re-runs).  Set false to save every
+  // column in the dataframe — useful for debugging or exploring new variables.
+  PhiTask->SetOptimizeColumns(true); // I prefer to save only the columns I actually need for the analysis, but you can set to false if you want to save all columns (e.g., for debugging or exploring new variables)
+
   if (IsMC) {
     PhiTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
   } else {

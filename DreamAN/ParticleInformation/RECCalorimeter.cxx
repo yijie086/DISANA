@@ -38,30 +38,17 @@ const std::vector<std::string>& RECCalorimeter::All() {
 }
 const std::vector<std::string>& RECCalorimeter::ForFiducialCut() {
     static const std::vector<std::string> minimal = {
-        "REC_Calorimeter_sector",  // sector
-        "REC_Calorimeter_energy",
-        "REC_Calorimeter_time",
-        "REC_Calorimeter_path",
-        "REC_Calorimeter_chi2",
-        "REC_Calorimeter_x",
-        "REC_Calorimeter_y",
-        "REC_Calorimeter_z",
-        "REC_Calorimeter_hx",
-        "REC_Calorimeter_hy",
-        "REC_Calorimeter_hz",
-        "REC_Calorimeter_lu",
-        "REC_Calorimeter_lv",
-        "REC_Calorimeter_lw",
-        "REC_Calorimeter_du",
-        "REC_Calorimeter_dv",
-        "REC_Calorimeter_dw",
-        "REC_Calorimeter_m2u",
-        "REC_Calorimeter_m2v",
-        "REC_Calorimeter_m2w",
-        "REC_Calorimeter_m3u",
-        "REC_Calorimeter_m3v",
-        "REC_Calorimeter_m3w",
-        "REC_Calorimeter_status"
+        // Only the 8 fields actually READ inside RECCalorimeterPass:
+        "REC_Calorimeter_pindex",    // particle index
+        "REC_Calorimeter_detector",  // must be 7 (ECAL)
+        "REC_Calorimeter_sector",    // sector for SF lookup
+        "REC_Calorimeter_layer",     // PCal=1, ECin=4, ECout=7
+        "REC_Calorimeter_energy",    // sampling fraction numerator
+        "REC_Calorimeter_lu",        // PCal fiducial u-coordinate
+        "REC_Calorimeter_lv",        // PCal fiducial v-coordinate
+        "REC_Calorimeter_lw",        // PCal fiducial w-coordinate
+        // Dropped: index, time, path, chi2, x, y, z, hx, hy, hz,
+        //          du, dv, dw, m2u, m2v, m2w, m3u, m3v, m3w, status
     };
     return minimal;
 }

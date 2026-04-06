@@ -59,76 +59,41 @@ class TrackCut {
                   const std::vector<float>& x, const std::vector<float>& y, const std::vector<float>& z, const std::vector<float>& cx, const std::vector<float>& cy,
                   const std::vector<float>& cz, const std::vector<float>& path, const std::vector<float>& edge) const;
 
-  // DC filter function
-  std::function<std::vector<int>(const std::vector<int16_t>& pindex, 
-                                 const std::vector<int16_t>& index, 
-                                 const std::vector<int16_t>& detector, 
+  // DC / CVT filter — ForFiducialCut() columns only
+  std::function<std::vector<int>(const std::vector<int16_t>& pindex,
+                                 const std::vector<int16_t>& detector,
                                  const std::vector<int16_t>& layer,
-                                 const std::vector<float>& x, 
-                                 const std::vector<float>& y, 
-                                 const std::vector<float>& z, 
-                                 const std::vector<float>& cx, 
-                                 const std::vector<float>& cy,
-                                 const std::vector<float>& cz, 
-                                 const std::vector<float>& path, 
-                                 const std::vector<float>& edge, 
+                                 const std::vector<float>& x,
+                                 const std::vector<float>& y,
+                                 const std::vector<float>& z,
+                                 const std::vector<float>& edge,
                                  const std::vector<int>& pid,
                                  const int& REC_Particle_num)>
   RECTrajPass() const;
 
-  // Calorimeter filter function
-  std::function<std::vector<int>(const std::vector<int16_t>&,  // index
-                                 const std::vector<int16_t>&,  // pindex
+  // Calorimeter filter — ForFiducialCut() columns only
+  std::function<std::vector<int>(const std::vector<int16_t>&,  // pindex
                                  const std::vector<int16_t>&,  // detector
                                  const std::vector<int16_t>&,  // sector
                                  const std::vector<int16_t>&,  // layer
                                  const std::vector<float>&,    // energy
-                                 const std::vector<float>&,    // time
-                                 const std::vector<float>&,    // path
-                                 const std::vector<float>&,    // chi2
-                                 const std::vector<float>&,    // x
-                                 const std::vector<float>&,    // y
-                                 const std::vector<float>&,    // z
-                                 const std::vector<float>&,    // hx
-                                 const std::vector<float>&,    // hy
-                                 const std::vector<float>&,    // hz
                                  const std::vector<float>&,    // lu
                                  const std::vector<float>&,    // lv
                                  const std::vector<float>&,    // lw
-                                 const std::vector<float>&,    // du
-                                 const std::vector<float>&,    // dv
-                                 const std::vector<float>&,    // dw
-                                 const std::vector<float>&,    // m2u
-                                 const std::vector<float>&,    // m2v
-                                 const std::vector<float>&,    // m2w
-                                 const std::vector<float>&,    // m3u
-                                 const std::vector<float>&,    // m3v
-                                 const std::vector<float>&,    // m3w
-                                 const std::vector<short>&,      // status
                                  const std::vector<int>&,      // pid
-                                 const std::vector<float>&, // p
+                                 const std::vector<float>&,    // p
                                  const int& REC_Particle_num)>
   RECCalorimeterPass() const;
 
-  std::function<std::vector<int>(const std::vector<short>&,  // index
-                               const std::vector<short>&,  // pindex
-                               const std::vector<int16_t>&,  // detector
-                               const std::vector<int16_t>&,  // layer
-                               const std::vector<float>&,    // energy
-                               const std::vector<float>&,    // time
-                               const std::vector<float>&,    // path
-                               const std::vector<float>&,    // chi2
-                               const std::vector<float>&,    // x
-                               const std::vector<float>&,    // y
-                               const std::vector<float>&,    // z
-                               const std::vector<float>&,    // dx
-                               const std::vector<float>&,    // dy
-                               const std::vector<float>&,    // radius
-                               const std::vector<short>&,      // size
-                               const std::vector<short>&,      // status
-                                const std::vector<int>&,      // pid
-                               const int& REC_Particle_num)>
-RECForwardTaggerPass() const;
+  // Forward Tagger filter — ForFiducialCut() columns only
+  std::function<std::vector<int>(const std::vector<short>&,    // pindex
+                                 const std::vector<int16_t>&,  // detector
+                                 const std::vector<int16_t>&,  // layer
+                                 const std::vector<float>&,    // x
+                                 const std::vector<float>&,    // y
+                                 const std::vector<int>&,      // pid
+                                 const int& REC_Particle_num)>
+  RECForwardTaggerPass() const;
 
 
 // Fiducial filter function combined DC and Calorimeter

@@ -51,21 +51,27 @@ class PhiAnalysis : public AnalysisTask {
   void SetQADBCuts(std::shared_ptr<QADBCuts> qadbcuts) { fQADBCuts = std::move(qadbcuts); };
   void SetDoQADBCuts(bool charge_output) { fIsQADBCut = charge_output; }
 
+  // Column optimisation: when enabled, snapshots write only the columns
+  // actually consumed by the analysis (fiducial lambdas, EventCut, and
+  // downstream plotters).  Produces smaller files and faster re-runs.
+  // When disabled (default), all columns in the dataframe are written —
+  // useful for exploratory work or debugging.
+  void SetOptimizeColumns(bool optimize) { fOptimizeColumns = optimize; }
+
  private:
-  // Returns the set of columns that must be written to every snapshot so that
-  // the analysis can be re-run directly on the snapshotted .root file.
-  // Any column in the list that does not exist in the dataframe at snapshot
-  // time is silently ignored by SelectiveSnapshot.
+  // Returns the minimal set of columns needed to re-run the analysis.
+  // Only used when fOptimizeColumns is true.
   std::vector<std::string> MinimalColumns() const;
 
   bool IsMC = false;
-  bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
-  bool IsMinBooking = false;   // reduces the output to minimum only after fiducial
-  bool IsReproc = false;       // Flag to indicate if fiducial cut is applied
-  bool fFiducialCut = false;   // Flag to indicate if fiducial cut is applied
-  bool fIsQADBCut = false;     // Flag to indicate if QADB cut is applied
+  bool fDoInvMassCut = false;
+  bool IsMinBooking = false;
+  bool IsReproc = false;
+  bool fFiducialCut = false;
+  bool fIsQADBCut = false;
   bool fFTonConfig = true;
-  bool fDoMomentumCorrection = false;  // Flag to indicate if momentum correction is applied
+  bool fDoMomentumCorrection = false;
+  bool fOptimizeColumns = false;  // true → selective snapshot, false → full snapshot
 
   size_t fMaxEvents{0};  // Maximum number of events to process, 0 means no limit
 

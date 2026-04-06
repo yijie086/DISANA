@@ -71,6 +71,7 @@ class AnalysisTask {
   // ResolveSnapshotColumns: returns the subset of wantedCols that exist in df.
   // Use this to build the column list before calling lazy df.Snapshot() directly,
   // so that Count() and Snapshot() can be booked together and share one event loop.
+  // Used by the optimised (fOptimizeColumns=true) snapshot path.
   std::vector<std::string> ResolveSnapshotColumns(ROOT::RDF::RNode df,
                                                    const std::vector<std::string>& wantedCols) {
     auto allCols = df.GetColumnNames();
@@ -78,6 +79,21 @@ class AnalysisTask {
     result.reserve(wantedCols.size());
     for (const auto& col : wantedCols) {
       if (std::find(allCols.begin(), allCols.end(), col) != allCols.end())
+        result.push_back(col);
+    }
+    return result;
+  }
+
+  // SafeSnapshotColumns: returns all columns present in df, minus any in excludeCols.
+  // Used by the full (fOptimizeColumns=false) snapshot path.  The default exclusion
+  // list contains "EventCutResult", which is an internal struct ROOT cannot serialise.
+  std::vector<std::string> SafeSnapshotColumns(ROOT::RDF::RNode df,
+                                                const std::vector<std::string>& excludeCols = {"EventCutResult"}) {
+    auto allCols = df.GetColumnNames();
+    std::vector<std::string> result;
+    result.reserve(allCols.size());
+    for (const auto& col : allCols) {
+      if (std::find(excludeCols.begin(), excludeCols.end(), col) == excludeCols.end())
         result.push_back(col);
     }
     return result;

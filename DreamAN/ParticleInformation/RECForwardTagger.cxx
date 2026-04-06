@@ -35,3 +35,17 @@ const std::vector<std::string>& RECForwardTagger::Extend() {
     return extended;
 }
 
+const std::vector<std::string>& RECForwardTagger::ForFiducialCut() {
+    // Only the 5 fields READ inside RECForwardTaggerPass:
+    // pindex, detector (must be 10=FTCal), layer (cut map), x+y (ring geometry).
+    // Dropped: index, energy, time, path, chi2, z, dx, dy, radius, size, status
+    static const std::vector<std::string> minimal = {
+        "REC_ForwardTagger_pindex",
+        "REC_ForwardTagger_detector",
+        "REC_ForwardTagger_layer",
+        "REC_ForwardTagger_x",
+        "REC_ForwardTagger_y",
+    };
+    return minimal;
+}
+

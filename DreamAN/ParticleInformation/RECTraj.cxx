@@ -31,11 +31,14 @@ const std::vector<std::string>& RECTraj::Extend() {
 }
 const std::vector<std::string>& RECTraj::ForFiducialCut() {
     static const std::vector<std::string> minimal = {
-        "REC_Traj_pindex",     // maps to pindex
-        "REC_Traj_index",      // maps to index
-        "REC_Traj_detector",   // maps to detector
-        "REC_Traj_layer",      // used twice: layer + dc_layer
-        "REC_Traj_edge"        // maps to edge
+        "REC_Traj_pindex",    // pindex
+        "REC_Traj_detector",  // DC=6, CVT=5
+        "REC_Traj_layer",     // layer / dc_layer
+        "REC_Traj_x",         // CVT phi/theta calculation
+        "REC_Traj_y",         // CVT phi = atan2(y,x)
+        "REC_Traj_z",         // CVT theta = acos(z/r)
+        "REC_Traj_edge"       // DC edge cut value
+        // dropped: index, cx, cy, cz, path — never read by RECTrajPass
     };
     return minimal;
 }

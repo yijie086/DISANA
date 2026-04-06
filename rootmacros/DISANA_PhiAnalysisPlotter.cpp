@@ -49,7 +49,8 @@ void DISANA_PhiAnalysisPlotter()  // subset toggle inside missing-mass
   // Input locations
   // Exclusive reconstruction K+K-
   std::string input_result_folder_excl = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DVKpKm/";
-  std::string input_result_folder_excl_test = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/script/";
+  //std::string input_result_folder_excl_test = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/script/";
+  std::string input_result_folder_excl_test = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/standalone/Column_optimisation_test/";
   std::string input_result_folder_excl_missing = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/nSIDIS/hipo2root/Final_reprocessed/";
   /*std::string input_path_from_analysisRun_SP18inb_data =
    * "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/spring2018/inb/DVKpKm_wagon/after_fids/SF_momentum_corr";

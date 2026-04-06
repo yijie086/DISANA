@@ -54,10 +54,9 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dforginal = dfDefs;
   // Fiducial cuts
   auto dfDefsWithTraj = dfDefs;
-  auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
-  auto caloCols =
-      CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
-  auto fwdtagCols = CombineColumns(RECForwardTagger::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  auto trajCols    = CombineColumns(RECTraj::ForFiducialCut(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  auto caloCols    = CombineColumns(RECCalorimeter::ForFiducialCut(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
+  auto fwdtagCols  = CombineColumns(RECForwardTagger::ForFiducialCut(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
 
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols);
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(), trajCols);
@@ -157,45 +156,52 @@ if (fIsQADBCut && fQADBCuts) {
 std::vector<std::string> PhiAnalysis::MinimalColumns() const {
   using V = std::vector<std::string>;
 
-  // --- raw bank columns consumed by UserExec lambdas ---
-  auto cols = CombineColumns(
-      RECParticle::All(),        // pid, px, py, pz, vx, vy, vz, vt, charge, beta, chi2pid, status
-      RECTraj::All(),            // needed by RECTrajPass (DC fiducial)
-      RECCalorimeter::All()     // needed by RECCalorimeterPass (ECAL fiducial)
-      //RECForwardTagger::All()    // needed by RECForwardTaggerPass (FT fiducial) No FT in phi analysis
-  );
+  // -----------------------------------------------------------------------
+  // These lists mirror exactly what the analysis lambdas actually read.
+  // They must stay in sync with TrackCut::RECTrajPass(),
+  // TrackCut::RECCalorimeterPass(), TrackCut::RECForwardTaggerPass(),
+  // EventCut::operator(), and the downstream plotters (DISANAMMUtils.h,
+  // DISANAplotter.h).
+  // -----------------------------------------------------------------------
 
-  // --- REC::Event bank scalars (raw, never computed by a Define) ---
-  // REC_Event_helicity is the beam helicity (+1/-1/0) used by DISANAplotter.h
-  // and DISANAMMUtils.h for BSA / helicity-weighted tree fills. It comes
-  // directly from the HIPO source and is absent from every ::All() list.
-  for (const auto& c : V{"REC_Event_helicity"}) {
+  // RECParticle::All() — all 12 columns kept because EventCut reads 9 of
+  // them and the 3 unused ones (vx, vy, vt) are trivially small.
+  auto cols = CombineColumns(RECParticle::All());
+
+  // Fiducial bank columns — only what ForFiducialCut() declares, which
+  // exactly matches the slimmed TrackCut lambda signatures:
+  //   RECTraj::ForFiducialCut()        → 7 cols  (was ::All() = 12)
+  //   RECCalorimeter::ForFiducialCut() → 8 cols  (was ::All() = 28)
+  //   RECForwardTagger::ForFiducialCut()→ 5 cols  (was ::All() = 16)
+  cols = CombineColumns(cols, RECTraj::ForFiducialCut());
+  cols = CombineColumns(cols, RECCalorimeter::ForFiducialCut());
+  if (fFTonConfig)
+    cols = CombineColumns(cols, RECForwardTagger::ForFiducialCut());
+
+  // REC::Event helicity — raw bank scalar, never Defined, used by
+  // DISANAplotter.h (BSA) and DISANAMMUtils.h (helicity-weighted fills).
+  cols.push_back("REC_Event_helicity");
+
+  // Run / event IDs — both naming conventions for HIPO vs ROOT source.
+  // ResolveSnapshotColumns silently drops whichever variant is absent.
+  for (const auto& c : V{"RUN_config_run", "RUN_config_event",
+                          "RUN::config.run", "RUN::config.event"})
     cols.push_back(c);
-  }
 
-  // --- run / event identifiers (both naming conventions; SelectiveSnapshot
-  //     will silently drop whichever one is absent) ---
-  for (const auto& c : V{"RUN_config_run",   "RUN_config_event",
-                          "RUN::config.run",  "RUN::config.event"}) {
-    cols.push_back(c);
-  }
-
-  // --- derived columns kept for convenience / downstream analysis ---
+  // Pre-computed kinematics and analysis decision columns.
   for (const auto& c : V{
-      "num_events",              // sequential event index
-      "REC_Particle_num",        // particle multiplicity
-      "REC_Particle_theta",      // derived kinematics (already recomputed if
-      "REC_Particle_phi",        //   missing, but nice to have pre-computed)
+      "num_events",
+      "REC_Particle_num",
+      "REC_Particle_theta",
+      "REC_Particle_phi",
       "REC_Particle_p",
-      // analysis decision columns
       "REC_Particle_pass",
       "REC_Event_pass",
       "REC_Photon_MaxE",
       "REC_MotherMass",
       "REC_DaughterParticle_pass",
-  }) {
+  })
     cols.push_back(c);
-  }
 
   return cols;
 }
@@ -205,12 +211,12 @@ void PhiAnalysis::SaveOutput() {
     // snapshot of the MC bank for efficiency and other studies
     dforginal->Snapshot(
         "dfSelectedMC", Form("%s/%s", fOutputDir.c_str(), "dfSelectedMC.root"),
-        {"num_events",          // event identity
+        {"num_events",
          "MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz",
          "MC_Particle_vx",  "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt",
-         "MC_Lund_pid", "MC_Lund_px", "MC_Lund_py", "MC_Lund_pz",  // full generator record
+         "MC_Lund_pid", "MC_Lund_px", "MC_Lund_py", "MC_Lund_pz",
          "MC_Lund_parent", "MC_Lund_daughter",
-         "MC_RecMatch_pindex", "MC_RecMatch_mcindex",               // reco<->truth links
+         "MC_RecMatch_pindex", "MC_RecMatch_mcindex",
          "MC_GenMatch_pindex", "MC_GenMatch_mcindex", "MC_GenMatch_quality",
          "MC_Event_weight", "MC_Event_pbeam", "MC_Event_ptarget", "MC_Event_ebeam"});
   }
@@ -220,54 +226,68 @@ void PhiAnalysis::SaveOutput() {
     return;
   }
 
+  if (fOptimizeColumns) {
+    std::cout << "[SaveOutput] Column optimisation ON — writing only analysis-used columns.\n";
+  } else {
+    std::cout << "[SaveOutput] Column optimisation OFF — writing all columns.\n";
+  }
+
   // -----------------------------------------------------------------------
-  // Lazy snapshot options: booking Snapshot() and Count() on the same node
-  // with fLazy=true lets ROOT execute BOTH in a single event-loop pass
-  // instead of running the full graph twice (once for the file write, once
-  // for the counter). With three snapshot targets that halves the total
-  // number of event-loop runs from 6 down to 3.
+  // Helper: resolve the output column list for a given dataframe node.
+  //   fOptimizeColumns = true  → MinimalColumns() filtered to what exists
+  //   fOptimizeColumns = false → every column except EventCutResult (the
+  //                              internal struct ROOT cannot serialise)
   // -----------------------------------------------------------------------
-  ROOT::RDF::RSnapshotOptions lazyOpts;
-  lazyOpts.fLazy = true;
+  auto resolveColumns = [this](ROOT::RDF::RNode& node) -> std::vector<std::string> {
+    if (fOptimizeColumns) {
+      return ResolveSnapshotColumns(node, MinimalColumns());
+    } else {
+      return SafeSnapshotColumns(node, {"EventCutResult"});
+    }
+  };
+
+  // -----------------------------------------------------------------------
+  // Count() in RDF is always lazy — it books an action but waits for a loop
+  // trigger.  Snapshot() by default is eager — it triggers the loop immediately.
+  // Because all actions booked on the same graph node share one loop, booking
+  // Count() BEFORE calling Snapshot() means both are computed in a single pass.
+  // We avoid lazy Snapshot (fLazy=true) because *snap; as a statement does not
+  // reliably trigger the loop in all ROOT versions on the farm.
+  // -----------------------------------------------------------------------
 
   // --- dfSelected ---------------------------------------------------------
   if (!IsReproc && !IsMinBooking) {
-    auto cols = ResolveSnapshotColumns(*dfSelected, MinimalColumns());
-    auto snap = dfSelected->Snapshot("dfSelected",
-                    Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"), cols, lazyOpts);
-    auto cnt  = dfSelected->Count();  // booked on same node — shares the loop
-    *snap;                            // ONE event loop: writes file + counts
+    auto cols = resolveColumns(*dfSelected);
+    auto cnt  = dfSelected->Count();           // book (lazy) — shares the loop below
+    dfSelected->Snapshot("dfSelected",
+                    Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"), cols);  // triggers loop
     if (fFiducialCut)
-      std::cout << "Events selected: " << *cnt << std::endl;
+      std::cout << "Events selected: " << *cnt << std::endl;  // already computed
   }
 
   // --- dfSelected_afterFid ------------------------------------------------
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
 
-    auto cols_fid = ResolveSnapshotColumns(*dfSelected_afterFid, MinimalColumns());
+    auto cols_fid = resolveColumns(*dfSelected_afterFid);
 
     if (IsReproc) {
-      auto snap = dfSelected_afterFid->Snapshot(
-                      "dfSelected_afterFid_reprocessed",
-                      Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"),
-                      cols_fid, lazyOpts);
-      auto cnt_fid = dfSelected_afterFid->Count();
+      auto cnt_fid = dfSelected_afterFid->Count();   // book both counts before triggering
       auto cnt_sel = dfSelected->Count();
-      *snap;                          // ONE loop for dfSelected_afterFid
-      *cnt_sel;                       // ONE loop for dfSelected
+      dfSelected_afterFid->Snapshot(
+          "dfSelected_afterFid_reprocessed",
+          Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"),
+          cols_fid);                                  // triggers loop → computes both counts
       std::cout << "Events selected: " << *cnt_sel << std::endl;
       std::cout << "Events selected after fiducial: " << *cnt_fid << std::endl;
     } else {
       if (!IsMinBooking) {
-        auto snap = dfSelected_afterFid->Snapshot(
-                        "dfSelected_afterFid",
-                        Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"),
-                        cols_fid, lazyOpts);
         auto cnt_fid = dfSelected_afterFid->Count();
         auto cnt_sel = dfSelected->Count();
-        *snap;                        // ONE loop for dfSelected_afterFid
-        *cnt_sel;                     // ONE loop for dfSelected (if not run above)
+        dfSelected_afterFid->Snapshot(
+            "dfSelected_afterFid",
+            Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"),
+            cols_fid);                                // triggers loop → computes both counts
         std::cout << "Events selected: " << *cnt_sel << std::endl;
         std::cout << "Events selected after fiducial: " << *cnt_fid << std::endl;
       }
@@ -277,13 +297,12 @@ void PhiAnalysis::SaveOutput() {
   // --- dfSelected_afterFid_afterCorr -------------------------------------
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
     if (!IsMinBooking) {
-      auto cols_corr = ResolveSnapshotColumns(*dfSelected_afterFid_afterCorr, MinimalColumns());
-      auto snap = dfSelected_afterFid_afterCorr->Snapshot(
-                      "dfSelected_afterFid_afterCorr",
-                      Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"),
-                      cols_corr, lazyOpts);
-      auto cnt = dfSelected_afterFid_afterCorr->Count();
-      *snap;                          // ONE loop: writes file + counts
+      auto cols_corr = resolveColumns(*dfSelected_afterFid_afterCorr);
+      auto cnt = dfSelected_afterFid_afterCorr->Count();   // book before triggering
+      dfSelected_afterFid_afterCorr->Snapshot(
+          "dfSelected_afterFid_afterCorr",
+          Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"),
+          cols_corr);                                       // triggers loop → computes cnt
       std::cout << "Events selected after fiducial and momentum correction: " << *cnt << std::endl;
     } else {
       std::cout << "Events selected after fiducial and momentum correction: "
@@ -292,7 +311,9 @@ void PhiAnalysis::SaveOutput() {
   }
 
   if (fIsQADBCut) {
-    std::cout << "\n[QADB] total accumulated charge analyzed: " << fQADBCuts->GetAccumulatedCharge() / 1e6 << " mC (Do NOT use this number if you enable MT)\n";
+    std::cout << "\n[QADB] total accumulated charge analyzed: "
+              << fQADBCuts->GetAccumulatedCharge() / 1e6
+              << " mC (Do NOT use this number if you enable MT)\n";
   }
 }
 void PhiAnalysis::SetOutputDir(const std::string& dir) { fOutputDir = dir; }
