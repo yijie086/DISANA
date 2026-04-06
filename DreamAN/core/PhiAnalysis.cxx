@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <unordered_set>
 
 #include "AnalysisTaskManager.h"
 #include "PerRunCounter.h"
@@ -35,6 +36,34 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
     df = df.Range(0, fMaxEvents);  // only process the first fMaxEvents
   }
   if (!fTrackCuts || !fEventCuts) throw std::runtime_error("PhiAnalysis: One or more cut not set.");
+
+  // Guard: verify that the essential REC::Particle columns are present.
+  // With very few or sparse hipo files the bank may be entirely absent,
+  // which makes RHipoDS not register the columns at all.  Crashing with an
+  // opaque "Unknown column" error is hard to debug, so we emit a clear
+  // warning and return early — the job will produce no output ROOT file,
+  // job_ok() will mark it as failed, and it can be relaunched or skipped.
+  {
+    const std::vector<std::string> required = {
+        "REC_Particle_pid", "REC_Particle_px", "REC_Particle_py", "REC_Particle_pz",
+        "REC_Particle_vx",  "REC_Particle_vy", "REC_Particle_vz",
+        "REC_Particle_charge", "REC_Particle_beta", "REC_Particle_status"
+    };
+    auto existing = df.GetColumnNames();
+    std::unordered_set<std::string> colSet(existing.begin(), existing.end());
+    std::vector<std::string> missing;
+    for (const auto& col : required)
+      if (!colSet.count(col)) missing.push_back(col);
+
+    if (!missing.empty()) {
+      std::cerr << "[PhiAnalysis] WARNING: required column(s) missing from dataframe "
+                   "(hipo files may have empty/absent REC::Particle bank):\n";
+      for (const auto& col : missing)
+        std::cerr << "    " << col << "\n";
+      std::cerr << "[PhiAnalysis] Skipping analysis for this job — no output will be written.\n";
+      return;   // leave all optional<RNode> members unset → SaveOutput() is a no-op
+    }
+  }
 
   fTrackCutsNoFid = std::make_shared<TrackCut>(*fTrackCuts);
   fTrackCutsWithFid = std::make_shared<TrackCut>(*fTrackCuts);
@@ -94,8 +123,7 @@ void PhiAnalysis::UserExec(ROOT::RDF::RNode& df) {
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "EventCutResult", *fEventCuts, cols_track_fid);
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
-    dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
-
+  
     if (fDoInvMassCut) {
       fEventCuts->SetDoCutMotherInvMass(true);
       dfSelected_afterFid =
@@ -197,7 +225,6 @@ std::vector<std::string> PhiAnalysis::MinimalColumns() const {
       "REC_Particle_p",
       "REC_Particle_pass",
       "REC_Event_pass",
-      "REC_Photon_MaxE",
       "REC_MotherMass",
       "REC_DaughterParticle_pass",
   })
@@ -207,6 +234,13 @@ std::vector<std::string> PhiAnalysis::MinimalColumns() const {
 }
 
 void PhiAnalysis::SaveOutput() {
+  // If UserExec returned early (missing bank columns), dforginal and dfSelected
+  // are both unset. Nothing to write — exit silently.
+  if (!dforginal.has_value()) {
+    std::cerr << "[PhiAnalysis] SaveOutput: skipped (UserExec did not populate dataframes).\n";
+    return;
+  }
+
   if (IsMC) {
     // snapshot of the MC bank for efficiency and other studies
     dforginal->Snapshot(

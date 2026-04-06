@@ -44,9 +44,14 @@ struct TwoBodyMotherCut {
 
 struct EventCutResult {
   bool eventPass = false;
-  std::vector<bool> particlePass;
+  /*std::vector<bool> particlePass;
   std::vector<bool> particleDaughterPass;
-  std::vector<bool> MaxPhotonEnergyPass;
+  std::vector<bool> MaxPhotonEnergyPass;*/
+
+  std::vector<int> particlePass;
+  std::vector<int> particleDaughterPass;
+  std::vector<int> MaxPhotonEnergyPass;
+
   std::vector<float> MotherMass; // corresponding
 };
 

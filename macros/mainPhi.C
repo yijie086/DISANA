@@ -34,7 +34,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     bool IsMissingKm,
                     bool IsHpHm,
                     const std::string& reprocRootFile = "",
-                    const std::string& reprocTreeName = "");
+                    const std::string& reprocTreeName = "",
+                    bool IsPass1Only = false);
 
 // ----------------------------------------------------------------------
 static void print_usage(const char* prog) {
@@ -104,6 +105,7 @@ int main(int argc, char* argv[]) {
   bool IsMinimalBook    = false;
   bool IsMissingKm      = false;
   bool IsHpHm           = false;   // ep -> e'p'h+h- (di-charged-hadron) mode
+  bool IsPass1Only      = false;   // two-pass mode: skip fid/QADB/correction, write dfSelected.root only
 
   // New options for reprocessed files
   std::string reprocRootFile = "";
@@ -177,6 +179,9 @@ int main(int argc, char* argv[]) {
     } else if (a == "--hphm") {
       IsHpHm = true;
 
+    } else if (a == "--pass1") {
+      IsPass1Only = true;
+
     } else {
       std::cerr << "ERROR: unknown option: " << a << "\n";
       print_usage(argv[0]);
@@ -229,7 +234,8 @@ int main(int argc, char* argv[]) {
             << " inbending="   << (IsInbending ? "1" : "0")
             << " minimal="     << (IsMinimalBook ? "1" : "0")
             << " missingKm="   << (IsMissingKm ? "1" : "0")
-            << " hphm="        << (IsHpHm ? "1" : "0") << "\n";
+            << " hphm="        << (IsHpHm ? "1" : "0")
+            << " pass1="       << (IsPass1Only ? "1" : "0") << "\n";
   if (!reprocRootFile.empty()) {
     std::cout << " reprocFile  : " << reprocRootFile << "\n";
   }
@@ -246,7 +252,8 @@ int main(int argc, char* argv[]) {
                  outputDir, dataconfig,
                  IsMC, IsreprocRootFile, IsInbending,
                  IsMinimalBook, IsMissingKm, IsHpHm,
-                 reprocRootFile, reprocTreeName);
+                 reprocRootFile, reprocTreeName,
+                 IsPass1Only);
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;

@@ -39,6 +39,9 @@ Options:
       --run-in-batches        Set RUN_IN_BATCHES=1
       --no-run-in-batches     Set RUN_IN_BATCHES=0
       --jobs-per-batch N      Override JOBS_PER_BATCH
+      --two-pass              Set TWO_PASS_MODE=1 (Pass 1: dfSelected only; Pass 2: reproc for fid/QADB/corr)
+      --no-two-pass           Set TWO_PASS_MODE=0 (original behaviour)
+      --pass2-threads N       Threads for the Pass 2 reproc job (default: 8)
       --success-grep TEXT     Override SUCCESS_GREP
       --mc / --no-mc
       --reproc / --no-reproc
@@ -57,7 +60,7 @@ USAGE
 # =============================================================================
 
 # ---- Parallelization / splitting
-K=40
+K=120
 
 # ---- Executable for skimming
 EXE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi
@@ -128,6 +131,7 @@ OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_pr
 
 
 OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/hplus_hminus_ep/
+OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/nSIDIS/hphm/rgasp19_inb/
 
 # ---- AnalysisPhi args (matches AnalysisDVCS.cpp)
 NEVT=-1                # AnalysisPhi: -n / --nfile
@@ -185,6 +189,18 @@ FAILED_JOBS=(000 008 009 018 024 029)   # must match ID width
 # ---- Batching ----
 RUN_IN_BATCHES=1
 JOBS_PER_BATCH=20
+# -------------------------------------
+
+# ---- Two-pass mode ----
+# TWO_PASS_MODE=1 : Pass 1 writes only dfSelected.root per job (--pass1 flag,
+#                   skips fiducial/QADB/correction).  After merging, a single
+#                   Pass 2 reproc job reads the merged dfSelected.root and
+#                   produces dfSelected_afterFid_reprocessed.root +
+#                   dfSelected_afterFid_afterCorr.root directly in OUTPUT_BASE.
+# TWO_PASS_MODE=0 : Original behaviour (all outputs per job, all merged).
+TWO_PASS_MODE=0
+PASS2_THREADS=16          # threads for the single-job Pass 2 reproc step
+PASS2_REPROC_TREE="dfSelected"   # tree name written by Snapshot in Pass 1
 # -------------------------------------
 
 # =============================================================================
@@ -256,6 +272,19 @@ while (( $# > 0 )); do
     --no-run-in-batches)
       RUN_IN_BATCHES=0
       shift
+      ;;
+    --two-pass)
+      TWO_PASS_MODE=1
+      shift
+      ;;
+    --no-two-pass)
+      TWO_PASS_MODE=0
+      shift
+      ;;
+    --pass2-threads)
+      [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
+      PASS2_THREADS="$2"
+      shift 2
       ;;
     --jobs-per-batch)
       [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
@@ -366,8 +395,10 @@ EXTRA_ARGS=()
 (( IS_MINIMAL ))   && EXTRA_ARGS+=(--minimal)
 (( IS_MISSINGKM )) && EXTRA_ARGS+=(--missingKm)
 (( IS_HPHM ))      && EXTRA_ARGS+=(--hphm)
-[[ -n "$REPROC_FILE" ]] && EXTRA_ARGS+=(--reproc-file "$REPROC_FILE")
-[[ -n "$REPROC_TREE" ]] && EXTRA_ARGS+=(--reproc-tree "$REPROC_TREE")
+# Only inject reproc-file / reproc-tree when IS_REPROC=1 — these are
+# meaningless (and polluting) for normal hipo-reading jobs.
+(( IS_REPROC )) && [[ -n "$REPROC_FILE" ]] && EXTRA_ARGS+=(--reproc-file "$REPROC_FILE")
+(( IS_REPROC )) && [[ -n "$REPROC_TREE" ]] && EXTRA_ARGS+=(--reproc-tree "$REPROC_TREE")
 
 # =============================================================================
 # Print configuration
@@ -388,6 +419,8 @@ echo "[INFO] USE_MANUAL_FAILED_LIST= $USE_MANUAL_FAILED_LIST"
 echo "[INFO] FAILED_JOBS           = ${FAILED_JOBS[*]}"
 echo "[INFO] RUN_IN_BATCHES        = $RUN_IN_BATCHES"
 echo "[INFO] JOBS_PER_BATCH (J)    = $JOBS_PER_BATCH"
+echo "[INFO] TWO_PASS_MODE         = $TWO_PASS_MODE"
+(( TWO_PASS_MODE )) && echo "[INFO] PASS2_THREADS         = $PASS2_THREADS"
 echo ""
 
 # =============================================================================
@@ -489,25 +522,50 @@ launch_jobs_in_batches () {
     return 0
   fi
 
-  local b=1
-  local start=1
-  while (( start <= total )); do
-    local end=$(( start + JOBS_PER_BATCH - 1 ))
-    (( end > total )) && end=$total
+  # Sliding-window pool: keep at most JOBS_PER_BATCH jobs running at once.
+  # As soon as any job finishes a slot opens and the next job is dispatched
+  # immediately — no waiting for a whole batch to drain.
+  echo "[INFO] Launching $total job(s) with sliding window (max $JOBS_PER_BATCH concurrent)..."
 
-    echo "[INFO] Batch $b: launching jobs index $start..$end (count=$(( end-start+1 )))"
-    local i
-    for (( i=start; i<=end; i++ )); do
-      run_job_bg "${JOBLIST[i]}"
+  local -a pool_pids=()     # PIDs currently running
+  local -a still_running=() # reused each poll cycle — declared here to avoid
+  local _pid                #   zsh re-declaring (and echoing) inside the loop
+  local reaped=0
+  local idx=1
+
+  while (( idx <= total || ${#pool_pids[@]} > 0 )); do
+
+    # ---- Fill empty slots ------------------------------------------------
+    while (( idx <= total && ${#pool_pids[@]} < JOBS_PER_BATCH )); do
+      run_job_bg "${JOBLIST[idx]}"
+      pool_pids+=($!)
+      echo "[INFO] Started job ${JOBLIST[idx]} ($idx/$total), active=${#pool_pids[@]}"
+      (( idx++ ))
     done
 
-    echo "[INFO] Batch $b: waiting..."
-    wait
-    echo "[INFO] Batch $b: done."
-    echo ""
-    (( b++ ))
-    start=$(( end + 1 ))
+    # ---- Reap any finished PIDs -----------------------------------------
+    # Poll each PID: kill -0 returns non-zero once the process has exited.
+    still_running=()
+    reaped=0
+    for _pid in "${pool_pids[@]}"; do
+      if kill -0 "$_pid" 2>/dev/null; then
+        still_running+=("$_pid")
+      else
+        wait "$_pid" 2>/dev/null   # collect exit status / avoid zombie
+        (( reaped++ ))
+      fi
+    done
+    pool_pids=("${still_running[@]}")
+
+    # If nothing finished yet and we are at capacity, pause briefly before
+    # polling again so we do not spin the CPU.
+    if (( reaped == 0 && ${#pool_pids[@]} >= JOBS_PER_BATCH )); then
+      sleep 0.5
+    fi
+
   done
+
+  echo "[INFO] All $total job(s) complete."
 }
 
 # =============================================================================
@@ -549,13 +607,11 @@ if (( RELAUNCH_ONLY == 0 )); then
     LIST="$WORKDIR_ABS/lists/files_${kid}.txt"
     [[ -s "$LIST" ]] || continue
 
-    local JOBDIR INDIR OUTDIR LOG
-    read -r JOBDIR INDIR OUTDIR LOG <<<"$(job_paths "$kid")"
-    mkdir -p "$INDIR" "$OUTDIR"
-
-    rm -f "$INDIR"/*.hipo 2>/dev/null
+    read -r _JOBDIR _INDIR _OUTDIR _LOG <<<"$(job_paths "$kid")"
+    mkdir -p "$_INDIR" "$_OUTDIR"
+    rm -f "$_INDIR"/*.hipo 2>/dev/null
     while IFS= read -r ff; do
-      ln -sf "$ff" "$INDIR/"
+      ln -sf "$ff" "$_INDIR/"
     done < "$LIST"
   done
 
@@ -568,6 +624,14 @@ if (( RELAUNCH_ONLY == 0 )); then
   done
 
   echo "[INFO] Launching ${#JOBS_TO_RUN[@]} job(s) total."
+
+  # In TWO_PASS_MODE Pass 1: inject --pass1 so each job skips fid/QADB/correction
+  # and only writes dfSelected.root.  This saves both per-job CPU and per-job disk.
+  if (( TWO_PASS_MODE )); then
+    echo "[INFO] TWO_PASS_MODE: injecting --pass1 into all jobs (fid/QADB/correction skipped per job)."
+    EXTRA_ARGS+=(--pass1)
+  fi
+
   launch_jobs_in_batches "${JOBS_TO_RUN[@]}"
 fi
 
@@ -582,10 +646,10 @@ if (( RELAUNCH_ONLY == 1 )); then
   echo "[INFO] Relaunch mode: scanning $WORKDIR_ABS"
   echo ""
 
-  local d
-  for d in "$WORKDIR_ABS"/job_[0-9][0-9][0-9]; do
-    [[ -d "$d" ]] || continue
-    kid="${d:t}"
+  _d=""
+  for _d in "$WORKDIR_ABS"/job_[0-9][0-9][0-9]; do
+    [[ -d "$_d" ]] || continue
+    kid="${_d:t}"
     kid="${kid#job_}"
     JOBIDS+=("$kid")
   done
@@ -599,7 +663,6 @@ if (( RELAUNCH_ONLY == 1 )); then
     FAILED=("${FAILED_JOBS[@]}")
     echo "[INFO] Using MANUAL failed list: ${FAILED[*]}"
   else
-    local kid
     for kid in "${JOBIDS[@]}"; do
       if job_ok "$kid"; then
         echo "[INFO] Job $kid: OK (skip)"
@@ -618,6 +681,16 @@ fi
 # =============================================================================
 # Summary + merge (multi-output)
 # =============================================================================
+# In TWO_PASS_MODE Pass 1: only dfSelected.root matters per job.
+# Override the file list used for success-checking and merging.
+typeset -a MERGE_OUTPUT_FILES
+if (( TWO_PASS_MODE )); then
+  MERGE_OUTPUT_FILES=(dfSelected.root)
+  echo "[INFO] TWO_PASS_MODE: Pass 1 merge restricted to: ${MERGE_OUTPUT_FILES[*]}"
+else
+  MERGE_OUTPUT_FILES=("${OUTPUT_FILES[@]}")
+fi
+
 typeset -a CHECKSET OKJ BADJ
 OKJ=()
 BADJ=()
@@ -627,12 +700,12 @@ typeset -A MERGE_LISTS   # MERGE_LISTS["dfSelected.root"] -> " file1 file2 ..."
 typeset -A MISS_COUNTS   # missing per output among OK jobs
 typeset -A HAVE_COUNTS   # present per output among OK jobs
 
-# init
-local f
-for f in "${OUTPUT_FILES[@]}"; do
-  MERGE_LISTS[$f]=""
-  MISS_COUNTS[$f]=0
-  HAVE_COUNTS[$f]=0
+# init — plain variables, no local (we are at script top level, not in a function)
+_f=""
+for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+  MERGE_LISTS[$_f]=""
+  MISS_COUNTS[$_f]=0
+  HAVE_COUNTS[$_f]=0
 done
 
 if (( RELAUNCH_ONLY == 1 )); then
@@ -645,20 +718,18 @@ else
   done
 fi
 
-local kid
 for kid in "${CHECKSET[@]}"; do
   if job_ok "$kid"; then
     OKJ+=("$kid")
 
-    local JOBDIR INDIR OUTDIR LOG
-    read -r JOBDIR INDIR OUTDIR LOG <<<"$(job_paths "$kid")"
+    read -r _JOBDIR _INDIR _OUTDIR _LOG <<<"$(job_paths "$kid")"
 
-    for f in "${OUTPUT_FILES[@]}"; do
-      if [[ -s "$OUTDIR/$f" ]]; then
-        MERGE_LISTS[$f]="${MERGE_LISTS[$f]} $OUTDIR/$f"
-        HAVE_COUNTS[$f]=$(( HAVE_COUNTS[$f] + 1 ))
+    for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+      if [[ -s "$_OUTDIR/$_f" ]]; then
+        MERGE_LISTS[$_f]="${MERGE_LISTS[$_f]} $_OUTDIR/$_f"
+        HAVE_COUNTS[$_f]=$(( HAVE_COUNTS[$_f] + 1 ))
       else
-        MISS_COUNTS[$f]=$(( MISS_COUNTS[$f] + 1 ))
+        MISS_COUNTS[$_f]=$(( MISS_COUNTS[$_f] + 1 ))
       fi
     done
   else
@@ -677,29 +748,31 @@ if (( ${#BADJ[@]} > 0 && MERGE_PARTIAL == 0 )); then
 fi
 
 # Merge each output file type independently if we have at least one input
-local merged_any=0
-for f in "${OUTPUT_FILES[@]}"; do
-  local inputs=(${=MERGE_LISTS[$f]})
+merged_any=0
+_inputs=()
+_outmerged=""
+for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+  _inputs=(${=MERGE_LISTS[$_f]})
 
-  if (( ${#inputs[@]} > 0 )); then
-    local outmerged="$OUTPUT_BASE_ABS/$f"
-    echo "[INFO] Merging ${#inputs[@]} file(s) into: $outmerged"
-    hadd -f -k "$outmerged" "${inputs[@]}"
+  if (( ${#_inputs[@]} > 0 )); then
+    _outmerged="$OUTPUT_BASE_ABS/$_f"
+    echo "[INFO] Merging ${#_inputs[@]} file(s) into: $_outmerged"
+    hadd -f -k "$_outmerged" "${_inputs[@]}"
     HSTAT=$?
     if (( HSTAT != 0 )); then
-      echo "[ERROR] hadd failed for $f with status $HSTAT"
+      echo "[ERROR] hadd failed for $_f with status $HSTAT"
       exit 5
     fi
     merged_any=1
   else
-    echo "[WARN] No inputs found for $f -> skipping merge."
+    echo "[WARN] No inputs found for $_f -> skipping merge."
   fi
 done
 
 echo ""
 echo "[INFO] Per-output availability across OK jobs:"
-for f in "${OUTPUT_FILES[@]}"; do
-  echo "       $f : present=${HAVE_COUNTS[$f]} missing=${MISS_COUNTS[$f]}"
+for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+  echo "       $_f : present=${HAVE_COUNTS[$_f]} missing=${MISS_COUNTS[$_f]}"
 done
 echo ""
 
@@ -711,4 +784,57 @@ fi
 echo "[INFO] Done."
 echo "[INFO] Merged outputs are under: $OUTPUT_BASE_ABS/"
 echo "[INFO] Per-job outputs:         $WORKDIR_ABS/job_*/out/"
+
+# =============================================================================
+# TWO-PASS MODE: Pass 2 — reproc the merged dfSelected.root
+# =============================================================================
+if (( TWO_PASS_MODE && merged_any )); then
+  PASS2_INPUT="$OUTPUT_BASE_ABS/dfSelected.root"
+  if [[ ! -s "$PASS2_INPUT" ]]; then
+    echo "[ERROR] TWO_PASS_MODE=1 but merged dfSelected.root not found: $PASS2_INPUT"
+    exit 7
+  fi
+
+  PASS2_LOG="$OUTPUT_BASE_ABS/pass2_reproc.log"
+  echo ""
+  echo "[INFO] ============================================================"
+  echo "[INFO] TWO-PASS MODE: starting Pass 2 (single reproc job)"
+  echo "[INFO]   Input  : $PASS2_INPUT"
+  echo "[INFO]   Tree   : $PASS2_REPROC_TREE"
+  echo "[INFO]   Output : $OUTPUT_BASE_ABS"
+  echo "[INFO]   Threads: $PASS2_THREADS"
+  echo "[INFO]   Log    : $PASS2_LOG"
+  echo "[INFO] ============================================================"
+
+  # Remove --pass1 from EXTRA_ARGS if it was added — Pass 2 must run full cuts.
+  typeset -a EXTRA_ARGS_PASS2
+  EXTRA_ARGS_PASS2=()
+  _arg=""
+  for _arg in "${EXTRA_ARGS[@]}"; do
+    [[ "$_arg" == "--pass1" ]] && continue
+    EXTRA_ARGS_PASS2+=("$_arg")
+  done
+
+  "$EXE" \
+    -i "$OUTPUT_BASE_ABS" \
+    -n "$NEVT" \
+    -t "$PASS2_THREADS" \
+    -o "$OUTPUT_BASE_ABS" \
+    -c "$CFG" \
+    --reproc \
+    --reproc-file "dfSelected.root" \
+    --reproc-tree "$PASS2_REPROC_TREE" \
+    "${EXTRA_ARGS_PASS2[@]}" \
+    > "$PASS2_LOG" 2>&1
+
+  P2STAT=$?
+  if (( P2STAT == 0 )); then
+    echo "[INFO] Pass 2 complete."
+    echo "[INFO] After-fid / after-correction outputs written to: $OUTPUT_BASE_ABS"
+  else
+    echo "[ERROR] Pass 2 failed (exit $P2STAT). See log: $PASS2_LOG"
+    exit 7
+  fi
+fi
+
 exit 0

@@ -100,14 +100,14 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
                                     const std::vector<short>& charge, const std::vector<float>& beta, const std::vector<float>& chi2pid, const std::vector<short>& status,
                                     const std::vector<int>& REC_Track_pass_fid) const {
   EventCutResult result;
-  result.particlePass.resize(pid.size(), false);
-  result.particleDaughterPass.resize(pid.size(), false);
-  result.MaxPhotonEnergyPass.resize(pid.size(), false);
+  result.particlePass.resize(pid.size(), 0);
+  result.particleDaughterPass.resize(pid.size(), 0);
+  result.MaxPhotonEnergyPass.resize(pid.size(), 0);
   result.MotherMass.resize(pid.size(), -999);
 
   bool allCutsPassed = true;
   float MaxEphotonEnergy = 0.0f;
-  float MaxPhotonEnergyIndex = 0;
+  size_t MaxPhotonEnergyIndex = 0;
 
   for (const auto& [name, cut] : fParticleCuts) {
     int count = 0;
@@ -146,11 +146,11 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
       bool phiCut = IsInRange(phi, cut.minPhi, cut.maxPhi);
       bool vzCut = IsInRange(vz[i], cut.minVz, cut.maxVz);
       if (momentumCut && betaCut && thetaCut && phiCut && vzCut) {
-        result.particlePass[i] = true;
+        result.particlePass[i] = 1;
         if (pid[i] == 22 && momentum > MaxEphotonEnergy) {
             MaxEphotonEnergy = momentum;
-            result.MaxPhotonEnergyPass[MaxPhotonEnergyIndex] = false;
-            result.MaxPhotonEnergyPass[i] = true;
+            result.MaxPhotonEnergyPass[MaxPhotonEnergyIndex] = 0;
+            result.MaxPhotonEnergyPass[i] = 1;
             MaxPhotonEnergyIndex = i;
         }
         ++count;
@@ -194,8 +194,8 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
           result.MotherMass[j] = invMass;
           // Flag if passes the mass window
           if (invMass >= minMass && invMass <= maxMass) {
-            result.particleDaughterPass[i] = true;
-            result.particleDaughterPass[j] = true;
+            result.particleDaughterPass[i] = 1;
+            result.particleDaughterPass[j] = 1;
           }
         }
       }

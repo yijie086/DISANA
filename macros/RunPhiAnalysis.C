@@ -19,7 +19,8 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
                     bool IsMissingKm,
                     bool IsHpHm /* select ep->e'p'h+h- instead of K+K- or missing-K */,
                     const std::string& reprocRootFile = "",
-                    const std::string& reprocTreeName = "") {
+                    const std::string& reprocTreeName = "",
+                    bool IsPass1Only = false /* two-pass: skip fid/QADB/corr, write dfSelected only */) {
   // Determine the number of threads to use.
   if (nthreads <= 0) {
     const auto hc = std::thread::hardware_concurrency();
@@ -389,27 +390,40 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   }
 
   PhiTask->SetFTonConfig(false);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
-  PhiTask->SetDoFiducialCut(true);
-  PhiTask->SetDoInvMassCut(true);          // in this case pi0 background for two-photon pairs in the event
-  PhiTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
-  PhiTask->SetMomentumCorrection(corr);    // Set the momentum correction object
-  PhiTask->SetMaxEvents(0);                // Set the maximum number of events to process, 0 means no
-  PhiTask->SetQADBCuts(qadbCuts);          // <-- this now matters
 
+  if (IsPass1Only) {
+    // ---- Two-pass mode: Pass 1 ----
+    // Skip fiducial cuts, momentum correction, and QADB entirely.
+    // Only dfSelected.root will be written per job.  The merged result is then
+    // fed into Pass 2 via --reproc so fid/QADB/correction run once on the full
+    // statistics, eliminating per-job hadd overhead for those output files.
+    std::cout << "[RunPhiAnalysis] PASS-1 MODE: fiducial / QADB / momentum-correction disabled.\n";
+    PhiTask->SetDoFiducialCut(false);
+    PhiTask->SetDoInvMassCut(true);          // keep inv-mass cut — it's cheap
+    PhiTask->SetDoMomentumCorrection(false);
+    PhiTask->SetDoQADBCuts(false);
+  } else {
+    PhiTask->SetDoFiducialCut(true);
+    PhiTask->SetDoInvMassCut(true);          // in this case pi0 background for two-photon pairs in the event
+    PhiTask->SetDoMomentumCorrection(true);  // Set to true if you want to apply momentum correction
+    PhiTask->SetMomentumCorrection(corr);    // Set the momentum correction object
+    PhiTask->SetQADBCuts(qadbCuts);          // <-- this now matters
+    if (IsMC) {
+      PhiTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
+    } else {
+      PhiTask->SetDoQADBCuts(true);  // for RGA sp18 inb data we skip QADB cuts due to missing QA info
+    }
+  }
+
+  PhiTask->SetMaxEvents(0);                // Set the maximum number of events to process, 0 means no limit
   // Column optimisation: set true to snapshot only the columns the analysis
   // actually uses (smaller files, faster re-runs).  Set false to save every
   // column in the dataframe — useful for debugging or exploring new variables.
-  PhiTask->SetOptimizeColumns(true); // I prefer to save only the columns I actually need for the analysis, but you can set to false if you want to save all columns (e.g., for debugging or exploring new variables)
-
-  if (IsMC) {
-    PhiTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
-  } else {
-    PhiTask->SetDoQADBCuts(true);  // for RGA sp18 inb data we skip QADB cuts due to missing QA info
-  }
+  PhiTask->SetOptimizeColumns(true);
 
   mgr.AddTask(std::move(PhiTask));
-  // Processor
-    // --------------------------------------------------
+
+  // --------------------------------------------------
   // Print summary of input arguments
   // --------------------------------------------------
   std::cout << "\n================ RunPhiAnalysis INPUT ARGUMENTS ================\n";
@@ -424,11 +438,13 @@ void RunPhiAnalysis(const std::string& inputDir, int nfile, int nthreads,
   std::cout << "IsMinimalBook       : " << (IsMinimalBook ? "true" : "false") << "\n";
   std::cout << "IsMissingKm         : " << (IsMissingKm ? "true" : "false") << "\n";
   std::cout << "IsHpHm              : " << (IsHpHm ? "true" : "false") << "\n";
-  std::cout << "reprocRootFile      : " 
+  std::cout << "IsPass1Only         : " << (IsPass1Only ? "true" : "false") << "\n";
+  std::cout << "reprocRootFile      : "
             << (reprocRootFile.empty() ? "<default>" : reprocRootFile) << "\n";
-  std::cout << "reprocTreeName      : " 
+  std::cout << "reprocTreeName      : "
             << (reprocTreeName.empty() ? "<default>" : reprocTreeName) << "\n";
   std::cout << "================================================================\n\n";
+
   EventProcessor processor(mgr, inputFileDir, outputFileDir, IsreprocRootFile, inputRootTreeName, inputRootFileName, nfile, nthreads);
   processor.ProcessEvents();
 }
