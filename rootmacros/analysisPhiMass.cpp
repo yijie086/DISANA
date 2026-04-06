@@ -274,7 +274,7 @@ void DrawPhiMass(const std::string& filename, const std::string& treename, const
   RDataFrame df(treename, filename);
   auto df_filtered =
       df.Filter("REC_MotherMass.size() > 0")
-          .Define("REC_DaughterParticle_pass_int", [](const std::vector<bool>& passVec) { return RVec<int>(passVec.begin(), passVec.end()); }, {"REC_DaughterParticle_pass"});
+          .Define("REC_DaughterParticle_pass_int", [](const std::vector<int>& passVec) { return RVec<int>(passVec.begin(), passVec.end()); }, {"REC_DaughterParticle_pass"});
 
   auto df_beforeCut = df_filtered.Define("MotherMass_all", [](const std::vector<float>& masses) { return RVec<float>(masses.begin(), masses.end()); }, {"REC_MotherMass"});
 

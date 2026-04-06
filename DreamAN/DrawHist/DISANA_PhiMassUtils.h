@@ -521,11 +521,11 @@ inline std::tuple<ROOT::RDF::RNode, PhiMassWindow> DrawPhiMass_FromNode(ROOT::RD
   if (need_define) {
     df = df_in
            .Define("invMass_KpKm",
-                   [](const RVec<int>& pid, const RVec<bool>& pass,
+                   [](const RVec<int>& pid, const RVec<int>& pass,
                       const RVec<float>& px, const RVec<float>& py, const RVec<float>& pz) {
                      int iKp = -1, iKm = -1;
                      for (size_t i = 0; i < pid.size(); ++i) {
-                       if (!pass[i]) continue;
+                       if (pass[i] == 0) continue;
                        if (pid[i] == 321  && iKp < 0)  iKp = (int)i;
                        if (pid[i] == -321 && iKm < 0)  iKm = (int)i;
                      }

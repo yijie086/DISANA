@@ -153,7 +153,7 @@ void DrawPi0Mass(const std::string& filename, const std::string& treename, const
 
   RDataFrame df(treename, filename);
   auto df_filtered = df.Filter("REC_MotherMass.size() > 0")
-    .Define("REC_DaughterParticle_pass_int", [](const std::vector<bool>& passVec) {
+    .Define("REC_DaughterParticle_pass_int", [](const std::vector<int>& passVec) {
       return RVec<int>(passVec.begin(), passVec.end());
     }, {"REC_DaughterParticle_pass"});
 

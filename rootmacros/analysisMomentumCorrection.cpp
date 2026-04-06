@@ -464,7 +464,7 @@ void DrawParticleKinematicsByThetaBins(
                    const RVec<float> &phi,
                    const RVec<float> &p,
                    const RVec<short> &status,
-                   const RVec<bool> &passPar,
+                   const RVec<int> &passPar,
                    const RVec<float> &vz,
                    const RVec<float> &beta
                    )  // passFid is not used but included for consistency
@@ -585,7 +585,7 @@ void Draw2DParticleKinematicsByThetaBins(
                    const RVec<float> &phi,
                    const RVec<float> &p,
                    const RVec<short> &status,
-                   const RVec<bool> &passPar)
+                   const RVec<int> &passPar)
     {
         for (size_t i = 0; i < pid.size(); ++i) {
             if (pid[i] != selectedPid) continue;
@@ -852,7 +852,7 @@ void DrawDeltaPByThetaBins(
                    const RVec<float> &phi,
                    const RVec<float> &p,
                    const RVec<short> &status,
-                   const RVec<bool> &passPar,
+                   const RVec<int> &passPar,
                    const RVec<int> &mcpid,
                    const RVec<float> &mcpx,
                    const RVec<float> &mcpy,
@@ -1230,7 +1230,7 @@ void DrawDeltaPByThetaPhiBins(
                    const RVec<float> &phi,
                    const RVec<float> &p,
                    const RVec<short> &status,
-                   const RVec<bool> &passPar,
+                   const RVec<int> &passPar,
                    const RVec<int> &mcpid,
                    const RVec<float> &mcpx,
                    const RVec<float> &mcpy,

@@ -53,12 +53,12 @@ inline double HandGammaV(double E, double Q2, double W) {
 }
 
 inline int ChooseBestElectron(const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<float>& pz,
-                              const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<bool>& pass) {
+                              const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<int>& pass) {
   int best = -1;
   float bestP = -1.f;
   // Prefer electrons in the target window; choose highest |p|
   for (size_t i = 0; i < pid.size(); ++i) {
-    if (pid[i] != 11 || !pass[i]) continue;
+    if (pid[i] != 11 || pass[i] == 0) continue;
     if (vz[i] < -10.f || vz[i] > 3.f) continue;
     float P = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
     if (P > bestP) {
@@ -69,7 +69,7 @@ inline int ChooseBestElectron(const ROOT::VecOps::RVec<int>& pid, const ROOT::Ve
   if (best >= 0) return best;
   // Fallback: highest |p| among passing tracks
   for (size_t i = 0; i < pid.size(); ++i) {
-    if (pid[i] != 11 || !pass[i]) continue;
+    if (pid[i] != 11 || pass[i] == 0) continue;
     float P = std::sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]);
     if (P > bestP) {
       bestP = P;
@@ -88,12 +88,12 @@ inline int DetRegionFromStatus(short s) {
 // phi event selection cuts for single photon contaminations
 ROOT::RDF::RNode SelectExclusivePhiEvent(ROOT::RDF::RNode df_) {
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& daughterPass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass, const ROOT::VecOps::RVec<int>& daughterPass) {
         int e = 0, km = 0, kp = 0, p = 0;
         bool hasPhiDaughter = true;
 
         for (size_t i = 0; i < pid.size(); ++i) {
-          if (!pass[i]) continue;
+          if (pass[i] == 0) continue;
 
           if (pid[i] == 11) {
             e++;
@@ -115,10 +115,10 @@ ROOT::RDF::RNode SelectExclusivePhiEvent(ROOT::RDF::RNode df_) {
 
 ROOT::RDF::RNode SelectPhiEvent_MissingKm(ROOT::RDF::RNode df_) {
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
         int e = 0, kp = 0, p = 0;
         for (size_t i = 0; i < pid.size(); ++i) {
-          if (!pass[i]) continue;
+          if (pass[i] == 0) continue;
           if (pid[i] == 11)
             ++e;
           else if (pid[i] == 321)
@@ -133,10 +133,10 @@ ROOT::RDF::RNode SelectPhiEvent_MissingKm(ROOT::RDF::RNode df_) {
 
 ROOT::RDF::RNode SelectPhiEvent_MissingKp(ROOT::RDF::RNode df_) {
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
         int e = 0, km = 0, p = 0;
         for (size_t i = 0; i < pid.size(); ++i) {
-          if (!pass[i]) continue;
+          if (pass[i] == 0) continue;
           if (pid[i] == 11)
             ++e;
           else if (pid[i] == -321)
@@ -151,10 +151,10 @@ ROOT::RDF::RNode SelectPhiEvent_MissingKp(ROOT::RDF::RNode df_) {
 //
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_) {
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& daughterPass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass, const ROOT::VecOps::RVec<int>& daughterPass) {
         int e = 0, g = 0, p = 0;
         for (size_t i = 0; i < pid.size(); ++i) {
-          if (!pass[i]) continue;
+          if (pass[i] == 0) continue;
           if (daughterPass[i]) return false;  // reject if any daughter particle is a pi0
           if (pid[i] == 11)
             e++;
@@ -188,28 +188,28 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
   auto df_ = std::make_unique<ROOT::RDF::RNode>(rdf);
   // pick best e, p, K⁺ (your style)
   *df_ = df_->Define("ele_px_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("ele_py_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("ele_pz_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recel_vz_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) return px[i];
                        return -999.0f;
@@ -218,7 +218,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
 
              ////
              .Define("reckMinus_vz",  // dummy for K minus vz plotting
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && pass[i]) return px[i];
                        return -999.0f;
@@ -226,7 +226,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("reckPlus_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && pass[i]) return px[i];
                        return -999.0f;
@@ -234,21 +234,21 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("kPlus_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("kPlus_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("kPlus_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && trackpass[i]) return pz[i];
                        return -999.0f;
@@ -256,7 +256,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
 
              .Define("pro_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return px[i];
                        return -999.0f;
@@ -264,21 +264,21 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
 
              .Define("pro_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("pro_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recpro_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && pass[i]) return px[i];
                        return -999.0f;
@@ -287,7 +287,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
              .Define("RunNumber", "RUN_config_run")
              .Define("EventNumber", "RUN_config_event")
              .Define("nElectrons",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
                        int n = 0;
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) ++n;
@@ -301,9 +301,9 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
              // If you want to **drop** multi-e events (strict DVEP), add: .Filter("nElectrons==1","Cut: exactly 1 e⁻")
              .Filter("bestEle_idx >= 0", "At least one usable e⁻")
              .Define("REC_pass_bestE",
-                     [](int best, const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
-                       ROOT::VecOps::RVec<bool> keep(pass.size(), false);
-                       if (best >= 0) keep[best] = true;        // only best e⁻
+                     [](int best, const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
+                       ROOT::VecOps::RVec<int> keep(pass.size(), 0);
+                       if (best >= 0) keep[best] = 1;        // only best e⁻
                        for (size_t i = 0; i < pid.size(); ++i)  // keep non-e tracks as they were
                          if (pid[i] != 11) keep[i] = pass[i];
                        return keep;
@@ -311,7 +311,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      {"bestEle_idx", "REC_Particle_pid", "REC_Particle_pass"})
 
              .Define("nElectrons_best",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& keep) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& keep) {
                        int n = 0;
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && keep[i]) ++n;
@@ -369,7 +369,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
              .Define("reckMinus_theta", ThetaFunc, {"kMinus_miss_px", "kMinus_miss_py", "kMinus_miss_pz"})
              .Define("reckMinus_phi", PhiFunc, {"kMinus_miss_px", "kMinus_miss_py"})
              .Define("kMinus_det_region",  // dummy for K minus det region plotting
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 321 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -387,7 +387,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("kPlus_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 321 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -405,7 +405,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("pro_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 2212 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -423,7 +423,7 @@ ROOT::RDF::RNode InitKinematics_MissingKm(const std::string& filename_, const st
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("ele_det_region_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 11 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -547,28 +547,28 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
   auto df_ = std::make_unique<ROOT::RDF::RNode>(rdf);
 
   *df_ = df_->Define("ele_px_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("ele_py_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("ele_pz_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recel_vz_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) return px[i];
                        return -999.0f;
@@ -577,7 +577,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
 
              ////
              .Define("reckMinus_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && pass[i]) return px[i];
                        return -999.0f;
@@ -585,28 +585,28 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("kMinus_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("kMinus_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("kMinus_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("reckPlus_vz",  // dummy for K plus vz plotting
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && pass[i]) return px[i];
                        return -999.0f;
@@ -614,7 +614,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("pro_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return px[i];
                        return -999.0f;
@@ -622,21 +622,21 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
 
              .Define("pro_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("pro_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recpro_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && pass[i]) return px[i];
                        return -999.0f;
@@ -645,7 +645,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
              .Define("RunNumber", "RUN_config_run")
              .Define("EventNumber", "RUN_config_event")
              .Define("nElectrons",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
                        int n = 0;
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) ++n;
@@ -659,9 +659,9 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
              // If you want to **drop** multi-e events (strict DVEP), add: .Filter("nElectrons==1","Cut: exactly 1 e⁻")
              .Filter("bestEle_idx >= 0", "At least one usable e⁻")
              .Define("REC_pass_bestE",
-                     [](int best, const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
-                       ROOT::VecOps::RVec<bool> keep(pass.size(), false);
-                       if (best >= 0) keep[best] = true;        // only best e⁻
+                     [](int best, const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
+                       ROOT::VecOps::RVec<int> keep(pass.size(), 0);
+                       if (best >= 0) keep[best] = 1;        // only best e⁻
                        for (size_t i = 0; i < pid.size(); ++i)  // keep non-e tracks as they were
                          if (pid[i] != 11) keep[i] = pass[i];
                        return keep;
@@ -669,7 +669,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      {"bestEle_idx", "REC_Particle_pid", "REC_Particle_pass"})
 
              .Define("nElectrons_best",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& keep) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& keep) {
                        int n = 0;
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && keep[i]) ++n;
@@ -728,7 +728,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
              .Define("reckPlus_theta", ThetaFunc, {"kPlus_miss_px", "kPlus_miss_py", "kPlus_miss_pz"})
              .Define("reckPlus_phi", PhiFunc, {"kPlus_miss_px", "kPlus_miss_py"})
              .Define("kMinus_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == -321 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -746,7 +746,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
               .Define("kPlus_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == -321 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -764,7 +764,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("pro_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 2212 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -782,7 +782,7 @@ ROOT::RDF::RNode InitKinematics_MissingKp(const std::string& filename_, const st
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("ele_det_region_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 11 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -2175,28 +2175,28 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   ROOT::RDataFrame rdf(treename_, filename_);
   auto df_ = std::make_unique<ROOT::RDF::RNode>(rdf);
   *df_ = df_->Define("ele_px_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("ele_py_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("ele_pz_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recel_vz_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) return px[i];
                        return -999.0f;
@@ -2204,7 +2204,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("reckMinus_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && pass[i]) return px[i];
                        return -999.0f;
@@ -2212,28 +2212,28 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("kMinus_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("kMinus_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("kMinus_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == -321 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("reckPlus_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && pass[i]) return px[i];
                        return -999.0f;
@@ -2241,21 +2241,21 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
 
              .Define("kPlus_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("kPlus_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("kPlus_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 321 && trackpass[i]) return pz[i];
                        return -999.0f;
@@ -2263,28 +2263,28 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
 
              .Define("pro_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("pro_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("pro_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recpro_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && pass[i]) return px[i];
                        return -999.0f;
@@ -2293,7 +2293,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
              .Define("RunNumber", "RUN_config_run")
              .Define("EventNumber", "RUN_config_event")
              .Define("nElectrons",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
                        int n = 0;
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) ++n;
@@ -2307,9 +2307,9 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
              // If you want to **drop** multi-e events (strict DVEP), add: .Filter("nElectrons==1","Cut: exactly 1 e⁻")
              .Filter("bestEle_idx >= 0", "At least one usable e⁻")
              .Define("REC_pass_bestE",
-                     [](int best, const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
-                       ROOT::VecOps::RVec<bool> keep(pass.size(), false);
-                       if (best >= 0) keep[best] = true;        // only best e⁻
+                     [](int best, const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
+                       ROOT::VecOps::RVec<int> keep(pass.size(), 0);
+                       if (best >= 0) keep[best] = 1;        // only best e⁻
                        for (size_t i = 0; i < pid.size(); ++i)  // keep non-e tracks as they were
                          if (pid[i] != 11) keep[i] = pass[i];
                        return keep;
@@ -2317,7 +2317,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"bestEle_idx", "REC_Particle_pid", "REC_Particle_pass"})
 
              .Define("nElectrons_best",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& keep) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& keep) {
                        int n = 0;
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && keep[i]) ++n;
@@ -2346,7 +2346,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
              .Define("recpro_theta", ThetaFunc, {"pro_px", "pro_py", "pro_pz"})
              .Define("recpro_phi", PhiFunc, {"pro_px", "pro_py"})
              .Define("kMinus_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == -321 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -2364,7 +2364,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("kPlus_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 321 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -2383,7 +2383,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
 
              .Define("pro_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 2212 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -2401,7 +2401,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("ele_det_region_org",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) -> int {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) -> int {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 11 && pass[i]) {
                            int abs_status = std::abs(status[i]);

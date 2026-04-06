@@ -51,7 +51,7 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
                    const RVec<int> &pid, const RVec<int> &passFid,
                    const RVec<float> &lv, const RVec<float> &lw,
                    const RVec<float> &energy,
-                   const RVec<float> &px, const RVec<float> &py, const RVec<float> &pz, const RVec<bool> &parPass) {
+                   const RVec<float> &px, const RVec<float> &py, const RVec<float> &pz, const RVec<int> &parPass) {
         struct HitInfo {
             float totalE = 0;
             float PCAL_E = 0;
