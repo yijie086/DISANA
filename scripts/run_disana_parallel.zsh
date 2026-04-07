@@ -66,7 +66,7 @@ USAGE
 K=60
 
 # ---- Executable for skimming
-EXE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi
+EXE=/ceph24/hallb/clas12/users/singh/Softwares/DISANA_main/build/AnalysisPhi
 
 # ---- Input data
 #INPUT_DIR=/cache/clas12/rg-a/production/recon/fall2018/torus+1/pass2/train/nSidis/
@@ -104,6 +104,7 @@ INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10510/ #sp18_outb_no_bkg
 #data for hplushminus (Bhawani)
 INPUT_DIR=/lustre24/expphy/cache/clas12/rg-a/production/recon/spring2019/torus-1/pass2/dst/train/DVKpKmP/
 
+
 # ---- Output base (ABSOLUTE OR RELATIVE OK)
 # Everything will be created under this directory:
 #   OUTPUT_BASE/<WORKDIR>/job_###/{input,out,log}
@@ -133,7 +134,7 @@ OUTPUT_BASE=//w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_pr
 
 
 OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/DSTs/hplus_hminus_ep/
-OUTPUT_BASE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed/nSIDIS/hphm/rgasp19_inb/
+OUTPUT_BASE=/ceph24/hallb/clas12/users/singh/Data/PhiAnalysis/Data_processed/rga/nSIDIS/hphm/rgasp19_inb/
 
 # ---- AnalysisPhi args (matches AnalysisDVCS.cpp)
 NEVT=-1                # AnalysisPhi: -n / --nfile
@@ -199,8 +200,8 @@ JOBS_PER_BATCH=30
 #                   Pass 2 reproc job reads the merged dfSelected.root and
 #                   produces dfSelected_afterFid_afterCorr.root in OUTPUT_BASE.
 # TWO_PASS_MODE=0 : Original behaviour (all outputs per job, all merged).
-TWO_PASS_MODE=0
-PASS2_THREADS=16          # threads for the single-job Pass 2 reproc step
+TWO_PASS_MODE=1
+PASS2_THREADS=10         # threads for the single-job Pass 2 reproc step
 PASS2_REPROC_TREE="dfSelected"   # tree name written by Snapshot in Pass 1
 # -------------------------------------
 

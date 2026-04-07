@@ -331,6 +331,13 @@ TrackCut::RECCalorimeterPass() const {
     for (size_t i = 0; i < pindex.size(); ++i) {
       if (detector[i] == 7) {
         if (fDoFiducialCut) {
+          // Guard: REC::Calorimeter pindex is -1 (or otherwise invalid) for
+          // calorimeter hits that have no matched REC::Particle row.  Without
+          // this check the SF14/SF/REC_Particle_Sector writes below would
+          // index before the start of the heap buffer, corrupting memory and
+          // eventually triggering std::length_error in a later vector resize.
+          if (pindex[i] < 0 || pindex[i] >= REC_Particle_num) continue;
+
           const std::map<int, std::map<int, FiducialCut3D>>* cutMap = nullptr;
           if (layer[i] == 1)
             cutMap = &fFiducialCutsPCal;
@@ -339,7 +346,7 @@ TrackCut::RECCalorimeterPass() const {
           else if (layer[i] == 7)
             cutMap = &fFiducialCutsECout;
           
-          if (layer[i] == 1 || layer[i] == 4) SF14[pindex[i]] = SF14[pindex[i]] + energy[i]; // Example SF calculation, adjust as needed
+          if (layer[i] == 1 || layer[i] == 4) SF14[pindex[i]] = SF14[pindex[i]] + energy[i];
           SF[pindex[i]] = SF[pindex[i]] + energy[i];
           REC_Particle_Sector[pindex[i]] = sector[i];
 
@@ -434,6 +441,9 @@ TrackCut::RECForwardTaggerPass() const {
     for (size_t i = 0; i < pindex.size(); ++i) {
       if (detector[i] == 10) {
         if (fDoFiducialCut) {
+          // Guard: REC::ForwardTagger pindex can be -1 for unmatched hits.
+          if (pindex[i] < 0 || pindex[i] >= REC_Particle_num) continue;
+
           const std::map<int, std::map<int, FiducialCutRing_FTCal>>* cutMap = nullptr;
           cutMap = &fFiducialCutsFTCal;
 

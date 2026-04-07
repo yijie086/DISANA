@@ -27,15 +27,15 @@ setopt NO_NOMATCH   # suppress zsh "no matches found" on empty globs
 # =============================================================================
 
 # ---- Executable
-EXE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi
+EXE=/ceph24/hallb/clas12/users/singh/Softwares/DISANA_main/build/AnalysisPhi
 
 # ---- Top-level output directory; mode sub-dir is appended automatically:
 #        $OUTPUT_ROOT/DVKpKm/<dataset>/  or  $OUTPUT_ROOT/nSIDIS/<dataset>/
-OUTPUT_ROOT=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/Phi_data_processed
+OUTPUT_ROOT=/ceph24/hallb/clas12/users/singh/Data/PhiAnalysis/Data_processed/rga/
 
 # ---- Parallelization
 K=60                # parallel AnalysisPhi jobs per dataset
-JOBS_PER_BATCH=30   # sliding-window concurrency cap (jobs running at one time)
+JOBS_PER_BATCH=15   # sliding-window concurrency cap (jobs running at one time)
 RUN_IN_BATCHES=1    # 1 = sliding window (recommended); 0 = all K at once
 
 # ---- AnalysisPhi job parameters
@@ -71,14 +71,14 @@ DVKpKm_IS_MC=0
 DVKpKm_IS_REPROC=0
 DVKpKm_IS_MINIMAL=0
 DVKpKm_IS_MISSINGKM=0
-DVKpKm_IS_HPHM=1        # ep → e'K+K- di-hadron mode
+DVKpKm_IS_HPHM=0        # ep → e'K+K- di-hadron mode
 
 # nSIDIS mode
 nSIDIS_IS_MC=0
 nSIDIS_IS_REPROC=0
 nSIDIS_IS_MINIMAL=0
 nSIDIS_IS_MISSINGKM=0
-nSIDIS_IS_HPHM=0
+nSIDIS_IS_HPHM=1
 
 # =============================================================================
 # ARGUMENT PARSING — single flag only
@@ -150,7 +150,7 @@ typeset -a DS_LABELS DS_INPUTS DS_OUTDIRS DS_CFGS DS_INBENDING
 
 DS_LABELS=(   rgasp18_inb         rgasp18_outb         rgafall18_inb         rgafall18_outb         rgasp19_inb    )
 DS_INPUTS=(   "$IN_rgasp18_inb"   "$IN_rgasp18_outb"   "$IN_rgafall18_inb"   "$IN_rgafall18_outb"   "$IN_rgasp19_inb" )
-DS_OUTDIRS=(  "rgasp18/inb"       "rgasp18/outb"       "rgafall/inb"         "rgafall/outb"         "rgasp19"      )
+DS_OUTDIRS=(  "rgasp18/inb"       "rgasp18/outb"       "rgafall18/inb"         "rgafall18/outb"         "rgasp19"      )
 DS_CFGS=(     rgasp18_inb         rgasp18_outb          rgafall18_inb         rgafall18_outb         rgasp19_inb    )
 DS_INBENDING=( 1                   0                    1                     0                      1              )
 
