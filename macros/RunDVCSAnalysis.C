@@ -14,14 +14,14 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   // Enable implicit multi-threading for ROOT.
   if (nthreads > 1) {
     ROOT::EnableImplicitMT();
-    std::cout << "[RunPhiAnalysis] IMT enabled with " << nthreads << " thread(s)\n";
+    std::cout << "[RunDVCSAnalysis] IMT enabled with " << nthreads << " thread(s)\n";
   } else {
-    std::cout << "[RunPhiAnalysis] IMT disabled (single thread mode).\n";
+    std::cout << "[RunDVCSAnalysis] IMT disabled (single thread mode).\n";
   }
   bool IsMC = false;              // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
-  bool IsMinimalBook = false;
+  bool IsMinimalBook = true;
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
   //std::string dataconfig = "rgkfa18_7546";
@@ -457,6 +457,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   dvcsTask->SetMaxEvents(0);                // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false);     // Set to true to accept all events, false to apply cuts
   dvcsTask->SetQADBCuts(qadbCuts);          // <-- this now matters
+  dvcsTask->SetOptimizeColumns(true);       // Set to true to optimize the columns in the output file based on the cuts applied
   if(IsMC) {
     dvcsTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
   } else {

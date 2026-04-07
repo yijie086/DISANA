@@ -20,9 +20,9 @@
 ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy);
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df);
 
-ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_rec_bin.csv");;
+ROOT::RDF::RNode ApplyFinalDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_rec.csv");;
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df);
-ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_gen_bin.csv");
+ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df, const std::string& rec_csv = "dvcs_cuts_gen.csv");
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df);
 ROOT::RDF::RNode DefineGenDVPi0Pass(ROOT::RDF::RNode df);
@@ -194,9 +194,9 @@ void DISANA_Xplotter2csv() {
   //xBins.SetXBBins({0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
   //xBins.SetXBBins({0.15, 0.175});
 
-  xBins.SetQ2Bins({1.0, 1.25, 1.5, 1.75, 2.0});
-  xBins.SetTBins({0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
-  xBins.SetXBBins({0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
+  xBins.SetQ2Bins({1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50});
+  xBins.SetTBins({0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
+  xBins.SetXBBins({0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430});
 
   //xBins.SetQ2Bins({1.0, 1.25, 1.5, 2.0});
   //xBins.SetTBins({0.2, 0.4, 0.6, 1.0});
@@ -217,7 +217,7 @@ void DISANA_Xplotter2csv() {
   df_final_dvcsPi_rejected_7546_dvcsmc_bkg.Count();
   df_final_dvcsPi_rejected_7546_dvcsmc_nobkg.Count();*/
 
-  double charge=4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed)
+  double charge=8.2054; // mC (5681-5757, 5757-5870(trigger prescale 2), 5694, 5699, 5702, 5707, 5725, 5733, 5758, 5759, 5767, 5850, 5855 removed)
   std::cout<<"Total effective charge (mC): "<<charge<<std::endl;
   double luminosity = (charge)*1.33*pow(10,6);  // Set your desired luminosity here nb^-1
   std::cout<<"Luminosity (nb^-1): "<<luminosity<<std::endl;
@@ -240,7 +240,19 @@ void DISANA_Xplotter2csv() {
                               "RGK 7.5GeV mc", beam_energy, true, true, true, true, true);*/
 
   //df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter("t < 0.3 && t > 0.2", "Cut: t > 0.5 GeV^2");
-
+  df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter(
+                                        "RUN_config_run!=5694 && "
+                                        "RUN_config_run!=5699 && "
+                                        "RUN_config_run!=5702 && "
+                                        "RUN_config_run!=5707 && "
+                                        "RUN_config_run!=5725 && "
+                                        "RUN_config_run!=5733 && "
+                                        "RUN_config_run!=5758 && "
+                                        "RUN_config_run!=5759 && "
+                                        "RUN_config_run!=5767 && "
+                                        "RUN_config_run!=5850 && "
+                                        "RUN_config_run!=5855",
+                                        "Cut: runs with bad beam conditions");
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
                               //df_afterFid_7546_dvcsmc_gen,
                               df_final_OnlPi0_7546_data,
@@ -253,7 +265,7 @@ void DISANA_Xplotter2csv() {
                               df_afterFid_7546_dvcsmc_rad,
                               df_afterFid_7546_dvcsmc_norad,
                               df_afterFid_7546_dvcsmc_p1cut,
-                              "RGK 7.5GeV", beam_energy, true, true, true, true, true, luminosity);
+                              "RGK 7.5GeV", beam_energy, true, true, true, true, true, luminosity, 39.32, 45, 0.9069/0.9647);
 
   //comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
@@ -273,91 +285,91 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   ROOT::RDataFrame rdf(treename_, filename_);
   auto df_ = std::make_unique<ROOT::RDF::RNode>(rdf);
   *df_ = df_->Define("ele_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("ele_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("ele_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recel_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<int>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<bool>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 11 && pass[i]) return vz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass"})
              .Define("pho_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pho_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pho_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("recpho_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<int>& pass, const ROOT::VecOps::RVec<int>& maxEpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && pass[i] && maxEpass[i]) return vz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("recpho_beta",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& beta, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& beta, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && maxEpass[i]) return beta[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_beta", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pro_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass"})
              .Define("pro_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass"})
              .Define("pro_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && trackpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass"})
              .Define("recpro_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<int>& pass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<bool>& pass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 2212 && pass[i]) return vz[i];
                        return -999.0f;
@@ -374,7 +386,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
              .Define("recpro_theta", ThetaFunc, {"pro_px", "pro_py", "pro_pz"})
              .Define("recpro_phi", PhiFunc, {"pro_px", "pro_py"})
              .Define("pho_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 22 && pass[i] && maxEpass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -393,7 +405,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass", "REC_Photon_MaxE"})
 
              .Define("pro_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 2212 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -411,7 +423,7 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
                      },
                      {"REC_Particle_pid", "REC_Particle_status", "REC_Particle_pass"})
              .Define("ele_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass) {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 11 && pass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -451,35 +463,35 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
 
 ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy) {
   df_ = df_.Define("pho2_px",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& px, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return px[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_px", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pho2_py",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& py, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return py[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_py", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("pho2_pz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& pz, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return pz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_pz", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("recpho2_vz",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<int>& pass, const ROOT::VecOps::RVec<int>& maxEpass) -> float {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& vz, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) -> float {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && pass[i] && !maxEpass[i]) return vz[i];
                        return -999.0f;
                      },
                      {"REC_Particle_pid", "REC_Particle_vz", "REC_Particle_pass", "REC_Photon_MaxE"})
              .Define("recpho2_beta",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& beta, const ROOT::VecOps::RVec<int>& trackpass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<float>& beta, const ROOT::VecOps::RVec<bool>& trackpass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i)
                          if (pid[i] == 22 && trackpass[i] && !maxEpass[i]) return beta[i];
                        return -999.0f;
@@ -490,7 +502,7 @@ ROOT::RDF::RNode Init2PhotonKinematics(ROOT::RDF::RNode df_, float beam_energy) 
              .Define("recpho2_theta", ThetaFunc, {"pho2_px", "pho2_py", "pho2_pz"})
              .Define("recpho2_phi", PhiFunc, {"pho2_px", "pho2_py"})
              .Define("pho2_det_region",
-                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<int>& pass, const ROOT::VecOps::RVec<int>& maxEpass) {
+                     [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<short>& status, const ROOT::VecOps::RVec<bool>& pass, const ROOT::VecOps::RVec<bool>& maxEpass) {
                        for (size_t i = 0; i < pid.size(); ++i) {
                          if (pid[i] == 22 && pass[i] && !maxEpass[i]) {
                            int abs_status = std::abs(status[i]);
@@ -527,7 +539,7 @@ ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy) {
   //df_ = DefineDVPi0Pass(df_);
   //df_ = df_.Filter("!DVPi0_pass", "Cut: reject pi0");
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
         int e = 0, g = 0, p = 0;
         for (size_t i = 0; i < pid.size(); ++i) {
           if (!pass[i]) continue;
@@ -545,7 +557,7 @@ ROOT::RDF::RNode RejectPi0TwoPhoton(ROOT::RDF::RNode df_, float beam_energy) {
 // pi-0 event selection cuts for single photon contaminations
 ROOT::RDF::RNode SelectPi0Event(ROOT::RDF::RNode df_) {
   return df_.Filter(
-      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<int>& pass) {
+      [](const ROOT::VecOps::RVec<int>& pid, const ROOT::VecOps::RVec<bool>& pass) {
         int e = 0, g = 0, p = 0;
         bool result = false;
         for (size_t i = 0; i < pid.size(); ++i) {
@@ -806,7 +818,7 @@ ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){
               double& Q2, double& t, double& W,
               double& Theta_epho1, double& Theta_epho2, double& Theta_pho1pho2) {
         bool pass = false;
-        if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
+        if (haspho2 && recpho_p > 2.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
           if (pho_det_region == 0 && pho2_det_region == 0 && pro_det_region ==2) {
             pass = Inrange(emiss_pi0, -0.4, 0.4);
             pass = pass && Inrange(mx2_epi0, 0.5, 2.0);
@@ -883,7 +895,7 @@ ROOT::RDF::RNode DefineGenDVPi0Pass(ROOT::RDF::RNode df){
               double& Q2, double& t, double& W,
               double& Theta_epho1, double& Theta_epho2, double& Theta_pho1pho2) {
         bool pass = false;
-        if (haspho2 && recpho_p > 1.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
+        if (haspho2 && recpho_p > 2.0 && recpho2_p > 0.4 && Q2 > 1.0 && t < 1.0 && W > 2.0) {
           if (pho_det_region == 0 && pho2_det_region == 0 && pro_det_region ==2) {
             pass = Inrange(emiss_pi0, -0.4, 0.4);
             pass = pass && Inrange(mx2_epi0, 0.5, 2.0);
@@ -1143,6 +1155,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df, const std::st
     "REC_Particle_pass",
     "REC_Photon_MaxE",
     "REC_Event_helicity",
+    "RUN_config_run",
 
     // ===== Picked particles =====
     "ele_px","ele_py","ele_pz",

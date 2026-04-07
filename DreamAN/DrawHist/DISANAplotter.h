@@ -24,7 +24,9 @@ struct PhiModeTag {};
 class DISANAplotter {
  public:
   // for DVCS analysis
-  DISANAplotter(DVCSModeTag, ROOT::RDF::RNode df_dvcs_data, double beamEnergy, double luminosity, std::optional<ROOT::RDF::RNode> df_pi0_data = std::nullopt,
+  DISANAplotter(DVCSModeTag, ROOT::RDF::RNode df_dvcs_data, double beamEnergy, double luminosity,
+                double I_avg_input = 60.0, double I_mc_input = 60.0, double eff_corr_input = 1.0,
+                std::optional<ROOT::RDF::RNode> df_pi0_data = std::nullopt,
                 std::optional<ROOT::RDF::RNode> df_dvcs_pi0mc = std::nullopt, std::optional<ROOT::RDF::RNode> df_pi0_pi0mc = std::nullopt,
                 std::optional<ROOT::RDF::RNode> df_gen_dvcsmc = std::nullopt, std::optional<ROOT::RDF::RNode> df_accept_dvcsmc = std::nullopt,
                 std::optional<ROOT::RDF::RNode> df_dvcsmc_bkg = std::nullopt, std::optional<ROOT::RDF::RNode> df_dvcsmc_nobkg = std::nullopt,
@@ -42,7 +44,10 @@ class DISANAplotter {
         rdf_dvcsmc_norad(std::move(df_dvcsmc_norad)),
         rdf_dvcsmc_p1cut(std::move(df_dvcsmc_p1cut)),
         beam_energy(beamEnergy),
-        luminosity_nb_inv(luminosity) {}
+        luminosity_nb_inv(luminosity),
+        I_avg(I_avg_input),
+        I_mc(I_mc_input),
+        eff_corr(eff_corr_input) {}
 
   // for Phi Analysis
   DISANAplotter(PhiModeTag, ROOT::RDF::RNode df_phi_data, double beamEnergy, double luminosity, std::optional<ROOT::RDF::RNode> df_gen_phimc = std::nullopt,
@@ -516,7 +521,7 @@ class DISANAplotter {
       std::cerr << "[ComputeEffCorr] Missing input RDFs.\n";
       return {};
     }
-    return kinCalc.CalcEfficiencyCorr(*rdf_dvcsmc_bkg, *rdf_dvcsmc_nobkg, bins);
+    return kinCalc.CalcEfficiencyCorr(*rdf_dvcsmc_bkg, *rdf_dvcsmc_nobkg, bins, I_avg, I_mc, eff_corr);
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> UseEffCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
@@ -679,7 +684,7 @@ class DISANAplotter {
             double err_corr = xs_err;
             if (c_val <= 0.9) val_corr = -1;
             if (c_val <= 0.9) err_corr = -1;
-            if (c_val <= 0.9) std::cout << " P1 cut applied: c_val " << c_val << "at bin " << b << std::endl;
+            //if (c_val <= 0.9) std::cout << " P1 cut applied: c_val " << c_val << "at bin " << b << std::endl;
             // std::cout <<"xs_val " << xs_val << " xs_err " << xs_err << " c_val " << c_val << " c_err " << c_err << " val_corr " << val_corr << " err_corr " << err_corr <<
             // std::endl;
             hNew->SetBinContent(b, val_corr);
@@ -2850,6 +2855,9 @@ class DISANAplotter {
   bool dop1cut = false;
   std::string ttreeName;
   double luminosity_nb_inv = -1.0;
+  double I_avg = 60.0;  // average beam current in nA, for luminosity calculation if needed
+  double I_mc = 60.0;   // beam current corresponding to the luminosity of the MC sample, in nA
+  double eff_corr = 1.0;   // overall efficiency correction factor to apply to MC yields (e.g. to match a known cross section)
   std::vector<std::vector<std::vector<double>>> phi_mean_xB_QW_;
   std::vector<std::vector<std::vector<double>>> phi_mean_W_QW_;
   std::vector<std::vector<std::vector<double>>> phi_mean_GammaV_QW_;

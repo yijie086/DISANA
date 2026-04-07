@@ -50,8 +50,8 @@ class DISANAcomparer {
                            ROOT::RDF::RNode df_gen_dvcsmc, ROOT::RDF::RNode df_accept_dvcsmc, ROOT::RDF::RNode df_dvcsmc_bkg, ROOT::RDF::RNode df_dvcsmc_nobkg,
                            ROOT::RDF::RNode df_dvcsmc_rad, ROOT::RDF::RNode df_dvcsmc_norad, ROOT::RDF::RNode df_dvcsmc_p1cut, const std::string& label, double beamEnergy,
                            bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false,
-                           bool fP1cut = false, double luminosity = 1.0) {
-    auto plotter = std::make_unique<DISANAplotter>(DVCSModeTag{}, df_dvcs_data, beamEnergy, luminosity, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc,
+                           bool fP1cut = false, double luminosity = 1.0, double I_avg = 60.0, double I_mc = 60.0, double eff_corr = 1.0) {
+    auto plotter = std::make_unique<DISANAplotter>(DVCSModeTag{}, df_dvcs_data, beamEnergy, luminosity, I_avg, I_mc, eff_corr, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc,
                                                    df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad, df_dvcsmc_p1cut);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction
               << ", Acceptance Correction: " << fAcceptanceCorrection << ", Background Merging efficiency: " << fEfficiencyCorrection
@@ -64,12 +64,10 @@ class DISANAcomparer {
     plotter->GenerateKinematicHistos("el");
     plotter->GenerateKinematicHistos("pro");
     plotter->GenerateKinematicHistos("pho");
-    if (fPi0Correction){
-      plotter->GeneratePi0KinematicHistos("el");
-      plotter->GeneratePi0KinematicHistos("pro");
-      plotter->GeneratePi0KinematicHistos("pho");
-      plotter->GeneratePi0KinematicHistos("pho2");
-    }
+    plotter->GeneratePi0KinematicHistos("el");
+    plotter->GeneratePi0KinematicHistos("pro");
+    plotter->GeneratePi0KinematicHistos("pho");
+    plotter->GeneratePi0KinematicHistos("pho2");
     labels.push_back(label);
     plotters.push_back(std::move(plotter));
   }
@@ -621,6 +619,31 @@ class DISANAcomparer {
     TGaxis::SetMaxDigits(oldMaxDigits);
   }
 
+  void DrawCustomGrid(const std::vector<double>& xB_lines,
+                    const std::vector<double>& Q2_lines,
+                    double xBmin, double xBmax,
+                    double Q2min, double Q2max,
+                    int lineStyle=2, int lineWidth=1, int lineColor=kRed)
+  {
+    for (double x : xB_lines){
+      if (x < xBmin || x > xBmax) continue;
+      TLine* lv = new TLine(x, Q2min, x, Q2max);
+      lv->SetLineStyle(lineStyle);
+      lv->SetLineWidth(lineWidth);
+      lv->SetLineColor(lineColor);
+      lv->Draw("SAME");
+    }
+    for (double q2 : Q2_lines){
+      if (q2 < Q2min || q2 > Q2max) continue;
+      TLine* lh = new TLine(xBmin, q2, xBmax, q2);
+      lh->SetLineStyle(lineStyle);
+      lh->SetLineWidth(lineWidth);
+      lh->SetLineColor(lineColor);
+      lh->Draw("SAME");
+    }
+  }
+
+
   void PlotDVCSKinematicsComparison(bool plotIndividual = false) {
     // Store current global TGaxis state
     int oldMaxDigits = TGaxis::GetMaxDigits();
@@ -734,7 +757,10 @@ class DISANAcomparer {
 
     canvas->cd(1);
     auto rdf = plotters.front()->GetRDF();
-    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 500, 0, 1.0, 500, 0, 10.0}, "xB", "Q2");
+    double xBmin = 0.1, xBmax = 0.6;
+    double Q2min = 1.0, Q2max = 5.0;
+    double tmin = 0.0, tmax = 1.0;
+    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 500, xBmin, xBmax, 500, Q2min, Q2max}, "xB", "Q2");
 
     styleDVCS_.StylePad((TPad*)gPad);
     gPad->SetRightMargin(0.16);
@@ -757,12 +783,19 @@ class DISANAcomparer {
     h2d->GetZaxis()->SetLabelSize(0.06);
     h2d->GetZaxis()->SetTitleOffset(1.5);
     h2d->GetZaxis()->SetTitleSize(0.06);
+    //std::vector<double> xB_lines = {0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430};
+    //std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90};
+    std::vector<double> xB_lines = {0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.43};
+    std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50};
+    std::vector<double> t_lines = {0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0};
     TGaxis::SetMaxDigits(3);
     h2d->DrawCopy("COLZ");
+    DrawCustomGrid(xB_lines, Q2_lines, xBmin, xBmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
 
     canvas->cd(2);
-    auto h2d2 = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs -t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 500, 0, 1.0, 500, 0, 10.0}, "t", "Q2");
-
+    auto h2d2 = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs -t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 500, tmin, tmax, 500, Q2min, Q2max}, "t", "Q2");
+    
     styleDVCS_.StylePad((TPad*)gPad);
     gPad->SetRightMargin(0.16);
     h2d2->GetYaxis()->SetNoExponent(true);
@@ -784,9 +817,11 @@ class DISANAcomparer {
     h2d2->GetZaxis()->SetTitleSize(0.06);
     TGaxis::SetMaxDigits(3);
     h2d2->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, Q2_lines, tmin, tmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
 
     canvas->cd(3);
-    auto h2d3 = rdf.Histo2D({"h_xB_vs_t", "x_{B} vs -t;-t[GeV^{2}];x_{B}", 500, 0, 1.0, 500, 0, 1.0}, "t", "xB");
+    auto h2d3 = rdf.Histo2D({"h_xB_vs_t", "x_{B} vs -t;-t[GeV^{2}];x_{B}", 500, tmin, tmax, 500, xBmin, xBmax}, "t", "xB");
 
     styleDVCS_.StylePad((TPad*)gPad);
     gPad->SetRightMargin(0.16);
@@ -809,6 +844,8 @@ class DISANAcomparer {
     h2d3->GetZaxis()->SetTitleSize(0.06);
     TGaxis::SetMaxDigits(3);
     h2d3->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, xB_lines, tmin, tmax, xBmin, xBmax, 1, 1, kRed);
+    gPad->RedrawAxis();
     // Final save and cleanup
     canvas->SaveAs((outputDir + "/xBQ2tBin.pdf").c_str());
     std::cout << "Saved xBQ2tBin kinematics to: " << outputDir + "/xBQ2tBin.pdf" << std::endl;

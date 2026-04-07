@@ -128,10 +128,10 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
         dfDefsWithTraj.Define("REC_QADB_pass", [qadb](int run, int ev) mutable { return qadb(run, ev); }, {"RUN_run", "RUN_event"}).Filter("REC_QADB_pass", "QADB pass");
   }
 
-  auto trajCols = CombineColumns(RECTraj::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+  auto trajCols = CombineColumns(RECTraj::ForFiducialCut(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
   auto caloCols =
-      CombineColumns(RECCalorimeter::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
-  auto fwdtagCols = CombineColumns(RECForwardTagger::All(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
+      CombineColumns(RECCalorimeter::ForFiducialCut(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_p"}, std::vector<std::string>{"REC_Particle_num"});
+  auto fwdtagCols = CombineColumns(RECForwardTagger::ForFiducialCut(), std::vector<std::string>{"REC_Particle_pid"}, std::vector<std::string>{"REC_Particle_num"});
 
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Track_pass_nofid", fTrackCutsNoFid->RECTrajPass(), trajCols);
   dfDefsWithTraj = DefineOrRedefine(dfDefsWithTraj, "REC_Traj_pass_fid", fTrackCutsWithFid->RECTrajPass(), trajCols);
@@ -196,6 +196,36 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
     dfSelected_afterFid_afterCorr = DefineOrRedefine(*dfSelected_afterFid_afterCorr, "REC_Particle_p", RECParticleP(), RECParticle::All());
   }
 }
+
+std::vector<std::string> DVCSAnalysis::MinimalColumns() const {
+  using V = std::vector<std::string>;
+
+  auto cols = CombineColumns(RECParticle::All());
+  cols = CombineColumns(cols, RECTraj::ForFiducialCut());
+  cols = CombineColumns(cols, RECCalorimeter::ForFiducialCut());
+  if (fFTonConfig)
+    cols = CombineColumns(cols, RECForwardTagger::ForFiducialCut());
+    cols.push_back("REC_Event_helicity");
+
+  for (const auto& c : V{"RUN_config_run", "RUN_config_event",
+                            "RUN::config.run", "RUN::config.event"})
+    cols.push_back(c);
+
+  // Pre-computed kinematics and analysis decision columns.
+  for (const auto& c : V{
+      "num_events",
+      "REC_Particle_num",
+      "REC_Particle_theta",
+      "REC_Particle_phi",
+      "REC_Particle_p",
+      "REC_Particle_pass",
+      "REC_Event_pass",
+      "REC_MotherMass",
+      "REC_DaughterParticle_pass",
+  })
+    cols.push_back(c);
+  return cols;
+}
 void DVCSAnalysis::SaveOutput() {
   if (IsMC) {
     // snapshot of the MC bank for efficiency and other studies
@@ -207,16 +237,34 @@ void DVCSAnalysis::SaveOutput() {
   }
 
   if (!dfSelected.has_value()) {
-    std::cerr << "PhiAnalysis::SaveOutput: dfSelected not set!" << std::endl;
+    std::cerr << "DVCSAnalysis::SaveOutput: dfSelected not set!" << std::endl;
     return;
   }
 
-  if (!IsReproc && !IsMinBooking) SafeSnapshot(*dfSelected, "dfSelected", Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"));
+  if (fOptimizeColumns) {
+    std::cout << "[SaveOutput] Column optimisation ON — writing only analysis-used columns.\n";
+  } else {
+    std::cout << "[SaveOutput] Column optimisation OFF — writing all columns.\n";
+  }
+
+  auto resolveColumns = [this](ROOT::RDF::RNode& node) -> std::vector<std::string> {
+    if (fOptimizeColumns) {
+      return ResolveSnapshotColumns(node, MinimalColumns());
+    } else {
+      return SafeSnapshotColumns(node, {"EventCutResult"});
+    }
+  };
+
+  if (!IsReproc) {
+    auto cols = resolveColumns(*dfSelected);
+    auto cnt = dfSelected->Count();
+    dfSelected->Snapshot("dfSelected",
+                    Form("%s/%s", fOutputDir.c_str(), "dfSelected.root"), cols);  // triggers loop
+    std::cout << "Events selected: " << *cnt << std::endl;
+  }
   if (IsReproc) SafeSnapshot(*dfSelected, "dfSelected_reproc", Form("%s/%s", fOutputDir.c_str(), "dfSelected_reproc.root"));
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
-    std::cout << "Events selected: " << dfSelected->Count().GetValue() << std::endl;
-    std::cout << "Events selected after fiducial: " << dfSelected_afterFid->Count().GetValue() << std::endl;
     const std::string csvpath = fOutputDir + "/events_per_run_afterFid.csv";
     auto tmp = *dfSelected_afterFid;
     auto [runCol, evCol] = PickRunEventCols(tmp);
@@ -226,12 +274,17 @@ void DVCSAnalysis::SaveOutput() {
     if (IsReproc && dfSelected_afterFid.has_value()) {
       SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
     } else {
-      if (!IsMinBooking) SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"));
+      if (!IsMinBooking) {
+        auto cnt_afterFid = dfSelected_afterFid->Count();
+        dfSelected_afterFid->Snapshot("dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"), resolveColumns(*dfSelected_afterFid));
+        std::cout << "Events after fiducial selected: " << *cnt_afterFid << std::endl;
+      }
     }
   }
   if (fDoMomentumCorrection && dfSelected_afterFid_afterCorr.has_value()) {
-    std::cout << "Events selected after fiducial and momentum correction: " << dfSelected_afterFid_afterCorr->Count().GetValue() << std::endl;
-    if (!IsMinBooking) SafeSnapshot(*dfSelected_afterFid_afterCorr, "dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"));
+    auto cnt_afterFid_afterCorr = dfSelected_afterFid_afterCorr->Count();
+    dfSelected_afterFid_afterCorr->Snapshot("dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"), resolveColumns(*dfSelected_afterFid_afterCorr));
+    std::cout << "Events after fiducial and momentum correction selected: " << *cnt_afterFid_afterCorr << std::endl;
   }
   if (fIsQADBCut) {
     std::cout << "\n[QADB] total accumulated charge analyzed: " << fQADBCuts->GetAccumulatedCharge() / 1e6 << " mC (Do NOT use this number if you enable MT)\n";

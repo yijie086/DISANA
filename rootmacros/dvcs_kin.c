@@ -361,8 +361,8 @@ void PlotThetaMap(double EB=7.546, double t=-0.55, double phi_deg=0.0,
 
   // --- your specified "grid" lines ---
   if (draw_custom_grid){
-    std::vector<double> xB_lines = {0.125, 0.150, 0.175, 0.200, 0.225, 0.250, 0.275, 0.300};
-    std::vector<double> Q2_lines = {1.0, 1.25, 1.5, 1.75, 2.0};
+    std::vector<double> xB_lines = {0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430};
+    std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50};
     DrawCustomGrid(xB_lines, Q2_lines, xBmin, xBmax, Q2min, Q2max, 3, 2, kBlack);
   }
 
@@ -440,11 +440,11 @@ void dvcs_kin(){
   TLorentzVector epr, ppr, gam;
   int rc = DVCS_Kin(xB, Q2, t, phi, EB, epr, ppr, gam);
   std::cout << "proton theta = " << ppr.Theta()*TMath::RadToDeg() << " deg" << std::endl;
-/*
+
   // Example 1: gamma theta map, with BOTH bands
   PlotThetaMap(EB, t, phi, "gamma",
-               0.125, 0.3, 120,
-               1.0,   2.0,  140,
+               0.1, 0.6, 120,
+               1.0,   5.0,  140,
                9.3,   // theta_e0
                2.0,    // W0
                0.0,    // y0
@@ -453,12 +453,12 @@ void dvcs_kin(){
                2.5, 40.0,   // z range
                true,  5, 35.0,  kRed, 0.50,     // gamma band (lo,hi,color,alpha)
                true,  0.0,  0.0,  kAzure+7, 0.50, // proton band (lo,hi,color,alpha)
-               "theta_gamma_map.png");
+               "theta_gamma_map.pdf");
 
   // Example 2: e theta map, band_lo==band_hi => band NOT drawn
   PlotThetaMap(EB, t, phi, "e",
-               0.0, 0.70, 120,
-               1.0,   6.0,  140,
+               0.1, 0.60, 120,
+               1.0,   5.0,  140,
                9.3,   // theta_e0
                2.0,    // W0
                0.0,    // y0
@@ -467,10 +467,10 @@ void dvcs_kin(){
                2.5, 40.0,   // z range
                true,  2.5, 2.5, kRed, 0.50,         // gamma band OFF (lo==hi)
                true,  25.0, 25.0, kAzure+7, 0.50,   // proton band OFF (lo==hi)
-               "theta_e_map.png");
+               "theta_e_map.pdf");
   PlotThetaMap(EB, t, phi, "p",
-               0.125, 0.30, 120,
-               1.0,   2.0,  140,
+               0.1, 0.43, 120,
+               1.0,   3.5,  140,
                9.3,   // theta_e0
                2.0,    // W0
                0.0,    // y0
@@ -478,6 +478,6 @@ void dvcs_kin(){
                true,   // custom grid
                5, 80.0,   // z range
                true,  25.0, 25.0,  kRed, 0.50,     // gamma band (lo,hi,color,alpha)
-               true,  40,  150.0,  kBlack, 0.50, // proton band (lo,hi,color,alpha)
-               "theta_p_map.png");*/
+               true,  0,  40.0,  kBlack, 0.50, // proton band (lo,hi,color,alpha)
+               "theta_p_map.pdf");
 }

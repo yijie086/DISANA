@@ -51,8 +51,10 @@ class DVCSAnalysis : public AnalysisTask {
   void SetQADBCuts(std::shared_ptr<QADBCuts> qadbcuts){ fQADBCuts = std::move(qadbcuts); };
   void SetDoQADBCuts(bool charge_output) { fIsQADBCut = charge_output; }
 
+  void SetOptimizeColumns(bool optimize) { fOptimizeColumns = optimize; }
 
  private:
+  std::vector<std::string> MinimalColumns() const;
   bool IsMC = false;
   bool fDoInvMassCut = false;  // Flag to indicate if invMass cut is applied
   bool fAcceptAll = false;  // Flag to indicate if all events are accepted without cuts
@@ -61,6 +63,7 @@ class DVCSAnalysis : public AnalysisTask {
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;
   bool fDoMomentumCorrection = false;  // Flag to indicate if momentum correction is applied
+  bool fOptimizeColumns = false;  // Flag to indicate if column optimization is enabled
 
   bool fIsQADBCut = false;  // Flag to indicate if QADB cut is applied
   bool fChargeOutput = false; // Flag to indicate if output the accumulated charge from QADB

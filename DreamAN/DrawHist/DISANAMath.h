@@ -284,6 +284,9 @@ class DISANAMath {
  private:
   // Kinematics
   double Q2_{}, xB_{}, t_{}, phi_deg_{}, W_{}, nu_{}, y_{}, cosTheta_KK_{}, cosPhi_KK_{}, z_phi_{};
+  double xi_{};
+  double costheta_SDHEP_{};
+  double phi_SDHEP_deg_{};
 
   // Exclusivity
   double mx2_ep_{};
@@ -321,6 +324,19 @@ class DISANAMath {
 
   double DeltaE_{};
 
+  double EpsContract(const TLorentzVector& a,
+                   const TLorentzVector& b,
+                   const TLorentzVector& c,
+                   const TLorentzVector& d)
+  {
+    TMatrixD M(4,4);
+    M(0,0)=a.E();  M(0,1)=a.Px();  M(0,2)=a.Py();  M(0,3)=a.Pz();
+    M(1,0)=b.E();  M(1,1)=b.Px();  M(1,2)=b.Py();  M(1,3)=b.Pz();
+    M(2,0)=c.E();  M(2,1)=c.Px();  M(2,2)=c.Py();  M(2,3)=c.Pz();
+    M(3,0)=d.E();  M(3,1)=d.Px();  M(3,2)=d.Py();  M(3,3)=d.Pz();
+
+    return M.Determinant();
+  }
   // Inelasticity / radiative-photon quantities
   double vm_cut_{-999.0};      // maximal inelasticity  [GeV^2]
   double Egamma_star_{-999.0}; // radiative-photon energy in CM(X) [GeV]
@@ -391,6 +407,9 @@ class DISANAMath {
   double GetW() const { return W_; }
   double GetNu() const { return nu_; }
   double Gety() const { return y_; }
+  double GetXi() const { return xi_; }
+  double GetCostheta_SDHEP() const { return costheta_SDHEP_; }
+  double GetPhi_SDHEP() const { return phi_SDHEP_deg_; }
   double GetCosTheta_KK() const { return cosTheta_KK_; }
   double GetCosPhi_KK() const { return cosPhi_KK_; }
   double GetZ_phi() const { return z_phi_; }
@@ -563,6 +582,36 @@ class DISANAMath {
     mx2_egamma_ = (electron_in + proton_in - electron_out - photon).Mag2();
     Theta_e_gamma_ = electron_out.Angle(photon.Vect()) * 180. / pi;
     DeltaE_ = (electron_in.E() + proton_in.E()) - (electron_out.E() + proton_out.E() + photon.E());
+
+
+    TLorentzVector Delta =  proton_in - proton_out;
+    double xi = (proton_in-proton_out).Dot(electron_in)/((proton_in + proton_out).Dot(electron_in));
+    double t0 = -4.0 * m_p * m_p * xi * xi / (1.0 - xi * xi);
+    double s_hat = (electron_in + Delta).Mag2();
+    double tt = Delta.Mag2();
+    double s = (electron_in + proton_in).Mag2();
+
+    double deltalprime = Delta.Dot(electron_out);
+    double llprime = electron_in.Dot(electron_out);
+    double twoPlprime = (proton_in + proton_out).Dot(electron_out);
+    double twoepsilonM =  EpsContract(electron_out,electron_in,proton_in+proton_out,Delta);
+    double nom = (1-xi*xi)*s_hat*(t0-tt)*(deltalprime-tt/2);
+
+    double costheta = -2*((s_hat-tt)*deltalprime-(s_hat+tt)*llprime)/(s_hat*(s_hat-tt));
+    double cosphi = xi*(s-m_p*m_p)*(twoPlprime*xi-deltalprime)+(1+xi)*llprime*tt;
+    cosphi = cosphi/((1+xi)*sqrt(nom));
+    double sinphi = -xi*twoepsilonM/sqrt(nom);
+    double phi_SDHEP = std::atan2(sinphi, cosphi);
+    if (phi_SDHEP<0) phi_SDHEP = phi_SDHEP +2*pi;
+    double phi_SDHEP_deg = phi_SDHEP * 180/pi;
+
+    double qT = 0.5*sqrt(s_hat*(1-costheta*costheta));
+
+    phi_SDHEP_deg_ = phi_SDHEP_deg;
+    xi_ = xi;
+    costheta_SDHEP_ = costheta;
+    //s_hat_ = s_hat;
+    //Q2_ = qT;
   }
 
   // Core (phi)
@@ -1093,7 +1142,7 @@ class DISANAMath {
     return hCorr;
   }
 
-  std::vector<std::vector<std::vector<TH1D *>>> CalcEfficiencyCorr(ROOT::RDF::RNode df_dvcsmc_bkg, ROOT::RDF::RNode df_dvcsmc_nobkg, const BinManager &xBins) {
+  std::vector<std::vector<std::vector<TH1D *>>> CalcEfficiencyCorr_old(ROOT::RDF::RNode df_dvcsmc_bkg, ROOT::RDF::RNode df_dvcsmc_nobkg, const BinManager &xBins) {
     const size_t n_t = xBins.GetTBins().size() - 1;
     const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
     const size_t n_xb = xBins.GetXBBins().size() - 1;
@@ -1121,6 +1170,105 @@ class DISANAMath {
     }
     return hCorr;
   }
+
+  std::vector<std::vector<std::vector<TH1D *>>> CalcEfficiencyCorr(
+    ROOT::RDF::RNode df_dvcsmc_bkg,
+    ROOT::RDF::RNode df_dvcsmc_nobkg,
+    const BinManager &xBins,
+    double I_avg = 60.0,
+    double I_mc = 60.0,
+    double eff_corr = 1.0) 
+  {
+    const size_t n_t  = xBins.GetTBins().size()  - 1;
+    const size_t n_q2 = xBins.GetQ2Bins().size() - 1;
+    const size_t n_xb = xBins.GetXBBins().size() - 1;
+
+    DISANAMath EffCorr;
+    auto df_dvcsmc_bkg_CrossSection   = EffCorr.ComputeDVCS_CrossSection(df_dvcsmc_bkg,   xBins, 1);
+    auto df_dvcsmc_nobkg_CrossSection = EffCorr.ComputeDVCS_CrossSection(df_dvcsmc_nobkg, xBins, 1);
+
+    std::vector<std::vector<std::vector<TH1D *>>> hCorr(
+        n_xb,
+        std::vector<std::vector<TH1D *>>(
+            n_q2, std::vector<TH1D *>(n_t, nullptr)));
+
+    if (I_mc == 0.0) {
+      std::cerr << "[CalcEfficiencyCorr] Error: I_mc = 0, cannot compute I_avg/I_mc.\n";
+      return hCorr;
+    }
+
+    const double r = I_avg / I_mc;
+    const double c = eff_corr;
+
+    std::cout<<"[CalcEfficiencyCorr] I_avg = " << I_avg << ", I_mc = " << I_mc << ", r = " << r << ", eff_corr = " << c << "\n";
+
+    for (size_t t_bin = 0; t_bin < n_t; ++t_bin) {
+      for (size_t q2_bin = 0; q2_bin < n_q2; ++q2_bin) {
+        for (size_t xb_bin = 0; xb_bin < n_xb; ++xb_bin) {
+
+          TH1D *h_dvcsmc_bkg   = df_dvcsmc_bkg_CrossSection[xb_bin][q2_bin][t_bin];
+          TH1D *h_dvcsmc_nobkg = df_dvcsmc_nobkg_CrossSection[xb_bin][q2_bin][t_bin];
+
+          if (!h_dvcsmc_bkg || !h_dvcsmc_nobkg) {
+            std::cerr << "[CalcEfficiencyCorr] Missing histogram for "
+                      << "xB bin " << xb_bin
+                      << ", Q2 bin " << q2_bin
+                      << ", t bin "  << t_bin << "\n";
+            continue;
+          }
+
+          TH1D *hRatio = static_cast<TH1D *>(
+              h_dvcsmc_bkg->Clone(Form("hEffCorr_xb%zu_q2%zu_t%zu", xb_bin, q2_bin, t_bin)));
+          hRatio->Reset();
+          //hRatio->Sumw2();
+
+          const int nBinsX = h_dvcsmc_bkg->GetNbinsX();
+
+          for (int ibin = 1; ibin <= nBinsX; ++ibin) {
+            const double N_bkg   = h_dvcsmc_bkg->GetBinContent(ibin);
+            const double N_nobkg = h_dvcsmc_nobkg->GetBinContent(ibin);
+
+            const double err_bkg   = h_dvcsmc_bkg->GetBinError(ibin);
+            const double err_nobkg = h_dvcsmc_nobkg->GetBinError(ibin);
+
+            double corr_val = 0.0;
+            double corr_err = 0.0;
+
+            if (N_nobkg > 0.0) {
+              const double eff = N_bkg / N_nobkg;
+
+              // sigma_eff^2 = (sigma_bkg / N_nobkg)^2
+              //             + (N_bkg * sigma_nobkg / N_nobkg^2)^2
+              const double eff_err2 =
+                  std::pow(err_bkg / N_nobkg, 2) +
+                  std::pow(N_bkg * err_nobkg / (N_nobkg * N_nobkg), 2);
+
+              const double eff_err = (eff_err2 > 0.0) ? std::sqrt(eff_err2) : 0.0;
+
+              corr_val = (1.0 - (1.0 - eff) * r) * c;
+              // corr = (1 - r + r*eff) * c
+              // d(corr)/d(eff) = r*c
+              corr_err = std::abs(r * c) * eff_err;
+
+              if (corr_val < 0.0) corr_val = 0.0;
+              if (corr_val > 1.0) corr_val = 1.0;
+            } 
+            else {
+              corr_val = 0.0;
+              corr_err = 0.0;
+            }
+            hRatio->SetBinContent(ibin, corr_val);
+            hRatio->SetBinError(ibin, corr_err);
+          }
+
+          hCorr[xb_bin][q2_bin][t_bin] = hRatio;
+        }
+      }
+    }
+
+    return hCorr;
+  }
+
 
   std::vector<std::vector<std::vector<TH1D *>>> CalcRadiativeCorr(ROOT::RDF::RNode df_dvcs_rad, ROOT::RDF::RNode df_dvcs_norad, const BinManager &xBins) {
     const size_t n_t = xBins.GetTBins().size() - 1;
