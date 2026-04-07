@@ -41,7 +41,10 @@ Options:
       --jobs-per-batch N      Override JOBS_PER_BATCH
       --two-pass              Set TWO_PASS_MODE=1 (Pass 1: dfSelected only; Pass 2: reproc for fid/QADB/corr)
       --no-two-pass           Set TWO_PASS_MODE=0 (original behaviour)
+      --reprocess-only        Skip Pass 1 entirely; rerun Pass 2 on existing dfSelected.root
       --pass2-threads N       Threads for the Pass 2 reproc job (default: 8)
+      --cleanup               Delete per-job ROOT files after successful merge (default)
+      --no-cleanup            Keep per-job ROOT files after merge
       --success-grep TEXT     Override SUCCESS_GREP
       --mc / --no-mc
       --reproc / --no-reproc
@@ -60,7 +63,7 @@ USAGE
 # =============================================================================
 
 # ---- Parallelization / splitting
-K=120
+K=60
 
 # ---- Executable for skimming
 EXE=/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/build/AnalysisPhi
@@ -100,7 +103,6 @@ INPUT_DIR=/lustre24/expphy/volatile/clas12/osg/yijie/10510/ #sp18_outb_no_bkg
 
 #data for hplushminus (Bhawani)
 INPUT_DIR=/lustre24/expphy/cache/clas12/rg-a/production/recon/spring2019/torus-1/pass2/dst/train/DVKpKmP/
-
 
 # ---- Output base (ABSOLUTE OR RELATIVE OK)
 # Everything will be created under this directory:
@@ -188,19 +190,39 @@ FAILED_JOBS=(000 008 009 018 024 029)   # must match ID width
 
 # ---- Batching ----
 RUN_IN_BATCHES=1
-JOBS_PER_BATCH=20
+JOBS_PER_BATCH=30
 # -------------------------------------
 
 # ---- Two-pass mode ----
 # TWO_PASS_MODE=1 : Pass 1 writes only dfSelected.root per job (--pass1 flag,
 #                   skips fiducial/QADB/correction).  After merging, a single
 #                   Pass 2 reproc job reads the merged dfSelected.root and
-#                   produces dfSelected_afterFid_reprocessed.root +
-#                   dfSelected_afterFid_afterCorr.root directly in OUTPUT_BASE.
+#                   produces dfSelected_afterFid_afterCorr.root in OUTPUT_BASE.
 # TWO_PASS_MODE=0 : Original behaviour (all outputs per job, all merged).
 TWO_PASS_MODE=0
 PASS2_THREADS=16          # threads for the single-job Pass 2 reproc step
 PASS2_REPROC_TREE="dfSelected"   # tree name written by Snapshot in Pass 1
+# -------------------------------------
+
+# ---- Reprocess-only mode ----
+# REPROCESS_ONLY=1 : Skip Pass 1 entirely (no hipo jobs, no merge).
+#                    Assumes dfSelected.root already exists in OUTPUT_BASE_ABS
+#                    (from a previous run).  Jumps straight to Pass 2 reproc.
+#                    Use this to recover from a Pass 2 crash without re-running
+#                    all jobs.  Requires --two-pass (TWO_PASS_MODE=1).
+# REPROCESS_ONLY=0 : Normal behaviour (default).
+REPROCESS_ONLY=0
+# -------------------------------------
+
+# ---- Cleanup ----
+# CLEANUP_JOB_OUTPUTS=1 : delete all per-job ROOT files under job_*/out/ once
+#                         all merges (and Pass 2 if TWO_PASS_MODE=1) have
+#                         succeeded.  The job directories themselves (input
+#                         symlinks + logs) are kept so you can diagnose failures
+#                         or relaunch jobs.  Only set to 1 when you are sure you
+#                         no longer need the per-job files.
+# CLEANUP_JOB_OUTPUTS=0 : keep everything (default — safe).
+CLEANUP_JOB_OUTPUTS=1
 # -------------------------------------
 
 # =============================================================================
@@ -281,10 +303,23 @@ while (( $# > 0 )); do
       TWO_PASS_MODE=0
       shift
       ;;
+    --reprocess-only)
+      REPROCESS_ONLY=1
+      TWO_PASS_MODE=1   # implied — reprocess only makes sense in two-pass context
+      shift
+      ;;
     --pass2-threads)
       [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
       PASS2_THREADS="$2"
       shift 2
+      ;;
+    --cleanup)
+      CLEANUP_JOB_OUTPUTS=1
+      shift
+      ;;
+    --no-cleanup)
+      CLEANUP_JOB_OUTPUTS=0
+      shift
       ;;
     --jobs-per-batch)
       [[ $# -ge 2 ]] || { echo "[ERROR] Missing value for $1"; exit 2; }
@@ -421,6 +456,8 @@ echo "[INFO] RUN_IN_BATCHES        = $RUN_IN_BATCHES"
 echo "[INFO] JOBS_PER_BATCH (J)    = $JOBS_PER_BATCH"
 echo "[INFO] TWO_PASS_MODE         = $TWO_PASS_MODE"
 (( TWO_PASS_MODE )) && echo "[INFO] PASS2_THREADS         = $PASS2_THREADS"
+(( REPROCESS_ONLY )) && echo "[INFO] REPROCESS_ONLY        = 1 (skipping Pass 1 — using existing dfSelected.root)"
+echo "[INFO] CLEANUP_JOB_OUTPUTS  = $CLEANUP_JOB_OUTPUTS"
 echo ""
 
 # =============================================================================
@@ -448,10 +485,56 @@ if ! command -v hadd >/dev/null 2>&1; then
   exit 2
 fi
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[ERROR] 'python3' not found in PATH. Required for large-file merging via PyROOT."
+  exit 2
+fi
+
+if ! python3 -c "import ROOT" 2>/dev/null; then
+  echo "[ERROR] PyROOT not available. Ensure ROOT is sourced before running this script."
+  exit 2
+fi
+
 # =============================================================================
 # Helpers
 # =============================================================================
 fmt_id () { printf "%03d" "$1"; }
+
+# root_merge() — merges ROOT files with no TTree size limit.
+# PyROOT calls the compiled C++ library directly — no Cling interpreter,
+# no rootlogon dependency — so SetMaxTreeSize(1e15) is guaranteed to run
+# before TFileMerger touches the tree, bypassing the 100 GB per-file limit.
+root_merge() {
+  local _out="$1"; shift
+  local -a _ins=("$@")
+
+  local _script
+  _script="$(mktemp /tmp/disana_merge_XXXXXX.py)"
+
+  local _add_lines=""
+  for _f in "${_ins[@]}"; do
+    _add_lines+="m.AddFile('${_f}')"$'\n'
+  done
+
+  cat > "$_script" << PYEOF
+import sys
+import ROOT
+ROOT.gROOT.SetBatch(True)
+ROOT.TTree.SetMaxTreeSize(int(1e15))
+m = ROOT.TFileMerger(False)
+m.SetFastMethod(True)
+m.OutputFile('${_out}', 'RECREATE')
+${_add_lines}
+if not m.Merge():
+    print('[root_merge] TFileMerger::Merge() failed', file=sys.stderr)
+    sys.exit(1)
+PYEOF
+
+  python3 "$_script"
+  local _stat=$?
+  rm -f "$_script"
+  return $_stat
+}
 
 job_paths () {
   local kid="$1"
@@ -528,31 +611,37 @@ launch_jobs_in_batches () {
   echo "[INFO] Launching $total job(s) with sliding window (max $JOBS_PER_BATCH concurrent)..."
 
   local -a pool_pids=()     # PIDs currently running
-  local -a still_running=() # reused each poll cycle — declared here to avoid
-  local _pid                #   zsh re-declaring (and echoing) inside the loop
+  local -a still_running=() # reused each poll cycle
+  local _pid                # loop variable — declared once here to avoid zsh echoing it inside the loop
   local reaped=0
   local idx=1
+  local completed=0
+  typeset -A pid_to_job     # PID → job-id string for completion messages
 
   while (( idx <= total || ${#pool_pids[@]} > 0 )); do
 
     # ---- Fill empty slots ------------------------------------------------
     while (( idx <= total && ${#pool_pids[@]} < JOBS_PER_BATCH )); do
       run_job_bg "${JOBLIST[idx]}"
-      pool_pids+=($!)
-      echo "[INFO] Started job ${JOBLIST[idx]} ($idx/$total), active=${#pool_pids[@]}"
+      local _new_pid=$!
+      pool_pids+=($_new_pid)
+      pid_to_job[$_new_pid]="${JOBLIST[idx]}"
+      echo "[INFO] Started   job ${JOBLIST[idx]} ($idx/$total), active=${#pool_pids[@]}"
       (( idx++ ))
     done
 
     # ---- Reap any finished PIDs -----------------------------------------
-    # Poll each PID: kill -0 returns non-zero once the process has exited.
     still_running=()
     reaped=0
     for _pid in "${pool_pids[@]}"; do
       if kill -0 "$_pid" 2>/dev/null; then
         still_running+=("$_pid")
       else
-        wait "$_pid" 2>/dev/null   # collect exit status / avoid zombie
+        wait "$_pid" 2>/dev/null
+        (( completed++ ))
         (( reaped++ ))
+        echo "[INFO] Completed job ${pid_to_job[$_pid]} ($completed/$total done), active=$(( ${#pool_pids[@]} - reaped ))"
+        unset "pid_to_job[$_pid]"
       fi
     done
     pool_pids=("${still_running[@]}")
@@ -569,9 +658,9 @@ launch_jobs_in_batches () {
 }
 
 # =============================================================================
-# Mode A: Full run
+# Mode A: Full run  (skipped when REPROCESS_ONLY=1)
 # =============================================================================
-if (( RELAUNCH_ONLY == 0 )); then
+if (( RELAUNCH_ONLY == 0 && ! REPROCESS_ONLY )); then
   mkdir -p "$WORKDIR_ABS/lists"
 
   ALLLIST="$WORKDIR_ABS/lists/all_files.txt"
@@ -642,8 +731,7 @@ typeset -a JOBIDS FAILED
 JOBIDS=()
 FAILED=()
 
-if (( RELAUNCH_ONLY == 1 )); then
-  echo "[INFO] Relaunch mode: scanning $WORKDIR_ABS"
+if (( RELAUNCH_ONLY == 1 && ! REPROCESS_ONLY )); then
   echo ""
 
   _d=""
@@ -679,119 +767,122 @@ if (( RELAUNCH_ONLY == 1 )); then
 fi
 
 # =============================================================================
-# Summary + merge (multi-output)
+# Summary + merge (skipped when REPROCESS_ONLY=1 — dfSelected.root already exists)
 # =============================================================================
-# In TWO_PASS_MODE Pass 1: only dfSelected.root matters per job.
-# Override the file list used for success-checking and merging.
-typeset -a MERGE_OUTPUT_FILES
-if (( TWO_PASS_MODE )); then
-  MERGE_OUTPUT_FILES=(dfSelected.root)
-  echo "[INFO] TWO_PASS_MODE: Pass 1 merge restricted to: ${MERGE_OUTPUT_FILES[*]}"
-else
-  MERGE_OUTPUT_FILES=("${OUTPUT_FILES[@]}")
-fi
-
-typeset -a CHECKSET OKJ BADJ
-OKJ=()
-BADJ=()
-
-# For collecting per-output-file lists and availability stats
-typeset -A MERGE_LISTS   # MERGE_LISTS["dfSelected.root"] -> " file1 file2 ..."
-typeset -A MISS_COUNTS   # missing per output among OK jobs
-typeset -A HAVE_COUNTS   # present per output among OK jobs
-
-# init — plain variables, no local (we are at script top level, not in a function)
-_f=""
-for _f in "${MERGE_OUTPUT_FILES[@]}"; do
-  MERGE_LISTS[$_f]=""
-  MISS_COUNTS[$_f]=0
-  HAVE_COUNTS[$_f]=0
-done
-
-if (( RELAUNCH_ONLY == 1 )); then
-  CHECKSET=("${JOBIDS[@]}")
-else
-  CHECKSET=()
-  for (( i=0; i<K; i++ )); do
-    kid="$(fmt_id $i)"
-    [[ -s "$WORKDIR_ABS/lists/files_${kid}.txt" ]] && CHECKSET+=("$kid")
-  done
-fi
-
-for kid in "${CHECKSET[@]}"; do
-  if job_ok "$kid"; then
-    OKJ+=("$kid")
-
-    read -r _JOBDIR _INDIR _OUTDIR _LOG <<<"$(job_paths "$kid")"
-
-    for _f in "${MERGE_OUTPUT_FILES[@]}"; do
-      if [[ -s "$_OUTDIR/$_f" ]]; then
-        MERGE_LISTS[$_f]="${MERGE_LISTS[$_f]} $_OUTDIR/$_f"
-        HAVE_COUNTS[$_f]=$(( HAVE_COUNTS[$_f] + 1 ))
-      else
-        MISS_COUNTS[$_f]=$(( MISS_COUNTS[$_f] + 1 ))
-      fi
-    done
-  else
-    BADJ+=("$kid")
-  fi
-done
-
-echo "[INFO] Summary:"
-echo "       Success: ${#OKJ[@]} job(s)"
-echo "       Failed : ${#BADJ[@]} job(s) : ${BADJ[*]}"
-echo ""
-
-if (( ${#BADJ[@]} > 0 && MERGE_PARTIAL == 0 )); then
-  echo "[ERROR] Not merging (MERGE_PARTIAL=0 and some jobs failed)"
-  exit 6
-fi
-
-# Merge each output file type independently if we have at least one input
 merged_any=0
-_inputs=()
-_outmerged=""
-for _f in "${MERGE_OUTPUT_FILES[@]}"; do
-  _inputs=(${=MERGE_LISTS[$_f]})
 
-  if (( ${#_inputs[@]} > 0 )); then
+if (( ! REPROCESS_ONLY )); then
+  # In TWO_PASS_MODE Pass 1: only dfSelected.root matters per job.
+  typeset -a MERGE_OUTPUT_FILES
+  if (( TWO_PASS_MODE )); then
+    MERGE_OUTPUT_FILES=(dfSelected.root)
+    echo "[INFO] TWO_PASS_MODE: Pass 1 merge restricted to: ${MERGE_OUTPUT_FILES[*]}"
+  else
+    MERGE_OUTPUT_FILES=("${OUTPUT_FILES[@]}")
+  fi
+
+  typeset -a CHECKSET OKJ BADJ
+  OKJ=()
+  BADJ=()
+
+  typeset -A MERGE_LISTS MISS_COUNTS HAVE_COUNTS
+  _f=""
+  for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+    MERGE_LISTS[$_f]=""
+    MISS_COUNTS[$_f]=0
+    HAVE_COUNTS[$_f]=0
+  done
+
+  if (( RELAUNCH_ONLY == 1 )); then
+    CHECKSET=("${JOBIDS[@]}")
+  else
+    CHECKSET=()
+    for (( i=0; i<K; i++ )); do
+      kid="$(fmt_id $i)"
+      [[ -s "$WORKDIR_ABS/lists/files_${kid}.txt" ]] && CHECKSET+=("$kid")
+    done
+  fi
+
+  for kid in "${CHECKSET[@]}"; do
+    if job_ok "$kid"; then
+      OKJ+=("$kid")
+      read -r _JOBDIR _INDIR _OUTDIR _LOG <<<"$(job_paths "$kid")"
+      for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+        if [[ -s "$_OUTDIR/$_f" ]]; then
+          MERGE_LISTS[$_f]="${MERGE_LISTS[$_f]} $_OUTDIR/$_f"
+          HAVE_COUNTS[$_f]=$(( HAVE_COUNTS[$_f] + 1 ))
+        else
+          MISS_COUNTS[$_f]=$(( MISS_COUNTS[$_f] + 1 ))
+        fi
+      done
+    else
+      BADJ+=("$kid")
+    fi
+  done
+
+  echo "[INFO] Summary:"
+  echo "       Success: ${#OKJ[@]} job(s)"
+  echo "       Failed : ${#BADJ[@]} job(s) : ${BADJ[*]}"
+  echo ""
+
+  if (( ${#BADJ[@]} > 0 && MERGE_PARTIAL == 0 )); then
+    echo "[ERROR] Not merging (MERGE_PARTIAL=0 and some jobs failed)"
+    exit 6
+  fi
+
+  _inputs=()
+  _outmerged=""
+  for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+    _inputs=(${=MERGE_LISTS[$_f]})
+    if (( ${#_inputs[@]} == 0 )); then
+      echo "[WARN] No inputs found for $_f -> skipping merge."
+      continue
+    fi
     _outmerged="$OUTPUT_BASE_ABS/$_f"
     echo "[INFO] Merging ${#_inputs[@]} file(s) into: $_outmerged"
-    hadd -f -k "$_outmerged" "${_inputs[@]}"
+    root_merge "$_outmerged" "${_inputs[@]}"
     HSTAT=$?
     if (( HSTAT != 0 )); then
-      echo "[ERROR] hadd failed for $_f with status $HSTAT"
+      echo "[ERROR] root_merge failed for $_f (status $HSTAT)"
       exit 5
     fi
     merged_any=1
-  else
-    echo "[WARN] No inputs found for $_f -> skipping merge."
+  done
+
+  echo ""
+  echo "[INFO] Per-output availability across OK jobs:"
+  for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+    echo "       $_f : present=${HAVE_COUNTS[$_f]} missing=${MISS_COUNTS[$_f]}"
+  done
+  echo ""
+
+  if (( merged_any == 0 )); then
+    echo "[ERROR] No output files found to merge for any of: ${OUTPUT_FILES[*]}"
+    exit 4
   fi
-done
 
-echo ""
-echo "[INFO] Per-output availability across OK jobs:"
-for _f in "${MERGE_OUTPUT_FILES[@]}"; do
-  echo "       $_f : present=${HAVE_COUNTS[$_f]} missing=${MISS_COUNTS[$_f]}"
-done
-echo ""
+  echo "[INFO] Pass 1 done."
+  echo "[INFO] Merged outputs are under: $OUTPUT_BASE_ABS/"
+  echo "[INFO] Per-job logs/inputs:      $WORKDIR_ABS/job_*/"
 
-if (( merged_any == 0 )); then
-  echo "[ERROR] No output files found to merge for any of: ${OUTPUT_FILES[*]}"
-  exit 4
+else
+  # REPROCESS_ONLY=1 — verify dfSelected.root exists before proceeding
+  echo "[INFO] REPROCESS_ONLY: skipping Pass 1 jobs and merge."
+  if [[ ! -s "$OUTPUT_BASE_ABS/dfSelected.root" ]]; then
+    echo "[ERROR] REPROCESS_ONLY=1 but dfSelected.root not found at: $OUTPUT_BASE_ABS/dfSelected.root"
+    echo "[ERROR] Run without --reprocess-only first to generate it."
+    exit 7
+  fi
+  echo "[INFO] Found existing: $OUTPUT_BASE_ABS/dfSelected.root"
 fi
-
-echo "[INFO] Done."
-echo "[INFO] Merged outputs are under: $OUTPUT_BASE_ABS/"
-echo "[INFO] Per-job outputs:         $WORKDIR_ABS/job_*/out/"
 
 # =============================================================================
 # TWO-PASS MODE: Pass 2 — reproc the merged dfSelected.root
 # =============================================================================
-if (( TWO_PASS_MODE && merged_any )); then
+if (( TWO_PASS_MODE && (merged_any || REPROCESS_ONLY) )); then
   PASS2_INPUT="$OUTPUT_BASE_ABS/dfSelected.root"
   if [[ ! -s "$PASS2_INPUT" ]]; then
-    echo "[ERROR] TWO_PASS_MODE=1 but merged dfSelected.root not found: $PASS2_INPUT"
+    echo "[ERROR] Pass 2: dfSelected.root not found: $PASS2_INPUT"
     exit 7
   fi
 
@@ -806,7 +897,7 @@ if (( TWO_PASS_MODE && merged_any )); then
   echo "[INFO]   Log    : $PASS2_LOG"
   echo "[INFO] ============================================================"
 
-  # Remove --pass1 from EXTRA_ARGS if it was added — Pass 2 must run full cuts.
+  # Strip --pass1 from EXTRA_ARGS — Pass 2 must run full cuts
   typeset -a EXTRA_ARGS_PASS2
   EXTRA_ARGS_PASS2=()
   _arg=""
@@ -830,11 +921,64 @@ if (( TWO_PASS_MODE && merged_any )); then
   P2STAT=$?
   if (( P2STAT == 0 )); then
     echo "[INFO] Pass 2 complete."
-    echo "[INFO] After-fid / after-correction outputs written to: $OUTPUT_BASE_ABS"
+    echo "[INFO] After-fid / after-correction output written to: $OUTPUT_BASE_ABS"
   else
     echo "[ERROR] Pass 2 failed (exit $P2STAT). See log: $PASS2_LOG"
     exit 7
   fi
+fi
+
+# =============================================================================
+# Cleanup: remove per-job ROOT output files now that final results are in place
+# =============================================================================
+# Runs only when every preceding step succeeded.  Before deleting anything,
+# we verify the expected final output files exist and are non-empty.
+# Per-job logs and input symlinks are always preserved for diagnostics.
+# In REPROCESS_ONLY mode there are no per-job files to clean up.
+if (( CLEANUP_JOB_OUTPUTS && ! REPROCESS_ONLY )); then
+  echo ""
+  echo "[INFO] ============================================================"
+  echo "[INFO] Cleanup: verifying final outputs before removing per-job files"
+
+  typeset -a _expected_finals
+  _expected_finals=()
+  if (( TWO_PASS_MODE )); then
+    # Require dfSelected.root (Pass 1) + dfSelected_afterFid_afterCorr.root (Pass 2)
+    _expected_finals=(dfSelected.root dfSelected_afterFid_afterCorr.root)
+  else
+    for _f in "${MERGE_OUTPUT_FILES[@]}"; do
+      (( HAVE_COUNTS[$_f] > 0 )) && _expected_finals+=("$_f")
+    done
+  fi
+
+  _all_present=1
+  for _ef in "${_expected_finals[@]}"; do
+    if [[ ! -s "$OUTPUT_BASE_ABS/$_ef" ]]; then
+      echo "[WARN]  Missing or empty: $OUTPUT_BASE_ABS/$_ef — skipping cleanup."
+      _all_present=0
+    fi
+  done
+
+  if (( _all_present )); then
+    echo "[INFO] All expected final outputs verified. Removing per-job ROOT files..."
+    _deleted=0
+    _freed_kb=0
+    for _jdir in "$WORKDIR_ABS"/job_[0-9][0-9][0-9] "$WORKDIR_ABS"/job_[0-9][0-9][0-9][0-9]; do
+      [[ -d "$_jdir/out" ]] || continue
+      for _rf in "$_jdir/out"/*.root; do
+        [[ -f "$_rf" ]] || continue
+        _freed_kb=$(( _freed_kb + $(du -k "$_rf" 2>/dev/null | awk '{print $1}') ))
+        rm -f "$_rf"
+        (( _deleted++ ))
+      done
+      rmdir "$_jdir/out" 2>/dev/null
+    done
+    echo "[INFO] Deleted $_deleted per-job ROOT file(s), freed ~$(( _freed_kb / 1024 )) MB."
+    echo "[INFO] Job logs and input symlinks preserved under $WORKDIR_ABS/job_*/."
+  else
+    echo "[WARN] Cleanup skipped — recheck the outputs above before re-running."
+  fi
+  echo "[INFO] ============================================================"
 fi
 
 exit 0

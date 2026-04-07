@@ -300,32 +300,18 @@ void PhiAnalysis::SaveOutput() {
   }
 
   // --- dfSelected_afterFid ------------------------------------------------
-  if (fFiducialCut && dfSelected_afterFid.has_value()) {
-    std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
-
-    auto cols_fid = resolveColumns(*dfSelected_afterFid);
-
-    if (IsReproc) {
-      auto cnt_fid = dfSelected_afterFid->Count();   // book both counts before triggering
-      auto cnt_sel = dfSelected->Count();
-      dfSelected_afterFid->Snapshot(
-          "dfSelected_afterFid_reprocessed",
-          Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"),
-          cols_fid);                                  // triggers loop → computes both counts
-      std::cout << "Events selected: " << *cnt_sel << std::endl;
-      std::cout << "Events selected after fiducial: " << *cnt_fid << std::endl;
-    } else {
-      if (!IsMinBooking) {
-        auto cnt_fid = dfSelected_afterFid->Count();
-        auto cnt_sel = dfSelected->Count();
-        dfSelected_afterFid->Snapshot(
-            "dfSelected_afterFid",
-            Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"),
-            cols_fid);                                // triggers loop → computes both counts
-        std::cout << "Events selected: " << *cnt_sel << std::endl;
-        std::cout << "Events selected after fiducial: " << *cnt_fid << std::endl;
-      }
-    }
+  // NOTE: dfSelected_afterFid is intentionally NOT written to disk.
+  // dfSelected_afterFid_afterCorr already contains the full fiducial + QADB +
+  // momentum-correction selection and is the only downstream output needed.
+  // Skipping this snapshot saves one full event-loop pass and significant disk.
+  if (fFiducialCut && dfSelected_afterFid.has_value() && IsReproc) {
+    // In reproc mode we still print the event count for bookkeeping,
+    // but do not snapshot — afterCorr is the authoritative output.
+    auto cnt_fid = dfSelected_afterFid->Count();
+    auto cnt_sel = dfSelected->Count();
+    // Touch both counts in the same loop triggered by afterCorr snapshot below
+    std::cout << "Events selected (reproc): " << *cnt_sel << std::endl;
+    std::cout << "Events after fiducial   : " << *cnt_fid << std::endl;
   }
 
   // --- dfSelected_afterFid_afterCorr -------------------------------------
