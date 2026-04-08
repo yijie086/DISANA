@@ -184,7 +184,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddPCalFiducialRange(11, 1, "lw", 72.0, 94.5);
     trackCuts->AddPCalFiducialRange(11, 1, "lw", 211.5, 234.0);
     // Sector 2, PCal
-    // trackCuts->AddPCalFiducialRange(11, 2, "lv", 99.0, 117.5); /// RGA spring2018 does not have dead zone
+    trackCuts->AddPCalFiducialRange(11, 2, "lv", 99.0, 117.5); /// RGA spring2018 does not have dead zone
     // Sector 3, PCal,
     trackCuts->AddPCalFiducialRange(11, 3, "lv", 346.5, 378.0);
     // Sector 4, PCal,
@@ -202,7 +202,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     
     // Sector 5, ECout only
     trackCuts->AddECoutFiducialRange(11, 1, "lv", 0.0, 40.5);
-    trackCuts->AddECoutFiducialRange(11, 5, "lv", 193.5, 216.0);
+    trackCuts->AddECoutFiducialRange(11, 5, "lu", 193.5, 216.0);
     
     // Cal fiducial cuts for photon, sector, side, min, max
     trackCuts->AddPCalFiducialRange(22, 1, "lw", 72.0, 94.5);
@@ -226,7 +226,12 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
     // Sector 5, ECout only, sector, side, min, max
     trackCuts->AddECoutFiducialRange(22, 1, "lv", 0, 40.5);
-    trackCuts->AddECoutFiducialRange(22, 5, "lv", 193.5, 216.0);
+    trackCuts->AddECoutFiducialRange(22, 5, "lu", 193.5, 216.0);
+  }
+
+  if (dataconfig = "rgksp24_8477"){
+    trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
   }
 
   /// set sampling fraction for the particle in detector

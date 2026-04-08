@@ -42,9 +42,9 @@ void DrawECALHitResponse(const int &selectedPid, const int &selecteddetector,
             std::string key = Form("pid%d_ECAL_L%d_S%d%s", selectedPid, layer, sector, doFid ? "" : "_noFid");
             auto getLayerNames = [](int layer){
                 switch (layer) {
-                    case 1: return std::pair<std::string,std::string>{"ECin",  "EC-in"};
-                    case 4: return std::pair<std::string,std::string>{"ECout", "EC-out"};
-                    case 7: return std::pair<std::string,std::string>{"PCAL",  "PCAL"};
+                    case 1: return std::pair<std::string,std::string>{"PCAL",  "PCAL"};
+                    case 4: return std::pair<std::string,std::string>{"ECin", "EC-in"};
+                    case 7: return std::pair<std::string,std::string>{"ECout", "EC-out"};
                     default:return std::pair<std::string,std::string>{Form("L%d",layer), Form("Layer %d",layer)};
                 }
             };
@@ -282,12 +282,13 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisECALFid() {
-    std::string path = "../build/photononly/";
+    //std::string path = "../build/photononly/";
+    std::string path = "../../../analysis1101/DISANA/build/bkg/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawECALHitResponse(22, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
-    //DrawECALHitResponse(22, 7, layers, sectors ,path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
-    //DrawECALEnergyProfile(22, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    DrawECALEnergyProfile(22, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
+    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
+    //DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
+    //DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
+    //DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }
