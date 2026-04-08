@@ -282,12 +282,12 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
 
 
 void analysisECALFid() {
-    std::string path = "../build/";
+    std::string path = "../build/photononly/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    //DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
-    DrawECALHitResponse(22, 7, layers, sectors ,path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
-    DrawECALEnergyProfile(22, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    //DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
+    DrawECALHitResponse(22, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
+    //DrawECALHitResponse(22, 7, layers, sectors ,path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
+    //DrawECALEnergyProfile(22, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
+    DrawECALEnergyProfile(22, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
     gApplication->Terminate(0);
 }

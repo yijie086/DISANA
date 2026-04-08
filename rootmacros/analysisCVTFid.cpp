@@ -249,7 +249,7 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
 void analysisCVTFid() {
     ROOT::EnableImplicitMT();
 
-    std::string path = "../build/";
+    std::string path = "../build/protononly/";
 
     std::vector<int> layers = {1, 3, 5, 7, 12};
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -4.0};

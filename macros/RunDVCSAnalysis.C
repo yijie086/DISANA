@@ -24,8 +24,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsMinimalBook = true;
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
-  std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgkfa18_7546";
   //std::string dataconfig = "rgkfa18_6535";
+  std::string dataconfig = "rgksp24_8477";
 
   if (dataconfig == "rgkfa18_7546") {
     IsInbending = false;  // Set to false for outbending data
@@ -38,6 +39,9 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   }
   if (dataconfig == "rgasp18_outb") {
     IsInbending = false;  // Set to false for outbending data
+  }
+  if (dataconfig == "rgksp24_8477") {
+    IsInbending = false;  // Set to true for inbending data
   }
 
   std::cout << "Running DVCS Analysis with configuration: " << dataconfig << std::endl;
@@ -173,54 +177,57 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   trackCuts->AddPCalFiducialRange(22, 6, "lv", 0.0, 13.5);
   // End of edge fiducial cuts
 
-  // Cal fiducial cuts for eletron,
-  // Sector 1, PCal args PID, sector, side, min, max
-  trackCuts->AddPCalFiducialRange(11, 1, "lw", 72.0, 94.5);
-  trackCuts->AddPCalFiducialRange(11, 1, "lw", 211.5, 234.0);
-  // Sector 2, PCal
-  // trackCuts->AddPCalFiducialRange(11, 2, "lv", 99.0, 117.5); /// RGA spring2018 does not have dead zone
-  // Sector 3, PCal,
-  trackCuts->AddPCalFiducialRange(11, 3, "lv", 346.5, 378.0);
-  // Sector 4, PCal,
-  trackCuts->AddPCalFiducialRange(11, 4, "lv", 0.0, 13.5);
-  trackCuts->AddPCalFiducialRange(11, 4, "lv", 229.5, 243.0);
-  // Sector 6, PCal,
-  trackCuts->AddPCalFiducialRange(11, 6, "lw", 166.5, 193.5);
 
-  // Sector 1, ECin only, sector, side, min, max
-  trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
-  trackCuts->AddECinFiducialRange(11, 2, "lv", 99.0, 117.5);
-  trackCuts->AddECinFiducialRange(11, 4, "lw", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(11, 5, "lv", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(11, 6, "lw", 0.0, 23.5);
+  if (dataconfig == "rgasp18_inb" || dataconfig == "rgasp18_outb" || dataconfig == "rgkfa18_7546" || dataconfig == "rgkfa18_6535") {
+    // Cal fiducial cuts for eletron,
+    // Sector 1, PCal args PID, sector, side, min, max
+    trackCuts->AddPCalFiducialRange(11, 1, "lw", 72.0, 94.5);
+    trackCuts->AddPCalFiducialRange(11, 1, "lw", 211.5, 234.0);
+    // Sector 2, PCal
+    // trackCuts->AddPCalFiducialRange(11, 2, "lv", 99.0, 117.5); /// RGA spring2018 does not have dead zone
+    // Sector 3, PCal,
+    trackCuts->AddPCalFiducialRange(11, 3, "lv", 346.5, 378.0);
+    // Sector 4, PCal,
+    trackCuts->AddPCalFiducialRange(11, 4, "lv", 0.0, 13.5);
+    trackCuts->AddPCalFiducialRange(11, 4, "lv", 229.5, 243.0);
+    // Sector 6, PCal,
+    trackCuts->AddPCalFiducialRange(11, 6, "lw", 166.5, 193.5);
+    
+    // Sector 1, ECin only, sector, side, min, max
+    trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(11, 2, "lv", 99.0, 117.5);
+    trackCuts->AddECinFiducialRange(11, 4, "lw", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(11, 5, "lv", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(11, 6, "lw", 0.0, 23.5);
+    
+    // Sector 5, ECout only
+    trackCuts->AddECoutFiducialRange(11, 1, "lv", 0.0, 40.5);
+    trackCuts->AddECoutFiducialRange(11, 5, "lv", 193.5, 216.0);
+    
+    // Cal fiducial cuts for photon, sector, side, min, max
+    trackCuts->AddPCalFiducialRange(22, 1, "lw", 72.0, 94.5);
+    trackCuts->AddPCalFiducialRange(22, 1, "lw", 211.5, 234.0);
+    // Sector 2, PCal
+    trackCuts->AddPCalFiducialRange(22, 2, "lv", 99.0, 117.5);
+    // Sector 3, PCal,
+    trackCuts->AddPCalFiducialRange(22, 3, "lv", 346.5, 378.0);
+    // Sector 4, PCal,
+    trackCuts->AddPCalFiducialRange(22, 4, "lv", 0.0, 13.5);
+    trackCuts->AddPCalFiducialRange(22, 4, "lv", 229.5, 243.0);
+    // Sector 6, PCal,
+    trackCuts->AddPCalFiducialRange(22, 6, "lw", 166.5, 193.5);
+    
+    // Sector 1, ECin only, sector, side, min, max
+    trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(22, 2, "lv", 99.0, 117.5);
+    trackCuts->AddECinFiducialRange(22, 4, "lw", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(22, 5, "lv", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(22, 6, "lw", 0.0, 23.5);
 
-  // Sctor 5, ECout only
-  trackCuts->AddECoutFiducialRange(11, 1, "lv", 0.0, 40.5);
-  trackCuts->AddECoutFiducialRange(11, 5, "lv", 193.5, 216.0);
-
-  // Cal fiducial cuts for photon, sector, side, min, max
-  trackCuts->AddPCalFiducialRange(22, 1, "lw", 72.0, 94.5);
-  trackCuts->AddPCalFiducialRange(22, 1, "lw", 211.5, 234.0);
-  // Sector 2, PCal
-  trackCuts->AddPCalFiducialRange(22, 2, "lv", 99.0, 117.5);
-  // Sector 3, PCal,
-  trackCuts->AddPCalFiducialRange(22, 3, "lv", 346.5, 378.0);
-  // Sector 4, PCal,
-  trackCuts->AddPCalFiducialRange(22, 4, "lv", 0.0, 13.5);
-  trackCuts->AddPCalFiducialRange(22, 4, "lv", 229.5, 243.0);
-  // Sector 6, PCal,
-  trackCuts->AddPCalFiducialRange(22, 6, "lw", 166.5, 193.5);
-
-  // Sector 1, ECin only, sector, side, min, max
-  trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
-  trackCuts->AddECinFiducialRange(22, 2, "lv", 99.0, 117.5);
-  trackCuts->AddECinFiducialRange(22, 4, "lw", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(22, 5, "lv", 0.0, 23.5);
-  trackCuts->AddECinFiducialRange(22, 6, "lw", 0.0, 23.5);
-
-  // Sctor 5, ECout only, sector, side, min, max
-  trackCuts->AddECoutFiducialRange(22, 1, "lv", 0, 40.5);
-  trackCuts->AddECoutFiducialRange(22, 5, "lv", 193.5, 216.0);
+    // Sector 5, ECout only, sector, side, min, max
+    trackCuts->AddECoutFiducialRange(22, 1, "lv", 0, 40.5);
+    trackCuts->AddECoutFiducialRange(22, 5, "lv", 193.5, 216.0);
+  }
 
   /// set sampling fraction for the particle in detector
   trackCuts->SetMinECALEnergyCut(11, 1, 0.06);  // Electron PCal layer 1
@@ -284,7 +291,20 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddSamplingFractionMinCut(11, 6, 0.147071, 0.0176412, -0.000913347);    // Electronsector6
     trackCuts->AddSamplingFractionMaxCut(11, 6, 0.295828, -0.00145277, -0.0000326392);  // Electro sector 6
   }
-
+  if (dataconfig == "rgksp24_8477") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.164881, 0.0141665, -0.00117114);     // Electronsector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.301056, -0.0032795, -0.000145282);  // Electro sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.156663, 0.0175241, -0.00145808);     // Electronsector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.29405, -0.00122628, -0.000280721);   // Electronsector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.161494, 0.0174769, -0.00148192);    // Electronsector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.301309, -0.0019405, -0.000309095);  // Electro sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.165207, 0.0139857, -0.0010526);    // Electronsector4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.297, -0.000547201, -0.000341421);   // Electronsector4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.165653, 0.0129317, -0.000933028);    // Electronsector5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.293605, -0.00275463, -0.0000800457);   // Electronsector5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.161239, 0.0156868, -0.00128746);    // Electronsector6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.299963, -0.0030303, -0.000150413);  // Electro sector 6
+  }
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
 
@@ -314,6 +334,14 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
   }
   if (dataconfig == "rgkfa18_6535") {
+    proton.pid = 2212;            // Proton PID
+    proton.charge = 1;            // Proton charge
+    proton.minCount = 1;          // Minimum count of protons
+    proton.maxCount = 1;          // Maximum count of protons
+    proton.minCDMomentum = 0.3f;  // Minimum momentum for protons
+    proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
+  }
+  if (dataconfig == "rgksp24_8477") {
     proton.pid = 2212;            // Proton PID
     proton.charge = 1;            // Proton charge
     proton.minCount = 1;          // Minimum count of protons
@@ -445,8 +473,11 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   if (dataconfig == "rgkfa18_6535") {
     dvcsTask->SetBeamEnergy(6.535);  // Set the beam energy for RGK Fa18 6.535GeV
   }
+  if (dataconfig == "rgksp24_8477") {
+    dvcsTask->SetBeamEnergy(8.477);  // Set the beam energy for RGK Sp24 8.477GeV
+  }
   dvcsTask->SetFTonConfig(true);  // Set to true if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
-  if (dataconfig == "rgkfa18_6535") {
+  if (dataconfig == "rgkfa18_6535" || dataconfig == "rgksp24_8477") {
     dvcsTask->SetFTonConfig(false);  // Set to false if you have FT (eq. RGK Fall2018 Pass2 6.535GeV is FT-off)
   }
   dvcsTask->SetDoFiducialCut(true);
