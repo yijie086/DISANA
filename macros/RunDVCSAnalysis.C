@@ -24,8 +24,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   bool IsMinimalBook = true;
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
-  //std::string dataconfig = "rgkfa18_7546";
-   std::string dataconfig = "rgkfa18_6535";
+  std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgkfa18_6535";
 
   if (dataconfig == "rgkfa18_7546") {
     IsInbending = false;  // Set to false for outbending data
@@ -461,7 +461,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   if(IsMC) {
     dvcsTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
   } else {
-    dvcsTask->SetDoQADBCuts(false);   // for data we usually apply QADB false rejection
+    dvcsTask->SetDoQADBCuts(true);   // for data we usually apply QADB false rejection
   }
 
   mgr.AddTask(std::move(dvcsTask));

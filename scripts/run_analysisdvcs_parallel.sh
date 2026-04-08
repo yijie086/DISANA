@@ -13,7 +13,7 @@ MAX_CONCURRENT=20   # 同时最多跑多少个，防止机器打满
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXE="$SCRIPT_DIR/../build/AnalysisDVCS"
 OUTPUT_BASE="$SCRIPT_DIR/../build/dvcs_parallel_output"
-INPUT_DIR=/cache/clas12/rg-k/production/recon/fall2018/torus+1/6535MeV/pass2/v0/dst/train/skim16
+INPUT_DIR=/work/clas12/yijie/GEMCdataset/rgkfall2018DVCS6535/nobkg/10620/
 
 # AnalysisDVCS 第3个参数
 ARG3=1
@@ -22,14 +22,14 @@ ARG3=1
 typeset -a OUTPUT_FILES
 OUTPUT_FILES=(
   dfSelected_afterFid_afterCorr.root
-  dfSelected_afterFid.root
+  #dfSelected_afterFid.root
   dfSelected.root
 )
 
 # csv 输出文件（如果某些 job 没有产生，也没关系）
 typeset -a CSV_FILES
 CSV_FILES=(
-  events_afterFid.csv
+  events_per_run_afterFid.csv
 )
 
 SUCCESS_GREP='Finished processing all events'
@@ -289,7 +289,7 @@ typeset -a BADJ
 OKJ=()
 BADJ=()
 
-echo "job_id,status,n_input_files,root_outputs_found,csv_outputs_found,log_file" > "$SUMMARY_CSV"
+echo "job_id,job_status,n_input_files,root_outputs_found,csv_outputs_found,log_file" > "$SUMMARY_CSV"
 
 for kid in "${JOBS_TO_RUN[@]}"; do
   JOBDIR="$WORKDIR/job_${kid}"
@@ -317,13 +317,13 @@ for kid in "${JOBS_TO_RUN[@]}"; do
 
   if (( ok_this_job )); then
     OKJ+=("$kid")
-    status="OK"
+    job_status="OK"
   else
     BADJ+=("$kid")
-    status="FAILED"
+    job_status="FAILED"
   fi
 
-  echo "$kid,$status,$NFILES,$root_found,$csv_found,$LOG" >> "$SUMMARY_CSV"
+  echo "$kid,$job_status,$NFILES,$root_found,$csv_found,$LOG" >> "$SUMMARY_CSV"
 done
 
 {

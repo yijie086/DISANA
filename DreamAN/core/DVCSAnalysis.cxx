@@ -208,7 +208,9 @@ std::vector<std::string> DVCSAnalysis::MinimalColumns() const {
     cols.push_back("REC_Event_helicity");
 
   for (const auto& c : V{"RUN_config_run", "RUN_config_event",
-                            "RUN::config.run", "RUN::config.event"})
+                            "RUN::config.run", "RUN::config.event",
+                            "RUN_run", "RUN_event",
+                            "REC_Photon_MaxE"})
     cols.push_back(c);
 
   // Pre-computed kinematics and analysis decision columns.
@@ -265,18 +267,14 @@ void DVCSAnalysis::SaveOutput() {
   if (IsReproc) SafeSnapshot(*dfSelected, "dfSelected_reproc", Form("%s/%s", fOutputDir.c_str(), "dfSelected_reproc.root"));
   if (fFiducialCut && dfSelected_afterFid.has_value()) {
     std::cout << "output directory is : " << fOutputDir.c_str() << std::endl;
-    const std::string csvpath = fOutputDir + "/events_per_run_afterFid.csv";
-    auto tmp = *dfSelected_afterFid;
-    auto [runCol, evCol] = PickRunEventCols(tmp);
-    auto items = CountPerRunAndWriteCSV<int>(tmp, "RUN_run", csvpath);
 
-    std::cout << "[INFO] Wrote per-run counts to " << csvpath << " (unique runs = " << items.size() << ")\n";
-    if (IsReproc && dfSelected_afterFid.has_value()) {
-      SafeSnapshot(*dfSelected_afterFid, "dfSelected_afterFid_reprocessed", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_reprocessed.root"));
+    if (IsReproc) {SafeSnapshot(*dfSelected_afterFid,"dfSelected_afterFid_reprocessed",
+                                Form("%s/%s", fOutputDir.c_str(),"dfSelected_afterFid_reprocessed.root"));
     } else {
       if (!IsMinBooking) {
+        const std::string root_afterFid = Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root");
         auto cnt_afterFid = dfSelected_afterFid->Count();
-        dfSelected_afterFid->Snapshot("dfSelected_afterFid", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root"), resolveColumns(*dfSelected_afterFid));
+        dfSelected_afterFid->Snapshot("dfSelected_afterFid", root_afterFid, resolveColumns(*dfSelected_afterFid));
         std::cout << "Events after fiducial selected: " << *cnt_afterFid << std::endl;
       }
     }
@@ -285,6 +283,16 @@ void DVCSAnalysis::SaveOutput() {
     auto cnt_afterFid_afterCorr = dfSelected_afterFid_afterCorr->Count();
     dfSelected_afterFid_afterCorr->Snapshot("dfSelected_afterFid_afterCorr", Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root"), resolveColumns(*dfSelected_afterFid_afterCorr));
     std::cout << "Events after fiducial and momentum correction selected: " << *cnt_afterFid_afterCorr << std::endl;
+    const std::string root_afterFid_afterCorr = Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid_afterCorr.root");
+    const std::string csvpath = fOutputDir + "/events_per_run_afterFid.csv";
+    try {
+      ROOT::RDataFrame rdf_afterFid_afterCorr("dfSelected_afterFid_afterCorr", root_afterFid_afterCorr);
+      auto items = CountPerRunAndWriteCSV<int>(rdf_afterFid_afterCorr, "RUN_run", csvpath);
+
+      std::cout << "[INFO] Wrote per-run counts to " << csvpath << " (unique runs = " << items.size() << ")\n";
+    } catch (const std::exception& e) {
+      std::cerr << "[WARN] Failed to write per-run CSV after fiducial snapshot: " << e.what() << std::endl;
+    }
   }
   if (fIsQADBCut) {
     std::cout << "\n[QADB] total accumulated charge analyzed: " << fQADBCuts->GetAccumulatedCharge() / 1e6 << " mC (Do NOT use this number if you enable MT)\n";
