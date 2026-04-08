@@ -164,7 +164,7 @@ void DISANA_Xplotter2csv6p5() {
 
   ROOT::EnableImplicitMT(40);
  
-  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1201/DISANA/build/data";
+  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1201/DISANA/build/data6535";
   std::string input_path_from_analysisRun_6535_pi0MC = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/pi0mc/";
   std::string input_path_from_analysisRun_6535_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/nobkg/";
   std::string input_path_from_analysisRun_6535_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/nobkgall/";
