@@ -25,8 +25,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
   //std::string dataconfig = "rgkfa18_7546";
-  //std::string dataconfig = "rgkfa18_6535";
-  std::string dataconfig = "rgksp24_8477";
+  std::string dataconfig = "rgkfa18_6535";
+  //std::string dataconfig = "rgksp24_8477";
 
   if (dataconfig == "rgkfa18_7546") {
     IsInbending = false;  // Set to false for outbending data
@@ -229,7 +229,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddECoutFiducialRange(22, 5, "lu", 193.5, 216.0);
   }
 
-  if (dataconfig = "rgksp24_8477"){
+  if (dataconfig == "rgksp24_8477"){
     trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
     trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
   }
