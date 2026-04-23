@@ -226,6 +226,13 @@ std::vector<std::string> DVCSAnalysis::MinimalColumns() const {
       "REC_DaughterParticle_pass",
   })
     cols.push_back(c);
+  
+  if (IsMC){
+    for (const auto& c : V{"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
+         "MC_Event_pbeam",  // include if this exists
+         "MC_Event_ptarget", "MC_Event_ebeam"})
+    cols.push_back(c);
+  }
   return cols;
 }
 void DVCSAnalysis::SaveOutput() {

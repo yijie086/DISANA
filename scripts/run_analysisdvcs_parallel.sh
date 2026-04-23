@@ -7,13 +7,18 @@ setopt NO_NOMATCH
 # =========================
 # User settings
 # =========================
-K=20   # 并行 job 数
-MAX_CONCURRENT=20   # 同时最多跑多少个，防止机器打满
+K=40   # 并行 job 数
+MAX_CONCURRENT=40   # 同时最多跑多少个，防止机器打满
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXE="$SCRIPT_DIR/../build/AnalysisDVCS"
 OUTPUT_BASE="$SCRIPT_DIR/../build/dvcs_parallel_output"
-INPUT_DIR=/work/clas12/yijie/GEMCdataset/rgkfall2018DVCS6535/nobkg/10620/
+typeset -a INPUT_DIRS
+INPUT_DIRS=(
+  /volatile/clas12/osg/yijie/10739/
+  /volatile/clas12/osg/yijie/10740/
+)
+MAX_TOTAL_FILES=11455
 
 # AnalysisDVCS 第3个参数
 ARG3=1
@@ -22,7 +27,7 @@ ARG3=1
 typeset -a OUTPUT_FILES
 OUTPUT_FILES=(
   dfSelected_afterFid_afterCorr.root
-  #dfSelected_afterFid.root
+  dfSelected_afterFid.root
   dfSelected.root
 )
 
@@ -54,7 +59,7 @@ write_run_config() {
   cat > "$RUN_CONFIG_LOG" <<EOF
 timestamp=$TIMESTAMP
 exe=$EXE
-input_dir=$INPUT_DIR
+input_dirs=${(j:,:)INPUT_DIRS}
 output_base=$OUTPUT_BASE
 workdir=$WORKDIR
 K=$K
@@ -119,10 +124,12 @@ if [[ ! -x "$EXE" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$INPUT_DIR" ]]; then
-  echo "[ERROR] Input directory not found: $INPUT_DIR"
-  exit 1
-fi
+for input_dir in "${INPUT_DIRS[@]}"; do
+  if [[ ! -d "$input_dir" ]]; then
+    echo "[ERROR] Input directory not found: $input_dir"
+    exit 1
+  fi
+done
 
 if ! command -v hadd >/dev/null 2>&1; then
   echo "[ERROR] hadd not found. Please source ROOT first."
@@ -145,7 +152,7 @@ mkdir -p "$WORKDIR" "$LISTDIR"
 write_run_config
 
 log_msg "[INFO] EXE            = $EXE"
-log_msg "[INFO] INPUT_DIR      = $INPUT_DIR"
+log_msg "[INFO] INPUT_DIRS     = ${(j:,:)INPUT_DIRS}"
 log_msg "[INFO] OUTPUT_BASE    = $OUTPUT_BASE"
 log_msg "[INFO] WORKDIR        = $WORKDIR"
 log_msg "[INFO] K              = $K"
@@ -156,11 +163,13 @@ log_msg "[INFO] ARG3           = $ARG3"
 # Collect input files
 # =========================
 ALLLIST="$LISTDIR/all_files.txt"
-find "$INPUT_DIR" -type f -name "*.hipo" | sort > "$ALLLIST"
+for input_dir in "${INPUT_DIRS[@]}"; do
+  find "$input_dir" -type f -name "*.hipo"
+done | sort | head -n $MAX_TOTAL_FILES > "$ALLLIST"
 
 NF=$(wc -l < "$ALLLIST")
 if (( NF == 0 )); then
-  log_msg "[ERROR] No .hipo files found in $INPUT_DIR"
+  log_msg "[ERROR] No .hipo files found in: ${(j:,:)INPUT_DIRS}"
   exit 1
 fi
 

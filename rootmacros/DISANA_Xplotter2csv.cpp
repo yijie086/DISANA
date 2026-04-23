@@ -165,15 +165,15 @@ void DISANA_Xplotter2csv() {
 
   ROOT::EnableImplicitMT(40);
  
-  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1201/DISANA/build/data7546";
+  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/data";
 
-  std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis701/DISANA/build/pi0";
+  std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/pi0";
 
-  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkgall";
-  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg"; //(no bkg merged)
+  std::string input_path_from_analysisRun_7546_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/nobkgall";
+  std::string input_path_from_analysisRun_7546_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/nobkg"; //(no bkg merged)
 
-  std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/bkg";
-  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "/work/clas12/yijie/clas12ana/analysis801/DISANA/build/nobkg";
+  std::string input_path_from_analysisRun_7546_dvcsmc_bkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/bkg";
+  std::string input_path_from_analysisRun_7546_dvcsmc_nobkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/nobkg";
 
   std::string filename_afterFid_7546_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_data.c_str());
 
@@ -185,9 +185,9 @@ void DISANA_Xplotter2csv() {
   std::string filename_afterFid_7546_dvcsmc_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_bkg.c_str());
   std::string filename_afterFid_7546_dvcsmc_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_7546_dvcsmc_nobkg.c_str());
 
-  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/raddelta0p1v0p6Max.root";
-  std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/nor.root";
-  std::string filename_afterFid_7546_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis901/DISANA/rootmacros/norP1_2.root";
+  std::string filename_afterFid_7546_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/radandP1/raddelta0p1v0p6Max.root";
+  std::string filename_afterFid_7546_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/radandP1/nor.root";
+  std::string filename_afterFid_7546_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546/radandP1/norP1_2.root";
   
 
   float beam_energy = 7.546;
@@ -306,7 +306,8 @@ void DISANA_Xplotter2csv() {
                               df_afterFid_7546_dvcsmc_p1cut,
                               "RGK 7.5GeV mc", beam_energy, true, true, true, true, true);*/
 
-  //df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter("t < 0.3 && t > 0.2", "Cut: t > 0.5 GeV^2");
+  //df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter("t < 1.0 && t > 0.8", "Cut: t > 0.5 GeV^2");
+  //df_final_OnlPi0_7546_data = df_final_OnlPi0_7546_data.Filter("t < 1.0 && t > 0.8", "Cut: t > 0.5 GeV^2");
   df_final_dvcsPi_rejected_7546_data = df_final_dvcsPi_rejected_7546_data.Filter(
                                         "RUN_config_run!=5694 && "
                                         "RUN_config_run!=5699 && "
@@ -320,6 +321,19 @@ void DISANA_Xplotter2csv() {
                                         "RUN_config_run!=5850 && "
                                         "RUN_config_run!=5855",
                                         "Cut: runs with bad beam conditions");
+  df_final_OnlPi0_7546_data = df_final_OnlPi0_7546_data.Filter(
+                                        "RUN_config_run!=5694 && "
+                                        "RUN_config_run!=5699 && "
+                                        "RUN_config_run!=5702 && "
+                                        "RUN_config_run!=5707 && "
+                                        "RUN_config_run!=5725 && "
+                                        "RUN_config_run!=5733 && "
+                                        "RUN_config_run!=5758 && "
+                                        "RUN_config_run!=5759 && "
+                                        "RUN_config_run!=5767 && "
+                                        "RUN_config_run!=5850 && "
+                                        "RUN_config_run!=5855",
+                                        "Cut: runs with bad beam conditions");         
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_7546_data,
                               //df_afterFid_7546_dvcsmc_gen,
                               df_final_OnlPi0_7546_data,
@@ -337,7 +351,11 @@ void DISANA_Xplotter2csv() {
   //comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
   //comparer.PlotxBQ2tBin();
+  //comparer.PlotxBQ2tBinPi0();
+  //comparer.PlotxBQ2tBinMC();
+  //comparer.PlotxBQ2tBinPi0MC();
   //comparer.PlotDVCSKinematicsComparison();
+  //comparer.PlotDVPi0KinematicsComparison();
   comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(polarisation, true, true, true, true, true, true, true, true);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity

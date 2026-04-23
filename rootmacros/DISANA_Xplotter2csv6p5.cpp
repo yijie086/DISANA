@@ -164,12 +164,12 @@ void DISANA_Xplotter2csv6p5() {
 
   ROOT::EnableImplicitMT(40);
  
-  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1201/DISANA/build/data6535";
-  std::string input_path_from_analysisRun_6535_pi0MC = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/pi0mc/";
-  std::string input_path_from_analysisRun_6535_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/nobkg/";
-  std::string input_path_from_analysisRun_6535_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/nobkgall/";
-  std::string input_path_from_analysisRun_6535_bkg = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/bkg/";
-  std::string input_path_from_analysisRun_6535_nobkg = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/build/nobkg/";
+  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/data";
+  std::string input_path_from_analysisRun_6535_pi0MC = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/pi0/";
+  std::string input_path_from_analysisRun_6535_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkg/";
+  std::string input_path_from_analysisRun_6535_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkgall/";
+  std::string input_path_from_analysisRun_6535_bkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/bkg/";
+  std::string input_path_from_analysisRun_6535_nobkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkg/";
 
   std::string filename_afterFid_6535_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_data.c_str());
   std::string filename_afterFid_6535_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_pi0MC.c_str());
@@ -177,9 +177,9 @@ void DISANA_Xplotter2csv6p5() {
   std::string filename_afterFid_6535_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_dvcsmc_rec.c_str());
   std::string filename_afterFid_6535_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_bkg.c_str());
   std::string filename_afterFid_6535_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_nobkg.c_str());
-  std::string filename_afterFid_6535_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/rootmacros/rad6535v0p4.root";
-  std::string filename_afterFid_6535_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/rootmacros/nor6535.root";
-  std::string filename_afterFid_6535_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis1101/DISANA/rootmacros/nor6535P1.root";
+  std::string filename_afterFid_6535_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/rad6535v0p4.root";
+  std::string filename_afterFid_6535_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535.root";
+  std::string filename_afterFid_6535_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535P1.root";
 
 
   float beam_energy = 6.535;
@@ -282,7 +282,11 @@ void DISANA_Xplotter2csv6p5() {
   //comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
   //comparer.PlotxBQ2tBin();
+  //comparer.PlotxBQ2tBinPi0();
+  //comparer.PlotxBQ2tBinMC();
+  //comparer.PlotxBQ2tBinPi0MC();
   //comparer.PlotDVCSKinematicsComparison();
+  //comparer.PlotDVPi0KinematicsComparison();
   comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(polarisation, true, true, true, true, true, true, true, true);   
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
@@ -1131,6 +1135,7 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
 }
 
 ROOT::RDF::RNode GetSlim_exclusive(ROOT::RDF::RNode src, const std::string& f, const std::string& t, bool InitGen) {
+  //return src;
   const bool fileExists = !gSystem->AccessPathName(f.c_str());  // note the '!' (exists == true)
   if (fileExists) {
     std::cout << "Slim file " << f << " exists, loading it." << std::endl;

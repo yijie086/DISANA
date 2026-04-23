@@ -18,14 +18,14 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   } else {
     std::cout << "[RunDVCSAnalysis] IMT disabled (single thread mode).\n";
   }
-  bool IsMC = false;              // Set to true if you want to run on MC data
+  bool IsMC = true;              // Set to true if you want to run on MC data
   bool IsreprocRootFile = false;  // Set to true if you want to reprocess ROOT files
   bool IsInbending = true;        // Set to true if you want to run on inbending data
   bool IsMinimalBook = true;
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
-  //std::string dataconfig = "rgkfa18_7546";
-  std::string dataconfig = "rgkfa18_6535";
+  std::string dataconfig = "rgkfa18_7546";
+  //std::string dataconfig = "rgkfa18_6535";
   //std::string dataconfig = "rgksp24_8477";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -62,7 +62,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     /// DVCSGen RGA
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/inb/accept_all/";
     // inputFileDir = "/w/hallb-scshelf2102/clas12/singh/Softwares/DISANA_main/data_processed/sims/DVCSgen/outb/accept_all/";
-    inputFileDir = "/work/clas12/yijie/clas12ana/hipo2root/hipo-utils/build/";
+    //inputFileDir = "/work/clas12/yijie/clas12ana/hipo2root/hipo-utils/build/";
     inputRootFileName = "dfSelected.root";
     inputRootTreeName = "dfSelected";
   }
@@ -384,21 +384,25 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
   auto corr = std::make_shared<MomentumCorrection>();
   if (dataconfig == "rgkfa18_7546") {
-    corr->AddPiecewiseCorrection(  // Momentum correction for proton RGK 7.546GeV Fa18 out
-        2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
-          theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-          float A_p = 0.000381292 + 2.08512e-05 * theta;
-          float B_p = -0.00428696 + 0.000278655 * theta;
-          float C_p = 0.00455657 - 0.000263458 * theta;
-          return p + (A_p + B_p * p + C_p * p * p);
-        });
+    std::cout<<"Applying rgkfa18_7546 proton energy loss correction"<<std::endl;
+    //corr->AddPiecewiseCorrection(  // Momentum correction for proton RGK 7.546GeV Fa18 out
+    //    2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
+    //      theta = theta * 180.0 / M_PI;  // Convert theta to degrees
+    //      float A_p = 0.000381292 + 2.08512e-05 * theta;
+    //      float B_p = -0.00428696 + 0.000278655 * theta;
+    //      float C_p = 0.00455657 - 0.000263458 * theta;
+    //      return p;
+    //      //return p + (A_p + B_p * p + C_p * p * p);
+    //    });
     corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA 7.546GeV Fa18 out
         2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
           theta = theta * 180.0 / M_PI;  // Convert theta to degrees
-          float A_p = -0.0174808 + 0.00082825 * theta;
-          float B_p = 0.0455048 - 0.00173231 * theta;
-          float C_p = -0.0252992 + 0.00117479 * theta;
-
+          //float A_p = -0.0174808 + 0.00082825 * theta;
+          //float B_p = 0.0455048 - 0.00173231 * theta;
+          //float C_p = -0.0252992 + 0.00117479 * theta;
+          float A_p = 0.0247224 - 0.00106586 * theta + 0.0000139179 * theta*theta;
+          float B_p = - 0.0960141 + 0.0055606 * theta - 0.0000773236 * theta*theta;
+          float C_p = 0.106318 - 0.00706329 * theta + 0.000122623 *theta*theta;
           return p + (A_p + B_p / p + C_p / (p * p));
         });
   }
@@ -493,11 +497,12 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   dvcsTask->SetMaxEvents(0);                // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetAcceptEverything(false);     // Set to true to accept all events, false to apply cuts
   dvcsTask->SetQADBCuts(qadbCuts);          // <-- this now matters
-  dvcsTask->SetOptimizeColumns(true);       // Set to true to optimize the columns in the output file based on the cuts applied
   if(IsMC) {
     dvcsTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
+    dvcsTask->SetOptimizeColumns(true);       // Set to true to optimize the columns in the output file based on the cuts applied
   } else {
     dvcsTask->SetDoQADBCuts(true);   // for data we usually apply QADB false rejection
+    dvcsTask->SetOptimizeColumns(false);       // Set to true to optimize the columns in the output file based on the cuts applied
   }
 
   mgr.AddTask(std::move(dvcsTask));

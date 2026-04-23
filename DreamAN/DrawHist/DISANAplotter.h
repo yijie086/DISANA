@@ -117,6 +117,8 @@ class DISANAplotter {
   ROOT::RDF::RNode GetRDF() { return rdf; }
   ROOT::RDF::RNode GetRDF_Pi0Data() { return rdf_pi0_data.value(); }
   ROOT::RDF::RNode GetRDF_DVCSPi0MC() { return rdf_pi0_pi0mc.value(); }
+  ROOT::RDF::RNode GetRDF_Pi0MC() { return rdf_pi0_pi0mc.value(); }
+  ROOT::RDF::RNode GetRDF_DVCSMC() { return rdf_accept_dvcsmc.value(); }
   // ---------------- NEW: phi mass-fit results & acceptance provider ---------------
   struct PhiMassFitResult {
     double mu{};     // peak position

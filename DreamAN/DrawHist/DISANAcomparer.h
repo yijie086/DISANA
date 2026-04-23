@@ -165,7 +165,7 @@ class DISANAcomparer {
     std::cout << "✅ Correction histogram loaded: " << histoname << "\n";
   }
   /// get mean values of Q^2 and x_B
-  std::vector<std::vector<std::vector<std::tuple<double, double, double>>>> getMeanQ2xBt(const BinManager& bins, std::unique_ptr<DISANAplotter>& plotter) {
+  std::vector<std::vector<std::vector<std::tuple<double, double, double>>>> getMeanQ2xBt_old(const BinManager& bins, std::unique_ptr<DISANAplotter>& plotter) {
     const auto& xb_bins = bins.GetXBBins();
     const auto& q2_bins = bins.GetQ2Bins();
     const auto& t_bins = bins.GetTBins();
@@ -199,6 +199,117 @@ class DISANAcomparer {
       }
     }
 
+    return result;
+  }
+
+  std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>
+  getMeanQ2xBt(const BinManager& bins, std::unique_ptr<DISANAplotter>& plotter) {
+    const auto& xb_bins = bins.GetXBBins();
+    const auto& q2_bins = bins.GetQ2Bins();
+    const auto& t_bins  = bins.GetTBins();
+  
+    const size_t n_xb = xb_bins.size() - 1;
+    const size_t n_q2 = q2_bins.size() - 1;
+    const size_t n_t  = t_bins.size() - 1;
+  
+    auto rdf = plotter->GetRDF();
+  
+    // 保持原来的返回结构
+    std::vector<std::vector<std::vector<std::tuple<double, double, double>>>> result(
+        n_xb,
+        std::vector<std::vector<std::tuple<double, double, double>>>(
+            n_q2,
+            std::vector<std::tuple<double, double, double>>(n_t, std::make_tuple(0.0, 0.0, 0.0))
+        )
+    );
+  
+    struct Accumulator {
+      double sum_xB = 0.0;
+      double sum_Q2 = 0.0;
+      double sum_t  = 0.0;
+      unsigned long long count = 0;
+    };
+  
+    auto findBin = [](double x, const std::vector<double>& edges) -> int {
+      // 与你原来的条件一致：lo <= x < hi
+      auto it = std::upper_bound(edges.begin(), edges.end(), x);
+      if (it == edges.begin() || it == edges.end()) return -1;
+      return static_cast<int>(std::distance(edges.begin(), it) - 1);
+    };
+  
+    const size_t nCells = n_xb * n_q2 * n_t;
+    const unsigned int nSlots = rdf.GetNSlots();
+  
+    // 每个 slot 一份局部缓存，避免多线程竞争
+    std::vector<std::vector<Accumulator>> slotAccs(
+        nSlots, std::vector<Accumulator>(nCells)
+    );
+  
+    auto rdf_binned = rdf
+      .Define("ix_bin", [xb_bins, findBin](double xB) {
+        return findBin(xB, xb_bins);
+      }, {"xB"})
+      .Define("iq_bin", [q2_bins, findBin](double Q2) {
+        return findBin(Q2, q2_bins);
+      }, {"Q2"})
+      .Define("it_bin", [t_bins, findBin](double t) {
+        return findBin(t, t_bins);
+      }, {"t"})
+      .Filter([](int ix, int iq, int it) {
+        return ix >= 0 && iq >= 0 && it >= 0;
+      }, {"ix_bin", "iq_bin", "it_bin"});
+  
+    rdf_binned.ForeachSlot(
+        [&slotAccs, n_q2, n_t](unsigned int slot, double xB, double Q2, double t,
+                               int ix, int iq, int it) {
+          const size_t idx = static_cast<size_t>(ix) * n_q2 * n_t
+                           + static_cast<size_t>(iq) * n_t
+                           + static_cast<size_t>(it);
+  
+          auto& acc = slotAccs[slot][idx];
+          acc.sum_xB += xB;
+          acc.sum_Q2 += Q2;
+          acc.sum_t  += t;
+          ++acc.count;
+        },
+        {"xB", "Q2", "t", "ix_bin", "iq_bin", "it_bin"}
+    );
+  
+    // 合并各个 slot 的结果
+    std::vector<Accumulator> totalAccs(nCells);
+    for (unsigned int slot = 0; slot < nSlots; ++slot) {
+      for (size_t idx = 0; idx < nCells; ++idx) {
+        totalAccs[idx].sum_xB += slotAccs[slot][idx].sum_xB;
+        totalAccs[idx].sum_Q2 += slotAccs[slot][idx].sum_Q2;
+        totalAccs[idx].sum_t  += slotAccs[slot][idx].sum_t;
+        totalAccs[idx].count  += slotAccs[slot][idx].count;
+      }
+    }
+  
+    // 写回原来的 3D tuple 结构
+    for (size_t ix = 0; ix < n_xb; ++ix) {
+      for (size_t iq = 0; iq < n_q2; ++iq) {
+        for (size_t it = 0; it < n_t; ++it) {
+          const size_t idx = ix * n_q2 * n_t + iq * n_t + it;
+          const auto& acc = totalAccs[idx];
+  
+          if (acc.count > 0) {
+            result[ix][iq][it] = std::make_tuple(
+                acc.sum_xB / acc.count,
+                acc.sum_Q2 / acc.count,
+                acc.sum_t  / acc.count
+            );
+          } else {
+            // 空 bin 时保持默认值
+            result[ix][iq][it] = std::make_tuple(0.0, 0.0, 0.0);
+            // 如果你更想看 NaN，可以改成：
+            // const double nan = std::numeric_limits<double>::quiet_NaN();
+            // result[ix][iq][it] = std::make_tuple(nan, nan, nan);
+          }
+        }
+      }
+    }
+  
     return result;
   }
 
@@ -745,6 +856,107 @@ class DISANAcomparer {
     TGaxis::SetMaxDigits(oldMaxDigits);
   }
 
+  void PlotDVPi0KinematicsComparison(bool plotIndividual = false) {
+    // Store current global TGaxis state
+    int oldMaxDigits = TGaxis::GetMaxDigits();
+
+    std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi"};
+    std::map<std::string, std::string> titles = {{"Q2", "Q^{2} [GeV^{2}]"}, {"xB", "x_{B}"}, {"t", "-t [GeV^{2}]"}, {"W", "W [GeV]"}, {"phi", "#phi [deg]"}};
+
+    TCanvas* canvas = new TCanvas("DVCSVars", "DVCS Kinematic Comparison", 1800, 1400);
+    canvas->Divide(3, 2);
+
+    int pad = 1;
+    for (const auto& var : variables) {
+      canvas->cd(pad++);
+      styleDVCS_.StylePad((TPad*)gPad);
+
+      TLegend* legend = new TLegend(0.6, 0.7, 0.88, 0.88);
+      legend->SetBorderSize(0);
+      legend->SetFillStyle(0);
+
+      bool first = true;
+      std::vector<TH1D*> histos_to_draw;
+
+      for (size_t i = 0; i < plotters.size(); ++i) {
+        auto rdf = plotters[i]->GetRDF_Pi0Data();
+        if (!rdf.HasColumn(var)) {
+          std::cerr << "[ERROR] Column " << var << " not found in RDF for model " << labels[i] << "\n";
+          continue;
+        }
+
+        double min = *(rdf.Min(var));
+        double max = *(rdf.Max(var));
+        if (min == max) {
+          min -= 0.1;
+          max += 0.1;
+        }
+        double margin = std::max(1e-3, 0.05 * (max - min));
+
+        // Get histogram (RResultPtr) and clone it
+        auto htmp = rdf.Histo1D({Form("h_%s_%zu", var.c_str(), i), titles[var].c_str(), 100, min - margin, max + margin}, var);
+        auto h = (TH1D*)htmp->Clone(Form("h_%s_%zu_clone", var.c_str(), i));
+
+        if (!h) continue;  // guard against failed clone
+
+        h->SetDirectory(0);  // prevent ROOT from managing ownership
+        NormalizeHistogram(h);
+        styleDVCS_.StyleTH1(h);
+        h->SetLineColor(i + 2);
+        h->SetLineWidth(1);
+        h->GetXaxis()->SetTitle(titles[var].c_str());
+        h->GetYaxis()->SetTitle("Counts");
+
+        histos_to_draw.push_back(h);
+        legend->AddEntry(h, labels[i].c_str(), "l");
+      }
+
+      for (size_t j = 0; j < histos_to_draw.size(); ++j) {
+        histos_to_draw[j]->Draw(j == 0 ? "HIST" : "HIST SAME");
+      }
+
+      if (!histos_to_draw.empty()) {
+        legend->Draw();
+      }
+
+      if (plotIndividual && (var == "xB" || var == "Q2" || var == "t" || var == "W" || var == "phi")) {
+        PlotSingleVariableComparison("el", var);
+      }
+    }
+    canvas->cd(pad);
+    auto rdf = plotters.front()->GetRDF_Pi0Data();
+    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 60, 0, 1.0, 60, 0, 10.0}, "xB", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d->GetYaxis()->SetNoExponent(true);
+    h2d->SetStats(0);
+    h2d->SetTitle("");
+    h2d->GetYaxis()->SetLabelFont(42);
+    h2d->GetYaxis()->SetLabelSize(0.06);
+    h2d->GetYaxis()->SetTitleOffset(1.0);
+    h2d->GetYaxis()->SetTitleSize(0.06);
+    h2d->GetYaxis()->SetNdivisions(410);
+
+    h2d->GetXaxis()->SetTitleSize(0.065);
+    h2d->GetXaxis()->SetLabelFont(42);
+    h2d->GetXaxis()->SetLabelSize(0.06);
+    h2d->GetXaxis()->SetTitleOffset(0.9);
+    h2d->GetXaxis()->SetNdivisions(205);
+
+    h2d->GetZaxis()->SetNdivisions(410);
+    h2d->GetZaxis()->SetLabelSize(0.06);
+    h2d->GetZaxis()->SetTitleOffset(1.5);
+    h2d->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d->DrawCopy("COLZ");
+    // Final save and cleanup
+    canvas->SaveAs((outputDir + "/DVPi0_Kinematics_Comparison.pdf").c_str());
+    std::cout << "Saved DVPi0 kinematics comparison to: " << outputDir + "/DVPi0_Kinematics_Comparison.pdf" << std::endl;
+    delete canvas;
+    TGaxis::SetMaxDigits(oldMaxDigits);
+  }
+
   void PlotxBQ2tBin(bool plotIndividual = false) {
     // Store current global TGaxis state
     int oldMaxDigits = TGaxis::GetMaxDigits();
@@ -849,6 +1061,331 @@ class DISANAcomparer {
     // Final save and cleanup
     canvas->SaveAs((outputDir + "/xBQ2tBin.pdf").c_str());
     std::cout << "Saved xBQ2tBin kinematics to: " << outputDir + "/xBQ2tBin.pdf" << std::endl;
+    delete canvas;
+    TGaxis::SetMaxDigits(oldMaxDigits);
+  }
+
+  void PlotxBQ2tBinMC(bool plotIndividual = false) {
+    // Store current global TGaxis state
+    int oldMaxDigits = TGaxis::GetMaxDigits();
+
+    std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi"};
+    std::map<std::string, std::string> titles = {{"Q2", "Q^{2} [GeV^{2}]"}, {"xB", "x_{B}"}, {"t", "-t [GeV^{2}]"}, {"W", "W [GeV]"}, {"phi", "#phi [deg]"}};
+
+    TCanvas* canvas = new TCanvas("xBQ2tBin", "xB-Q2-t-Bin Set", 5400, 1800);
+    canvas->Divide(3, 1);
+
+    canvas->cd(1);
+    auto rdf = plotters.front()->GetRDF_DVCSMC();
+    double xBmin = 0.1, xBmax = 0.6;
+    double Q2min = 1.0, Q2max = 5.0;
+    double tmin = 0.0, tmax = 1.0;
+    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 500, xBmin, xBmax, 500, Q2min, Q2max}, "xB", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d->GetYaxis()->SetNoExponent(true);
+    h2d->SetStats(0);
+    h2d->SetTitle("");
+    h2d->GetYaxis()->SetLabelFont(42);
+    h2d->GetYaxis()->SetLabelSize(0.06);
+    h2d->GetYaxis()->SetTitleOffset(1.0);
+    h2d->GetYaxis()->SetTitleSize(0.06);
+    h2d->GetYaxis()->SetNdivisions(410);
+
+    h2d->GetXaxis()->SetTitleSize(0.065);
+    h2d->GetXaxis()->SetLabelFont(42);
+    h2d->GetXaxis()->SetLabelSize(0.06);
+    h2d->GetXaxis()->SetTitleOffset(0.9);
+    h2d->GetXaxis()->SetNdivisions(205);
+
+    h2d->GetZaxis()->SetNdivisions(410);
+    h2d->GetZaxis()->SetLabelSize(0.06);
+    h2d->GetZaxis()->SetTitleOffset(1.5);
+    h2d->GetZaxis()->SetTitleSize(0.06);
+    //std::vector<double> xB_lines = {0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430};
+    //std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90};
+    std::vector<double> xB_lines = {0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.43};
+    std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50};
+    std::vector<double> t_lines = {0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0};
+    TGaxis::SetMaxDigits(3);
+    h2d->DrawCopy("COLZ");
+    DrawCustomGrid(xB_lines, Q2_lines, xBmin, xBmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
+
+    canvas->cd(2);
+    auto h2d2 = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs -t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 500, tmin, tmax, 500, Q2min, Q2max}, "t", "Q2");
+    
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d2->GetYaxis()->SetNoExponent(true);
+    h2d2->SetStats(0);
+    h2d2->SetTitle("");
+    h2d2->GetYaxis()->SetLabelFont(42);
+    h2d2->GetYaxis()->SetLabelSize(0.06);
+    h2d2->GetYaxis()->SetTitleOffset(1.0);
+    h2d2->GetYaxis()->SetTitleSize(0.06);
+    h2d2->GetYaxis()->SetNdivisions(410);
+    h2d2->GetXaxis()->SetTitleSize(0.065);
+    h2d2->GetXaxis()->SetLabelFont(42);
+    h2d2->GetXaxis()->SetLabelSize(0.06);
+    h2d2->GetXaxis()->SetTitleOffset(0.9);
+    h2d2->GetXaxis()->SetNdivisions(205);
+    h2d2->GetZaxis()->SetNdivisions(410);
+    h2d2->GetZaxis()->SetLabelSize(0.06);
+    h2d2->GetZaxis()->SetTitleOffset(1.5);
+    h2d2->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d2->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, Q2_lines, tmin, tmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
+
+    canvas->cd(3);
+    auto h2d3 = rdf.Histo2D({"h_xB_vs_t", "x_{B} vs -t;-t[GeV^{2}];x_{B}", 500, tmin, tmax, 500, xBmin, xBmax}, "t", "xB");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d3->GetYaxis()->SetNoExponent(true);
+    h2d3->SetStats(0);
+    h2d3->SetTitle("");
+    h2d3->GetYaxis()->SetLabelFont(42);
+    h2d3->GetYaxis()->SetLabelSize(0.06);
+    h2d3->GetYaxis()->SetTitleOffset(1.0);
+    h2d3->GetYaxis()->SetTitleSize(0.06);
+    h2d3->GetYaxis()->SetNdivisions(410);
+    h2d3->GetXaxis()->SetTitleSize(0.065);
+    h2d3->GetXaxis()->SetLabelFont(42);
+    h2d3->GetXaxis()->SetLabelSize(0.06);
+    h2d3->GetXaxis()->SetTitleOffset(0.9);
+    h2d3->GetXaxis()->SetNdivisions(205);
+    h2d3->GetZaxis()->SetNdivisions(410);
+    h2d3->GetZaxis()->SetLabelSize(0.06);
+    h2d3->GetZaxis()->SetTitleOffset(1.5);
+    h2d3->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d3->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, xB_lines, tmin, tmax, xBmin, xBmax, 1, 1, kRed);
+    gPad->RedrawAxis();
+    // Final save and cleanup
+    canvas->SaveAs((outputDir + "/xBQ2tBinMC.pdf").c_str());
+    std::cout << "Saved xBQ2tBinMC kinematics to: " << outputDir + "/xBQ2tBinMC.pdf" << std::endl;
+    delete canvas;
+    TGaxis::SetMaxDigits(oldMaxDigits);
+  }
+
+  void PlotxBQ2tBinPi0(bool plotIndividual = false) {
+    // Store current global TGaxis state
+    int oldMaxDigits = TGaxis::GetMaxDigits();
+
+    std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi"};
+    std::map<std::string, std::string> titles = {{"Q2", "Q^{2} [GeV^{2}]"}, {"xB", "x_{B}"}, {"t", "-t [GeV^{2}]"}, {"W", "W [GeV]"}, {"phi", "#phi [deg]"}};
+
+    TCanvas* canvas = new TCanvas("xBQ2tBin", "xB-Q2-t-Bin Set", 5400, 1800);
+    canvas->Divide(3, 1);
+
+    canvas->cd(1);
+    auto rdf = plotters.front()->GetRDF_Pi0Data();
+    double xBmin = 0.1, xBmax = 0.6;
+    double Q2min = 1.0, Q2max = 5.0;
+    double tmin = 0.0, tmax = 1.0;
+    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 500, xBmin, xBmax, 500, Q2min, Q2max}, "xB", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d->GetYaxis()->SetNoExponent(true);
+    h2d->SetStats(0);
+    h2d->SetTitle("");
+    h2d->GetYaxis()->SetLabelFont(42);
+    h2d->GetYaxis()->SetLabelSize(0.06);
+    h2d->GetYaxis()->SetTitleOffset(1.0);
+    h2d->GetYaxis()->SetTitleSize(0.06);
+    h2d->GetYaxis()->SetNdivisions(410);
+
+    h2d->GetXaxis()->SetTitleSize(0.065);
+    h2d->GetXaxis()->SetLabelFont(42);
+    h2d->GetXaxis()->SetLabelSize(0.06);
+    h2d->GetXaxis()->SetTitleOffset(0.9);
+    h2d->GetXaxis()->SetNdivisions(205);
+
+    h2d->GetZaxis()->SetNdivisions(410);
+    h2d->GetZaxis()->SetLabelSize(0.06);
+    h2d->GetZaxis()->SetTitleOffset(1.5);
+    h2d->GetZaxis()->SetTitleSize(0.06);
+    //std::vector<double> xB_lines = {0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430};
+    //std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90};
+    std::vector<double> xB_lines = {0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.43};
+    std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50};
+    std::vector<double> t_lines = {0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0};
+    TGaxis::SetMaxDigits(3);
+    h2d->DrawCopy("COLZ");
+    DrawCustomGrid(xB_lines, Q2_lines, xBmin, xBmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
+
+    canvas->cd(2);
+    auto h2d2 = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs -t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 500, tmin, tmax, 500, Q2min, Q2max}, "t", "Q2");
+    
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d2->GetYaxis()->SetNoExponent(true);
+    h2d2->SetStats(0);
+    h2d2->SetTitle("");
+    h2d2->GetYaxis()->SetLabelFont(42);
+    h2d2->GetYaxis()->SetLabelSize(0.06);
+    h2d2->GetYaxis()->SetTitleOffset(1.0);
+    h2d2->GetYaxis()->SetTitleSize(0.06);
+    h2d2->GetYaxis()->SetNdivisions(410);
+    h2d2->GetXaxis()->SetTitleSize(0.065);
+    h2d2->GetXaxis()->SetLabelFont(42);
+    h2d2->GetXaxis()->SetLabelSize(0.06);
+    h2d2->GetXaxis()->SetTitleOffset(0.9);
+    h2d2->GetXaxis()->SetNdivisions(205);
+    h2d2->GetZaxis()->SetNdivisions(410);
+    h2d2->GetZaxis()->SetLabelSize(0.06);
+    h2d2->GetZaxis()->SetTitleOffset(1.5);
+    h2d2->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d2->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, Q2_lines, tmin, tmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
+
+    canvas->cd(3);
+    auto h2d3 = rdf.Histo2D({"h_xB_vs_t", "x_{B} vs -t;-t[GeV^{2}];x_{B}", 500, tmin, tmax, 500, xBmin, xBmax}, "t", "xB");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d3->GetYaxis()->SetNoExponent(true);
+    h2d3->SetStats(0);
+    h2d3->SetTitle("");
+    h2d3->GetYaxis()->SetLabelFont(42);
+    h2d3->GetYaxis()->SetLabelSize(0.06);
+    h2d3->GetYaxis()->SetTitleOffset(1.0);
+    h2d3->GetYaxis()->SetTitleSize(0.06);
+    h2d3->GetYaxis()->SetNdivisions(410);
+    h2d3->GetXaxis()->SetTitleSize(0.065);
+    h2d3->GetXaxis()->SetLabelFont(42);
+    h2d3->GetXaxis()->SetLabelSize(0.06);
+    h2d3->GetXaxis()->SetTitleOffset(0.9);
+    h2d3->GetXaxis()->SetNdivisions(205);
+    h2d3->GetZaxis()->SetNdivisions(410);
+    h2d3->GetZaxis()->SetLabelSize(0.06);
+    h2d3->GetZaxis()->SetTitleOffset(1.5);
+    h2d3->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d3->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, xB_lines, tmin, tmax, xBmin, xBmax, 1, 1, kRed);
+    gPad->RedrawAxis();
+    // Final save and cleanup
+    canvas->SaveAs((outputDir + "/xBQ2tBinPi0.pdf").c_str());
+    std::cout << "Saved xBQ2tBinPi0 kinematics to: " << outputDir + "/xBQ2tBinPi0.pdf" << std::endl;
+    delete canvas;
+    TGaxis::SetMaxDigits(oldMaxDigits);
+  }
+
+
+  void PlotxBQ2tBinPi0MC(bool plotIndividual = false) {
+    // Store current global TGaxis state
+    int oldMaxDigits = TGaxis::GetMaxDigits();
+
+    std::vector<std::string> variables = {"Q2", "xB", "t", "W", "phi"};
+    std::map<std::string, std::string> titles = {{"Q2", "Q^{2} [GeV^{2}]"}, {"xB", "x_{B}"}, {"t", "-t [GeV^{2}]"}, {"W", "W [GeV]"}, {"phi", "#phi [deg]"}};
+
+    TCanvas* canvas = new TCanvas("xBQ2tBin", "xB-Q2-t-Bin Set", 5400, 1800);
+    canvas->Divide(3, 1);
+
+    canvas->cd(1);
+    auto rdf = plotters.front()->GetRDF_Pi0MC();
+    double xBmin = 0.1, xBmax = 0.6;
+    double Q2min = 1.0, Q2max = 5.0;
+    double tmin = 0.0, tmax = 1.0;
+    auto h2d = rdf.Histo2D({"h_Q2_vs_xB", "Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}]", 500, xBmin, xBmax, 500, Q2min, Q2max}, "xB", "Q2");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d->GetYaxis()->SetNoExponent(true);
+    h2d->SetStats(0);
+    h2d->SetTitle("");
+    h2d->GetYaxis()->SetLabelFont(42);
+    h2d->GetYaxis()->SetLabelSize(0.06);
+    h2d->GetYaxis()->SetTitleOffset(1.0);
+    h2d->GetYaxis()->SetTitleSize(0.06);
+    h2d->GetYaxis()->SetNdivisions(410);
+
+    h2d->GetXaxis()->SetTitleSize(0.065);
+    h2d->GetXaxis()->SetLabelFont(42);
+    h2d->GetXaxis()->SetLabelSize(0.06);
+    h2d->GetXaxis()->SetTitleOffset(0.9);
+    h2d->GetXaxis()->SetNdivisions(205);
+
+    h2d->GetZaxis()->SetNdivisions(410);
+    h2d->GetZaxis()->SetLabelSize(0.06);
+    h2d->GetZaxis()->SetTitleOffset(1.5);
+    h2d->GetZaxis()->SetTitleSize(0.06);
+    //std::vector<double> xB_lines = {0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430};
+    //std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90};
+    std::vector<double> xB_lines = {0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.43};
+    std::vector<double> Q2_lines = {1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50};
+    std::vector<double> t_lines = {0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0};
+    TGaxis::SetMaxDigits(3);
+    h2d->DrawCopy("COLZ");
+    DrawCustomGrid(xB_lines, Q2_lines, xBmin, xBmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
+
+    canvas->cd(2);
+    auto h2d2 = rdf.Histo2D({"h_Q2_vs_t", "Q^{2} vs -t;-t[GeV^{2}];Q^{2} [GeV^{2}]", 500, tmin, tmax, 500, Q2min, Q2max}, "t", "Q2");
+    
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d2->GetYaxis()->SetNoExponent(true);
+    h2d2->SetStats(0);
+    h2d2->SetTitle("");
+    h2d2->GetYaxis()->SetLabelFont(42);
+    h2d2->GetYaxis()->SetLabelSize(0.06);
+    h2d2->GetYaxis()->SetTitleOffset(1.0);
+    h2d2->GetYaxis()->SetTitleSize(0.06);
+    h2d2->GetYaxis()->SetNdivisions(410);
+    h2d2->GetXaxis()->SetTitleSize(0.065);
+    h2d2->GetXaxis()->SetLabelFont(42);
+    h2d2->GetXaxis()->SetLabelSize(0.06);
+    h2d2->GetXaxis()->SetTitleOffset(0.9);
+    h2d2->GetXaxis()->SetNdivisions(205);
+    h2d2->GetZaxis()->SetNdivisions(410);
+    h2d2->GetZaxis()->SetLabelSize(0.06);
+    h2d2->GetZaxis()->SetTitleOffset(1.5);
+    h2d2->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d2->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, Q2_lines, tmin, tmax, Q2min, Q2max, 1, 1, kRed);
+    gPad->RedrawAxis();
+
+    canvas->cd(3);
+    auto h2d3 = rdf.Histo2D({"h_xB_vs_t", "x_{B} vs -t;-t[GeV^{2}];x_{B}", 500, tmin, tmax, 500, xBmin, xBmax}, "t", "xB");
+
+    styleDVCS_.StylePad((TPad*)gPad);
+    gPad->SetRightMargin(0.16);
+    h2d3->GetYaxis()->SetNoExponent(true);
+    h2d3->SetStats(0);
+    h2d3->SetTitle("");
+    h2d3->GetYaxis()->SetLabelFont(42);
+    h2d3->GetYaxis()->SetLabelSize(0.06);
+    h2d3->GetYaxis()->SetTitleOffset(1.0);
+    h2d3->GetYaxis()->SetTitleSize(0.06);
+    h2d3->GetYaxis()->SetNdivisions(410);
+    h2d3->GetXaxis()->SetTitleSize(0.065);
+    h2d3->GetXaxis()->SetLabelFont(42);
+    h2d3->GetXaxis()->SetLabelSize(0.06);
+    h2d3->GetXaxis()->SetTitleOffset(0.9);
+    h2d3->GetXaxis()->SetNdivisions(205);
+    h2d3->GetZaxis()->SetNdivisions(410);
+    h2d3->GetZaxis()->SetLabelSize(0.06);
+    h2d3->GetZaxis()->SetTitleOffset(1.5);
+    h2d3->GetZaxis()->SetTitleSize(0.06);
+    TGaxis::SetMaxDigits(3);
+    h2d3->DrawCopy("COLZ");
+    DrawCustomGrid(t_lines, xB_lines, tmin, tmax, xBmin, xBmax, 1, 1, kRed);
+    gPad->RedrawAxis();
+    // Final save and cleanup
+    canvas->SaveAs((outputDir + "/xBQ2tBinPi0MC.pdf").c_str());
+    std::cout << "Saved xBQ2tBinPi0MC kinematics to: " << outputDir + "/xBQ2tBinPi0MC.pdf" << std::endl;
     delete canvas;
     TGaxis::SetMaxDigits(oldMaxDigits);
   }
