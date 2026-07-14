@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "DISANAMath.h"
@@ -407,8 +408,11 @@ class DISANAplotter {
     return result;
   }
 
-  /// BSA computations // we need to have refined version of this codes
-  std::vector<std::vector<std::vector<TH1D*>>> ComputeBSA(const BinManager& bins, double pol = 1.0) {
+  using BSAHistograms =
+      std::vector<std::vector<std::vector<TH1D*>>>;
+
+  std::pair<BSAHistograms, BSAHistograms> ComputeBSAWithRaw(
+      const BinManager& bins, double pol = 1.0) {
     // 1) Helicity selection
     auto rdf_pos = rdf.Filter("REC_Event_helicity ==  1");
     auto rdf_neg = rdf.Filter("REC_Event_helicity == -1");
@@ -417,21 +421,41 @@ class DISANAplotter {
     auto sigma_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pos, bins, luminosity_nb_inv);
     auto sigma_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_neg, bins, luminosity_nb_inv);
 
-    auto result = kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
+    auto raw =
+        kinCalc.ComputeBeamSpinAsymmetry(sigma_pos_3d, sigma_neg_3d, pol);
+    BSAHistograms corrected;
 
     if (dopi0corr) {
-      auto rdf_pi0_data_pos = rdf_pi0_data->Filter("REC_Event_helicity ==  1");
-      auto rdf_pi0_data_neg = rdf_pi0_data->Filter("REC_Event_helicity == -1");
-      // 2) One-pass cross-section per helicity
-
-      auto sigma_pi0_pos_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pi0_data_pos, bins, luminosity_nb_inv);
-      auto sigma_pi0_neg_3d = kinCalc.ComputeDVCS_CrossSection(rdf_pi0_data_neg, bins, luminosity_nb_inv);
-
       auto corr3D = ComputePi0Corr(bins);
-      auto Api0 = kinCalc.ComputeBeamSpinAsymmetry(sigma_pi0_pos_3d, sigma_pi0_neg_3d, pol);
-      result = UsePi0CorrectionForBSA(result, Api0, corr3D);
+      auto Api0 = ComputePi0BSA(bins, pol);
+      corrected = UsePi0CorrectionForBSA(raw, Api0, corr3D);
     }
-    return result;
+    return {std::move(raw), std::move(corrected)};
+  }
+
+  /// BSA computations // we need to have refined version of this codes
+  BSAHistograms ComputeBSA(const BinManager& bins, double pol = 1.0) {
+    auto [raw, corrected] = ComputeBSAWithRaw(bins, pol);
+    return corrected.empty() ? std::move(raw) : std::move(corrected);
+  }
+
+  BSAHistograms ComputePi0BSA(
+      const BinManager& bins, double pol = 1.0) {
+    if (!rdf_pi0_data) {
+      std::cerr << "[ComputePi0BSA] Missing pi0 data RDF.\n";
+      return {};
+    }
+
+    auto rdf_pi0_data_pos =
+        rdf_pi0_data->Filter("REC_Event_helicity ==  1");
+    auto rdf_pi0_data_neg =
+        rdf_pi0_data->Filter("REC_Event_helicity == -1");
+    auto sigma_pi0_pos_3d = kinCalc.ComputeDVCS_CrossSection(
+        rdf_pi0_data_pos, bins, luminosity_nb_inv);
+    auto sigma_pi0_neg_3d = kinCalc.ComputeDVCS_CrossSection(
+        rdf_pi0_data_neg, bins, luminosity_nb_inv);
+    return kinCalc.ComputeBeamSpinAsymmetry(
+        sigma_pi0_pos_3d, sigma_pi0_neg_3d, pol);
   }
 
   /// BSA computations // we need to have refined version of this codes

@@ -361,7 +361,7 @@ void DISANA_Xplotter2csv() {
 
   ROOT::EnableImplicitMT(40);
 
-  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546BSA";
+  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546BSA/PID/";
 
   std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546BSA/Pi0MC/";
 
@@ -573,16 +573,16 @@ void DISANA_Xplotter2csv() {
        {0.130, 0.220, 1.50, 7.00, 0.35, 0.48},
        {0.130, 0.220, 1.50, 7.00, 0.48, 0.73},
        {0.130, 0.220, 1.50, 7.00, 0.73, 2.00},
-       {0.220, 0.500, 1.00, 1.80, 0.00, 0.44},
-       {0.220, 0.500, 1.00, 1.80, 0.44, 0.64},
-       {0.220, 0.500, 1.00, 1.80, 0.64, 0.80},
-       {0.220, 0.500, 1.00, 1.80, 0.80, 1.04},
-       {0.220, 0.500, 1.00, 1.80, 1.04, 2.00},
-       {0.220, 0.500, 1.80, 7.00, 0.00, 0.52},
-       {0.220, 0.500, 1.80, 7.00, 0.52, 0.77},
-       {0.220, 0.500, 1.80, 7.00, 0.77, 1.07},
-       {0.220, 0.500, 1.80, 7.00, 1.07, 1.50},
-       {0.220, 0.500, 1.80, 7.00, 1.50, 2.00}
+       {0.220, 0.600, 1.00, 1.80, 0.00, 0.44},
+       {0.220, 0.600, 1.00, 1.80, 0.44, 0.64},
+       {0.220, 0.600, 1.00, 1.80, 0.64, 0.80},
+       {0.220, 0.600, 1.00, 1.80, 0.80, 1.04},
+       {0.220, 0.600, 1.00, 1.80, 1.04, 2.00},
+       {0.220, 0.600, 1.80, 7.00, 0.00, 0.52},
+       {0.220, 0.600, 1.80, 7.00, 0.52, 0.77},
+       {0.220, 0.600, 1.80, 7.00, 0.77, 1.07},
+       {0.220, 0.600, 1.80, 7.00, 1.07, 1.50},
+       {0.220, 0.600, 1.80, 7.00, 1.50, 2.00}
   });
 
   comparer.SetXBinsRanges(xBins);
@@ -690,10 +690,11 @@ void DISANA_Xplotter2csv() {
 
   //comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
-  comparer.PlotxBQ2tBin();
+  //comparer.PlotxBQ2tBin();
   //comparer.PlotxBQ2tBinPi0();
   //comparer.PlotxBQ2tBinMC();
   //comparer.PlotxBQ2tBinPi0MC();
+  //comparer.Plot2DParticle();
   //comparer.PlotDVCSKinematicsComparison();
   //comparer.PlotDVPi0KinematicsComparison();
   comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(
@@ -710,11 +711,14 @@ void DISANA_Xplotter2csv() {
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity
   //comparer.PlotDIS_Pi0CorrComparison();
   //comparer.PlotMomentumCorrection();
+  //comparer.PlotKinematic1D();
+  //comparer.PlotKinematic2D();
+  //comparer.Plot2DParticle();
   //comparer.PlotExclusivityComparisonByDetectorCases(detCuts);
-  //std::vector<double> tbin = {0.13, 0.23, 0.43, 1.0, 2.0};
+  //std::vector<double> tbin = {0.10, 2.00};
   //comparer.PlotExclusivityComparisonByDetectorCaseswithPi0(detCuts, tbin);
-  bool draw_dvpi0_mc = true;
-  bool output_wide_mpi0 = false;
+  //bool draw_dvpi0_mc = true;
+  //bool output_wide_mpi0 = false;
   //comparer.PlotPi0ExclusivityComparisonByDetectorCases(detCutsPi0, draw_dvpi0_mc, output_wide_mpi0);
   gApplication->Terminate(0);
 }

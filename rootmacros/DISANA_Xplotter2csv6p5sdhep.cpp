@@ -344,7 +344,7 @@ void WriteRunEventCounts(ROOT::RDF::RNode df,
             << " to " << out_csv << std::endl;
 }
 
-void DISANA_Xplotter2csv6p5() {
+void DISANA_Xplotter2csv6p5sdhep() {
   bool ComputeBgk_core = false;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
 

@@ -25,6 +25,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1287,6 +1288,383 @@ class DISANAcomparer {
     delete canvas;
   }
 
+  void PlotKinematic1D() {
+    if (plotters.empty()) {
+      std::cerr << "PlotKinematic1D requires at least one loaded model.\n";
+      return;
+    }
+
+    struct KinSpec {
+      std::string var;
+      std::string title;
+      std::string xlabel;
+      int bins;
+      double xmin;
+      double xmax;
+    };
+
+    const std::vector<KinSpec> vars = {
+        {"Q2", "Q^{2}", "Q^{2} [GeV^{2}]", 120, 1.0, 5.0},
+        {"xB", "x_{B}", "x_{B}", 120, 0.1, 0.5},
+        {"t", "-t", "-t [GeV^{2}]", 120, 0.1, 0.8},
+        {"phi", "#phi", "#phi [deg]", 120, 0.0, 360.0}};
+
+    struct BookedKinHistograms {
+      size_t plotterIndex;
+      size_t variableIndex;
+      ROOT::RDF::RResultPtr<TH1D> data;
+      ROOT::RDF::RResultPtr<TH1D> mc;
+    };
+
+    std::vector<BookedKinHistograms> bookedHistograms;
+    std::vector<ROOT::RDF::RResultHandle> resultHandles;
+
+    for (size_t m = 0; m < plotters.size(); ++m) {
+      auto rdfData = plotters[m]->GetRDF();
+      auto rdfMC = plotters[m]->GetRDF_DVCSMC();
+
+      for (size_t i = 0; i < vars.size(); ++i) {
+        const auto& spec = vars[i];
+        if (!rdfData.HasColumn(spec.var) || !rdfMC.HasColumn(spec.var)) {
+          std::cerr << "[PlotKinematic1D] skipping " << spec.var
+                    << " for " << labels[m] << ": missing column.\n";
+          continue;
+        }
+
+        BookedKinHistograms booked{
+            m,
+            i,
+            rdfData.Histo1D(
+                {Form("h_kin1d_data_%s_%zu", spec.var.c_str(), m),
+                 (spec.title + ";" + spec.xlabel + ";Normalized counts").c_str(),
+                 spec.bins, spec.xmin, spec.xmax},
+                spec.var),
+            rdfMC.Histo1D(
+                {Form("h_kin1d_dvcsmc_%s_%zu", spec.var.c_str(), m),
+                 (spec.title + ";" + spec.xlabel + ";Normalized counts").c_str(),
+                 spec.bins, spec.xmin, spec.xmax},
+                spec.var)};
+
+        resultHandles.emplace_back(booked.data);
+        resultHandles.emplace_back(booked.mc);
+        bookedHistograms.emplace_back(std::move(booked));
+      }
+    }
+
+    if (resultHandles.empty()) {
+      std::cerr << "[PlotKinematic1D] no histograms were booked.\n";
+      return;
+    }
+
+    const unsigned int eventLoopCount = ROOT::RDF::RunGraphs(resultHandles);
+    std::cout << "[PlotKinematic1D] completed " << eventLoopCount
+              << " independent RDataFrame event loop(s).\n";
+
+    auto normalizeVisibleRange = [](TH1* hist) {
+      if (!hist) return;
+      const double integral = hist->Integral(1, hist->GetNbinsX());
+      if (integral > 0.0) hist->Scale(1.0 / integral);
+    };
+
+    for (size_t i = 0; i < vars.size(); ++i) {
+      const auto& spec = vars[i];
+      TCanvas* canvas = new TCanvas(
+          Form("c_Kinematic1D_%s", spec.var.c_str()),
+          Form("DVCS data vs MC %s", spec.var.c_str()), 900, 700);
+      styleKin_.StylePad((TPad*)gPad);
+      gPad->SetTicks();
+
+      TLegend* legend = new TLegend(0.58, 0.70, 0.88, 0.88);
+      legend->SetBorderSize(0);
+      legend->SetFillStyle(0);
+      legend->SetTextSize(0.035);
+
+      bool first = true;
+      TH1D* frameHistogram = nullptr;
+      double maxY = 0.0;
+
+      for (auto& booked : bookedHistograms) {
+        if (booked.variableIndex != i) continue;
+
+        TH1D* hData = (TH1D*)booked.data.GetPtr()->Clone();
+        hData->SetDirectory(0);
+        TH1D* hMC = (TH1D*)booked.mc.GetPtr()->Clone();
+        hMC->SetDirectory(0);
+
+        normalizeVisibleRange(hData);
+        normalizeVisibleRange(hMC);
+
+        styleKin_.StyleTH1(hData);
+        hData->SetLineColor(kRed + 1);
+        hData->SetLineWidth(1);
+        hData->SetLineStyle(1);
+
+        styleKin_.StyleTH1(hMC);
+        hMC->SetLineColor(kGreen + 1);
+        hMC->SetLineWidth(1);
+        hMC->SetLineStyle(1);
+
+        if (first) {
+          hData->Draw("HIST");
+          frameHistogram = hData;
+          first = false;
+        } else {
+          hData->Draw("HIST SAME");
+        }
+        hMC->Draw("HIST SAME");
+
+        maxY = std::max(maxY, hData->GetMaximum());
+        maxY = std::max(maxY, hMC->GetMaximum());
+        const std::string& label = labels[booked.plotterIndex];
+        legend->AddEntry(hData, (label + " Data").c_str(), "l");
+        legend->AddEntry(hMC, (label + " MC").c_str(), "l");
+      }
+
+      if (frameHistogram) {
+        frameHistogram->SetTitle("");
+        frameHistogram->GetXaxis()->SetTitle(spec.xlabel.c_str());
+        frameHistogram->GetYaxis()->SetTitle("Normalized counts");
+        frameHistogram->SetMaximum(maxY * 1.2);
+      }
+      legend->Draw();
+      gPad->Modified();
+      gPad->Update();
+
+      const std::string outpath = outputDir + "/Kinematic1D_" + spec.var + ".pdf";
+      canvas->SaveAs(outpath.c_str());
+      std::cout << "Saved DVCS kinematic 1D comparison to: " << outpath << "\n";
+      delete legend;
+      delete canvas;
+    }
+  }
+
+  void PlotKinematic2D() {
+    if (plotters.empty()) {
+      std::cerr << "PlotKinematic2D requires at least one loaded model.\n";
+      return;
+    }
+
+    struct Kin2DSpec {
+      std::string tag;
+      std::string xvar;
+      std::string yvar;
+      std::string xlabel;
+      std::string ylabel;
+      int xbins;
+      double xmin;
+      double xmax;
+      int ybins;
+      double ymin;
+      double ymax;
+    };
+
+    const std::vector<Kin2DSpec> vars = {
+        {"xB_vs_Q2", "xB", "Q2", "x_{B}", "Q^{2} [GeV^{2}]",
+         160, 0.1, 0.7, 160, 1.0, 6.0},
+        {"phi_vs_t", "phi", "t", "#phi [deg]", "-t [GeV^{2}]",
+         180, 0.0, 360.0, 160, 0.0, 2.0}};
+
+    struct BookedKin2DHistogram {
+      size_t plotterIndex;
+      size_t variableIndex;
+      ROOT::RDF::RResultPtr<TH2D> data;
+    };
+
+    std::vector<BookedKin2DHistogram> bookedHistograms;
+    std::vector<ROOT::RDF::RResultHandle> resultHandles;
+
+    for (size_t m = 0; m < plotters.size(); ++m) {
+      auto rdfData = plotters[m]->GetRDF();
+
+      for (size_t i = 0; i < vars.size(); ++i) {
+        const auto& spec = vars[i];
+        if (!rdfData.HasColumn(spec.xvar) || !rdfData.HasColumn(spec.yvar)) {
+          std::cerr << "[PlotKinematic2D] skipping " << spec.tag
+                    << " for " << labels[m] << ": missing column.\n";
+          continue;
+        }
+
+        BookedKin2DHistogram booked{
+            m,
+            i,
+            rdfData.Histo2D(
+                {Form("h_kin2d_data_%s_%zu", spec.tag.c_str(), m),
+                 (";" + spec.xlabel + ";" + spec.ylabel + ";Counts").c_str(),
+                 spec.xbins, spec.xmin, spec.xmax,
+                 spec.ybins, spec.ymin, spec.ymax},
+                spec.xvar, spec.yvar)};
+
+        resultHandles.emplace_back(booked.data);
+        bookedHistograms.emplace_back(std::move(booked));
+      }
+    }
+
+    if (resultHandles.empty()) {
+      std::cerr << "[PlotKinematic2D] no histograms were booked.\n";
+      return;
+    }
+
+    const unsigned int eventLoopCount = ROOT::RDF::RunGraphs(resultHandles);
+    std::cout << "[PlotKinematic2D] completed " << eventLoopCount
+              << " independent RDataFrame event loop(s).\n";
+
+    for (size_t i = 0; i < vars.size(); ++i) {
+      const auto& spec = vars[i];
+      for (auto& booked : bookedHistograms) {
+        if (booked.variableIndex != i) continue;
+
+        const std::string& label = labels[booked.plotterIndex];
+        TCanvas* canvas = new TCanvas(
+            Form("c_Kinematic2D_%s_%zu", spec.tag.c_str(), booked.plotterIndex),
+            Form("%s %s", label.c_str(), spec.tag.c_str()), 900, 750);
+        styleKin_.StylePad((TPad*)gPad);
+        gPad->SetTicks();
+        gPad->SetRightMargin(0.16);
+
+        TH2D* hist = (TH2D*)booked.data.GetPtr()->Clone();
+        hist->SetDirectory(0);
+        hist->SetStats(0);
+        hist->SetTitle(label.c_str());
+        hist->GetXaxis()->SetTitle(spec.xlabel.c_str());
+        hist->GetYaxis()->SetTitle(spec.ylabel.c_str());
+        hist->GetZaxis()->SetTitle("Counts");
+        hist->Draw("COLZ");
+        gPad->Modified();
+        gPad->Update();
+
+        std::string outpath = outputDir + "/Kinematic2D_" + spec.tag;
+        if (plotters.size() > 1) outpath += "_" + label;
+        std::replace(outpath.begin(), outpath.end(), ' ', '_');
+        std::replace(outpath.begin(), outpath.end(), ',', '_');
+        outpath += ".pdf";
+
+        canvas->SaveAs(outpath.c_str());
+        std::cout << "Saved DVCS kinematic 2D plot to: " << outpath << "\n";
+        delete hist;
+        delete canvas;
+      }
+    }
+  }
+
+  void Plot2DParticle() {
+    if (plotters.empty()) {
+      std::cerr << "Plot2DParticle requires at least one loaded model.\n";
+      return;
+    }
+
+    struct ParticleSpec {
+      std::string tag;
+      std::string title;
+      std::string pColumn;
+      std::string thetaColumn;
+      double thetaMin;
+      double thetaMax;
+      double pMin;
+      double pMax;
+    };
+
+    const std::vector<ParticleSpec> particles = {
+        {"e", "e", "recel_p", "recel_theta", 5.0, 40.0, 1.0, 7.0},
+        {"p", "p", "recpro_p", "recpro_theta", 0.0, 80.0, 0.0, 2.0},
+        {"gamma", "#gamma", "recpho_p", "recpho_theta", 0.0, 40.0, 1.0, 7.0}};
+
+    struct BookedParticle2DHistogram {
+      size_t plotterIndex;
+      size_t particleIndex;
+      ROOT::RDF::RResultPtr<TH2D> data;
+    };
+
+    std::vector<BookedParticle2DHistogram> bookedHistograms;
+    std::vector<ROOT::RDF::RResultHandle> resultHandles;
+
+    for (size_t m = 0; m < plotters.size(); ++m) {
+      auto rdfData = plotters[m]->GetRDF();
+
+      for (size_t i = 0; i < particles.size(); ++i) {
+        const auto& spec = particles[i];
+        if (!rdfData.HasColumn(spec.pColumn) || !rdfData.HasColumn(spec.thetaColumn)) {
+          std::cerr << "[Plot2DParticle] skipping " << spec.tag
+                    << " for " << labels[m] << ": missing column.\n";
+          continue;
+        }
+
+        const std::string thetaDegColumn =
+            Form("plot2dparticle_%s_theta_deg_%zu", spec.tag.c_str(), m);
+        auto rdfParticle = rdfData.Define(
+            thetaDegColumn,
+            [](double theta) { return theta * 180.0 / M_PI; },
+            {spec.thetaColumn});
+        if (spec.tag == "e") {
+          rdfParticle = rdfParticle.Filter(
+              [](double p) { return p >= 2.0; },
+              {spec.pColumn},
+              "electron p >= 2 GeV/c for Plot2DParticle");
+        }
+
+        BookedParticle2DHistogram booked{
+            m,
+            i,
+            rdfParticle.Histo2D(
+                {Form("h_particle2d_%s_%zu", spec.tag.c_str(), m),
+                 (spec.title + ";#theta [deg];p [GeV/c];Counts").c_str(),
+                 160, spec.thetaMin, spec.thetaMax,
+                 160, spec.pMin, spec.pMax},
+                thetaDegColumn, spec.pColumn)};
+
+        resultHandles.emplace_back(booked.data);
+        bookedHistograms.emplace_back(std::move(booked));
+      }
+    }
+
+    if (resultHandles.empty()) {
+      std::cerr << "[Plot2DParticle] no histograms were booked.\n";
+      return;
+    }
+
+    const unsigned int eventLoopCount = ROOT::RDF::RunGraphs(resultHandles);
+    std::cout << "[Plot2DParticle] completed " << eventLoopCount
+              << " independent RDataFrame event loop(s).\n";
+
+    for (size_t i = 0; i < particles.size(); ++i) {
+      const auto& spec = particles[i];
+      for (auto& booked : bookedHistograms) {
+        if (booked.particleIndex != i) continue;
+
+        const std::string& label = labels[booked.plotterIndex];
+        TCanvas* canvas = new TCanvas(
+            Form("c_Particle2D_%s_%zu", spec.tag.c_str(), booked.plotterIndex),
+            Form("%s %s theta vs p", label.c_str(), spec.tag.c_str()), 900, 750);
+        styleKin_.StylePad((TPad*)gPad);
+        gPad->SetTicks();
+        gPad->SetRightMargin(0.16);
+
+        TH2D* hist = (TH2D*)booked.data.GetPtr()->Clone();
+        hist->SetDirectory(0);
+        hist->SetStats(0);
+        hist->SetTitle(label.c_str());
+        hist->GetXaxis()->SetTitle("#theta [deg]");
+        hist->GetYaxis()->SetTitle("p [GeV/c]");
+        hist->GetZaxis()->SetTitle("Counts");
+        hist->Draw("COLZ");
+        gPad->Modified();
+        gPad->Update();
+
+        std::string cleanLabel = label;
+        std::replace(cleanLabel.begin(), cleanLabel.end(), ' ', '_');
+        std::replace(cleanLabel.begin(), cleanLabel.end(), ',', '_');
+
+        std::string outpath = outputDir + "/Particle2D_" + spec.tag;
+        if (plotters.size() > 1) outpath += "_" + cleanLabel;
+        outpath += ".pdf";
+
+        canvas->SaveAs(outpath.c_str());
+        std::cout << "Saved DVCS particle 2D plot to: " << outpath << "\n";
+        delete hist;
+        delete canvas;
+      }
+    }
+  }
+
   void PlotPhiDVEPKinematicsPlots(bool plotIndividual = false) {
     // Store current global TGaxis state
     int oldMaxDigits = TGaxis::GetMaxDigits();
@@ -1608,6 +1986,63 @@ class DISANAcomparer {
     }
   }
 
+  void WriteXBQ2tEventsCSV(const std::string& filename = "xBQ2t_events.csv") const {
+    const std::string outPath = outputDir + "/" + filename;
+    std::ofstream csv(outPath);
+    if (!csv) {
+      std::cerr << "[WriteXBQ2tEventsCSV] ERROR: cannot open output file: "
+                << outPath << std::endl;
+      return;
+    }
+
+    auto csvEscape = [](const std::string& value) {
+      if (value.find_first_of(",\"\n") == std::string::npos) return value;
+      std::string escaped = "\"";
+      for (char c : value) {
+        if (c == '"') escaped += "\"\"";
+        else escaped += c;
+      }
+      escaped += "\"";
+      return escaped;
+    };
+
+    csv << std::setprecision(12);
+    csv << "model_index,model_label,event_index,xB,Q2,t\n";
+
+    unsigned long long totalEvents = 0;
+    for (size_t imodel = 0; imodel < plotters.size(); ++imodel) {
+      auto rdf = plotters[imodel]->GetRDF();
+      if (!rdf.HasColumn("xB") || !rdf.HasColumn("Q2") || !rdf.HasColumn("t")) {
+        std::cerr << "[WriteXBQ2tEventsCSV] skipping model " << imodel
+                  << ": missing xB, Q2, or t column." << std::endl;
+        continue;
+      }
+
+      auto xBValues = rdf.Take<double>("xB");
+      auto Q2Values = rdf.Take<double>("Q2");
+      auto tValues = rdf.Take<double>("t");
+      std::vector<ROOT::RDF::RResultHandle> resultHandles = {
+          xBValues, Q2Values, tValues};
+      ROOT::RDF::RunGraphs(resultHandles);
+
+      const auto& xB = *xBValues;
+      const auto& Q2 = *Q2Values;
+      const auto& t = *tValues;
+      const size_t nEvents = std::min({xB.size(), Q2.size(), t.size()});
+      const std::string label =
+          imodel < labels.size() ? csvEscape(labels[imodel]) : Form("model_%zu", imodel);
+
+      for (size_t iev = 0; iev < nEvents; ++iev) {
+        csv << imodel << "," << label << "," << iev << ","
+            << xB[iev] << "," << Q2[iev] << "," << t[iev] << "\n";
+      }
+      totalEvents += nEvents;
+    }
+
+    std::cout << "Saved xB Q2 t event CSV to: " << outPath
+              << " (" << totalEvents << " events)" << std::endl;
+  }
+
 
   void PlotDVCSKinematicsComparison(bool plotIndividual = false) {
     // Store current global TGaxis state
@@ -1913,6 +2348,7 @@ class DISANAcomparer {
     // Final save and cleanup
     canvas->SaveAs((outputDir + "/xBQ2tBin.pdf").c_str());
     std::cout << "Saved xBQ2tBin kinematics to: " << outputDir + "/xBQ2tBin.pdf" << std::endl;
+    WriteXBQ2tEventsCSV();
     delete canvas;
     TGaxis::SetMaxDigits(oldMaxDigits);
   }
@@ -2325,16 +2761,12 @@ class DISANAcomparer {
 
   void PlotExclusivityComparisonByDetectorCaseswithPi0(
       const std::vector<std::pair<std::string, std::string>>& detectorCuts,
-      const std::vector<double>& tbin) {
+      const std::vector<double>& tbin,
+      bool drawPi0Subtracted = false) {
     std::vector<std::tuple<std::string, std::string, std::string, double, double>> vars = {
         {"Mx2_ep", "Missing Mass Squared (ep)", "MM^{2}(ep) [GeV^{2}]", -0.6, 0.6},
-        {"Emiss", "Missing Energy", "E_{miss} [GeV]", -1.0, 2.0},
-        {"PTmiss", "Transverse Missing Momentum", "P_{T}^{miss} [GeV/c]", -0.1, 0.4},
-        {"Theta_gamma_gamma", "#theta(#gamma, #vec{q})", "#theta_{#gamma#gamma'} [deg]", -2.0, 4.0},
-        {"DeltaPhi", "Coplanarity Angle", "#Delta#phi [deg]", 0.0, 20.0},
-        {"Mx2_epg", "Missing Mass Squared (ep#gamma)", "MM^{2}(ep#gamma) [GeV^{2}]", -0.05, 0.05},
-        {"Mx2_eg", "Invariant Mass (e#gamma)", "M^{2}(e#gamma) [GeV^{2}]", -0.5, 3.0},
-        {"Theta_e_gamma", "Angle: e-#gamma", "#theta(e, #gamma) [deg]", 0.0, 60.0}};
+        {"Mx2_eg", "Missing Mass Squared (e#gamma)", "MM^{2}(e#gamma) [GeV^{2}]", -0.5, 3.0},
+        {"Mx2_epg", "Missing Mass Squared (ep#gamma)", "MM^{2}(ep#gamma) [GeV^{2}]", -0.05, 0.05}};
 
     if (tbin.size() < 2) {
       std::cerr << "PlotExclusivityComparisonByDetectorCaseswithPi0 requires at least two t-bin edges.\n";
@@ -2344,6 +2776,7 @@ class DISANAcomparer {
     struct BookedHistograms {
       ROOT::RDF::RResultPtr<TH1D> dvcs;
       ROOT::RDF::RResultPtr<TH1D> pi0Data;
+      ROOT::RDF::RResultPtr<TH1D> dvcsMC;
       ROOT::RDF::RResultPtr<TH1D> dvcsPi0MC;
       ROOT::RDF::RResultPtr<TH1D> pi0Pi0MC;
     };
@@ -2370,13 +2803,15 @@ class DISANAcomparer {
         for (size_t m = 0; m < plotters.size(); ++m) {
           auto rdfDVCS = plotters[m]->GetRDF().Filter(cutExpr, cutLabel).Filter(tCut, tLabel);
           auto rdfPi0 = plotters[m]->GetRDF_Pi0Data().Filter(cutExpr, cutLabel).Filter(tCut, tLabel);
+          auto rdfDVCSMC = plotters[m]->GetRDF_DVCSMC().Filter(cutExpr, cutLabel).Filter(tCut, tLabel);
           auto rdfDVCSPi0MC = plotters[m]->GetRDF_DVCSSelectedPi0MC().Filter(cutExpr, cutLabel).Filter(tCut, tLabel);
           auto rdfPi0Pi0MC = plotters[m]->GetRDF_Pi0SelectedPi0MC().Filter(cutExpr, cutLabel).Filter(tCut, tLabel);
 
           for (size_t variableIndex = 0; variableIndex < vars.size(); ++variableIndex) {
             const auto& [var, title, xlabel, xmin, xmax] = vars[variableIndex];
             if (!rdfDVCS.HasColumn(var) || !rdfPi0.HasColumn(var) ||
-                !rdfDVCSPi0MC.HasColumn(var) || !rdfPi0Pi0MC.HasColumn(var)) {
+                !rdfDVCSMC.HasColumn(var) || !rdfDVCSPi0MC.HasColumn(var) ||
+                !rdfPi0Pi0MC.HasColumn(var)) {
               continue;
             }
 
@@ -2389,6 +2824,10 @@ class DISANAcomparer {
                     {Form("h_pi0data_%s_%s_tbin%zu_%zu", var.c_str(), cleanName.c_str(), tbinIndex, m),
                      (title + ";" + xlabel + ";Counts / N_{DVCS}").c_str(), 100, xmin, xmax},
                     var),
+                rdfDVCSMC.Histo1D(
+                    {Form("h_dvcsmc_%s_%s_tbin%zu_%zu", var.c_str(), cleanName.c_str(), tbinIndex, m),
+                     "", 100, xmin, xmax},
+                    var),
                 rdfDVCSPi0MC.Histo1D(
                     {Form("h_dvcs_pi0mc_%s_%s_tbin%zu_%zu", var.c_str(), cleanName.c_str(), tbinIndex, m),
                      "", 100, xmin, xmax},
@@ -2400,6 +2839,7 @@ class DISANAcomparer {
 
             resultHandles.emplace_back(booked.dvcs);
             resultHandles.emplace_back(booked.pi0Data);
+            resultHandles.emplace_back(booked.dvcsMC);
             resultHandles.emplace_back(booked.dvcsPi0MC);
             resultHandles.emplace_back(booked.pi0Pi0MC);
             bookedHistograms.emplace(
@@ -2431,9 +2871,9 @@ class DISANAcomparer {
 
         const std::string tLabel = Form("%.3f <= t < %.3f GeV^{2}", tLow, tHigh);
         const std::string canvasName = Form("c_DVCS_vs_Pi0Data_%s_tbin%zu", cleanName.c_str(), tbinIndex);
-        TCanvas* canvas = new TCanvas(canvasName.c_str(), (cutLabel + ", " + tLabel).c_str(), 1800, 1200);
+        TCanvas* canvas = new TCanvas(canvasName.c_str(), (cutLabel + ", " + tLabel).c_str(), 1800, 600);
         const int cols = 3;
-        const int rows = (vars.size() + cols - 1) / cols;
+        const int rows = 1;
         canvas->Divide(cols, rows);
 
         for (size_t i = 0; i < vars.size(); ++i) {
@@ -2441,6 +2881,9 @@ class DISANAcomparer {
           const std::string& var = std::get<0>(vars[i]);
           gPad->SetTicks();
           styleKin_.StylePad((TPad*)gPad);
+          if (var == "Mx2_epg") {
+            gPad->SetBottomMargin(0.16);
+          }
 
         TLegend* legend = new TLegend(0.54, 0.68, 0.88, 0.88);
         legend->SetBorderSize(0);
@@ -2459,40 +2902,49 @@ class DISANAcomparer {
 
           TH1D* hDVCS = (TH1D*)booked.dvcs.GetPtr()->Clone();
           hDVCS->SetDirectory(0);
+          TH1D* hDVCSMC = (TH1D*)booked.dvcsMC.GetPtr()->Clone();
+          hDVCSMC->SetDirectory(0);
 
           const double dvcsIntegral = hDVCS->Integral();
           if (dvcsIntegral <= 0.0) {
             delete hDVCS;
+            delete hDVCSMC;
             continue;
           }
+          const double dvcsMCIntegral = hDVCSMC->Integral();
 
           TH1D* hSubtracted = nullptr;
-          const double nDVCSPi0MC = booked.dvcsPi0MC.GetPtr()->Integral();
-          const double nPi0Pi0MC = booked.pi0Pi0MC.GetPtr()->Integral();
-          const double pi0TransferFactor =
-              nPi0Pi0MC > 0.0 ? nDVCSPi0MC / nPi0Pi0MC : 0.0;
+          if (drawPi0Subtracted) {
+            const double nDVCSPi0MC = booked.dvcsPi0MC.GetPtr()->Integral();
+            const double nPi0Pi0MC = booked.pi0Pi0MC.GetPtr()->Integral();
+            const double pi0TransferFactor =
+                nPi0Pi0MC > 0.0 ? nDVCSPi0MC / nPi0Pi0MC : 0.0;
 
-          TH1D* hPi0Contamination = (TH1D*)booked.pi0Data.GetPtr()->Clone();
-          hPi0Contamination->SetDirectory(0);
-          hPi0Contamination->Scale(pi0TransferFactor);
+            TH1D* hPi0Contamination = (TH1D*)booked.pi0Data.GetPtr()->Clone();
+            hPi0Contamination->SetDirectory(0);
+            hPi0Contamination->Scale(pi0TransferFactor);
 
-          hSubtracted = (TH1D*)hDVCS->Clone(
-              Form("h_pi0_subtracted_%s_%s_tbin%zu_%zu",
-                   var.c_str(), cleanName.c_str(), tbinIndex, m));
-          hSubtracted->SetDirectory(0);
-          hSubtracted->Add(hPi0Contamination, -1.0);
-          for (int bin = 0; bin <= hSubtracted->GetNbinsX() + 1; ++bin) {
-            if (hSubtracted->GetBinContent(bin) < 0.0) {
-              hSubtracted->SetBinContent(bin, 0.0);
+            hSubtracted = (TH1D*)hDVCS->Clone(
+                Form("h_pi0_subtracted_%s_%s_tbin%zu_%zu",
+                     var.c_str(), cleanName.c_str(), tbinIndex, m));
+            hSubtracted->SetDirectory(0);
+            hSubtracted->Add(hPi0Contamination, -1.0);
+            for (int bin = 0; bin <= hSubtracted->GetNbinsX() + 1; ++bin) {
+              if (hSubtracted->GetBinContent(bin) < 0.0) {
+                hSubtracted->SetBinContent(bin, 0.0);
+              }
             }
+            delete hPi0Contamination;
           }
-          delete hPi0Contamination;
 
           hDVCS->Scale(1.0 / dvcsIntegral);
           styleKin_.StyleTH1(hDVCS);
           hDVCS->SetLineColor(m + 2);
           hDVCS->SetLineWidth(1);
-          hDVCS->SetLineStyle(2);
+          hDVCS->SetLineStyle(drawPi0Subtracted ? 2 : 1);
+          if (var == "Mx2_epg") {
+            hDVCS->GetXaxis()->SetNdivisions(404);
+          }
 
           if (hSubtracted) {
             hSubtracted->Scale(1.0 / dvcsIntegral);
@@ -2500,6 +2952,20 @@ class DISANAcomparer {
             hSubtracted->SetLineColor(m + 2);
             hSubtracted->SetLineWidth(1);
             hSubtracted->SetLineStyle(1);
+            if (var == "Mx2_epg") {
+              hSubtracted->GetXaxis()->SetNdivisions(404);
+            }
+          }
+
+          if (dvcsMCIntegral > 0.0) {
+            hDVCSMC->Scale(1.0 / dvcsMCIntegral);
+            styleKin_.StyleTH1(hDVCSMC);
+            hDVCSMC->SetLineColor(kGreen + 1);
+            hDVCSMC->SetLineWidth(1);
+            hDVCSMC->SetLineStyle(1);
+            if (var == "Mx2_epg") {
+              hDVCSMC->GetXaxis()->SetNdivisions(404);
+            }
           }
 
           if (first) {
@@ -2510,11 +2976,14 @@ class DISANAcomparer {
             hDVCS->Draw("HIST SAME");
           }
           if (hSubtracted) hSubtracted->Draw("HIST SAME");
+          if (dvcsMCIntegral > 0.0) hDVCSMC->Draw("HIST SAME");
 
           maxY = std::max(maxY, hDVCS->GetMaximum());
           if (hSubtracted) maxY = std::max(maxY, hSubtracted->GetMaximum());
+          if (dvcsMCIntegral > 0.0) maxY = std::max(maxY, hDVCSMC->GetMaximum());
           legend->AddEntry(hDVCS, (labels[m] + " DVCS Data").c_str(), "l");
           if (hSubtracted) legend->AddEntry(hSubtracted, (labels[m] + " Pi0 Subtracted").c_str(), "l");
+          if (dvcsMCIntegral > 0.0) legend->AddEntry(hDVCSMC, (labels[m] + " DVCS MC").c_str(), "l");
         }
 
           if (frameHistogram) frameHistogram->SetMaximum(maxY * 1.2);
@@ -3074,23 +3543,32 @@ class DISANAcomparer {
       return;
     }
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSA;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allBSAraw;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSCross;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSPolCross_postive;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allDVCSPolCross_negative;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0Corr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffmc;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0DVCSdiffexp;
+    std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allPi0BSA;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allAccCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allEffCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allRadCorr;
     std::vector<std::vector<std::vector<std::vector<TH1D*>>>> allP1Cut;
     // job for chatgpt
     std::vector<std::vector<std::vector<std::vector<std::tuple<double, double, double>>>>> allBSAmeans;
+    bool hasPi0CorrectedBSA = false;
 
     for (auto& p : plotters) {
       if (plotBSA) {
-        auto h = p->ComputeBSA(fXbins, pol);
-        allBSA.push_back(std::move(h));
+        auto [hraw, hcorr] = p->ComputeBSAWithRaw(fXbins, pol);
+        if (p->getDoPi0Corr() && !hcorr.empty()) {
+          hasPi0CorrectedBSA = true;
+          allBSA.push_back(std::move(hcorr));
+        } else {
+          allBSA.push_back(hraw);
+        }
+        allBSAraw.push_back(std::move(hraw));
       }
       if (plotDVCSCross) {
         auto hists = p->ComputeDVCS_CrossSection(fXbins);
@@ -3104,9 +3582,11 @@ class DISANAcomparer {
         auto hcorr = p->ComputePi0Corr(fXbins);
         auto hpi0dvcsdiffmc = p->ComputePi0DVCSdiffmc(fXbins);
         auto hpi0dvcsdiffexp = p->ComputePi0DVCSdiffexp(fXbins);
+        auto hpi0bsa = p->ComputePi0BSA(fXbins, pol);
         allPi0Corr.push_back(std::move(hcorr));
         allPi0DVCSdiffmc.push_back(std::move(hpi0dvcsdiffmc));
         allPi0DVCSdiffexp.push_back(std::move(hpi0dvcsdiffexp));
+        allPi0BSA.push_back(std::move(hpi0bsa));
       }
       if (plotAccCorr) {
         auto hacc = p->ComputeAccCorr(fXbins);
@@ -3130,6 +3610,7 @@ class DISANAcomparer {
     }
 
     if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
+    if (plotBSA && hasPi0CorrectedBSA) MakeTiledGridComparison("DIS_BSAraw", "A_{LU}^{raw}", allBSAraw, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
     if (plotDVCSCross){
         MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
         MakeTiledGridComparison("DIS_PolCross_Section_Positive", "d#sigma^{+}/d#phi [nb/GeV^4]", allDVCSPolCross_postive, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
@@ -3138,6 +3619,7 @@ class DISANAcomparer {
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
     if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0BSA", "A_{LU}^{#pi^{0}}", allPi0BSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
     if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
     if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
     if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.5, 1.5, "pdf", false, true, false, false, meanKinVar);
