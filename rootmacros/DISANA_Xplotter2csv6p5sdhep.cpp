@@ -284,6 +284,11 @@ ROOT::RDF::RNode momentumcorr(ROOT::RDF::RNode df_, bool applyCorrection,
   df_ = redefine_DISCAT(df_, "xB", &DISANAMath::GetxB, beam_energy);
   df_ = redefine_DISCAT(df_, "t", &DISANAMath::GetT, beam_energy);
   df_ = redefine_DISCAT(df_, "phi", &DISANAMath::GetPhi, beam_energy);
+  df_ = redefine_DISCAT(df_, "xi_SDHEP", &DISANAMath::GetXi, beam_energy);
+  df_ = redefine_DISCAT(df_, "costheta_SDHEP", &DISANAMath::GetCostheta_SDHEP, beam_energy);
+  df_ = redefine_DISCAT(df_, "phi_SDHEP", &DISANAMath::GetPhi_SDHEP, beam_energy);
+  df_ = redefine_DISCAT(df_, "shat_SDHEP", &DISANAMath::GetShat_SDHEP, beam_energy);
+  df_ = redefine_DISCAT(df_, "qT_SDHEP", &DISANAMath::GetQT_SDHEP, beam_energy);
   df_ = redefine_DISCAT(df_, "W", &DISANAMath::GetW, beam_energy);
   df_ = redefine_DISCAT(df_, "nu", &DISANAMath::GetNu, beam_energy);
   df_ = redefine_DISCAT(df_, "y", &DISANAMath::Gety, beam_energy);
@@ -345,6 +350,7 @@ void WriteRunEventCounts(ROOT::RDF::RNode df,
 }
 
 void DISANA_Xplotter2csv6p5sdhep() {
+  const bool useSDHEP = true;  // false preserves the conventional xB-Q2-t-phi analysis
   bool ComputeBgk_core = false;  // Set to true if you want to compute background
   bool DoBkgCorr = true;       // Set to true if you want to apply background correction
 
@@ -406,15 +412,15 @@ void DISANA_Xplotter2csv6p5sdhep() {
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_norad, "MC", beam_energy);
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_p1cut, "MC", beam_energy);
 
-  ROOT::RDF::RNode df_afterFid_6535_data = GetSlim_exclusive(df_afterFid_6535_data_init, "dfSlim_6535_data.root", "dfSlim_6535_data", false);
-  ROOT::RDF::RNode df_afterFid_6535_pi0MC = GetSlim_exclusive(df_afterFid_6535_pi0MC_init, "dfSlim_6535_pi0MC.root", "dfSlim_6535_pi0MC", false);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_gen = GetSlim_exclusive(df_afterFid_6535_dvcsmc_gen_init, "dfSlim_6535_dvcsmc_gen.root", "dfSlim_6535_dvcsmc_gen", true);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rec = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rec_init, "dfSlim_6535_dvcsmc_rec.root", "dfSlim_6535_dvcsmc_rec", false);
-  ROOT::RDF::RNode df_afterFid_6535_bkg = GetSlim_exclusive(df_afterFid_6535_bkg_init, "dfSlim_6535_bkg.root", "dfSlim_6535_bkg", false);
-  ROOT::RDF::RNode df_afterFid_6535_nobkg = GetSlim_exclusive(df_afterFid_6535_nobkg_init, "dfSlim_6535_nobkg.root", "dfSlim_6535_nobkg", false);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rad = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rad_init, "dfSlim_6535_dvcsmc_rad.root", "dfSlim_6535_dvcsmc_rad", true);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad = GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_init, "dfSlim_6535_dvcsmc_norad.root", "dfSlim_6535_dvcsmc_norad", true);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_6535_dvcsmc_p1cut_init, "dfSlim_6535_dvcsmc_p1cut.root", "dfSlim_6535_dvcsmc_p1cut", true);
+  ROOT::RDF::RNode df_afterFid_6535_data = GetSlim_exclusive(df_afterFid_6535_data_init, "dfSlim_6535_data_sdhep.root", "dfSlim_6535_data_sdhep", false);
+  ROOT::RDF::RNode df_afterFid_6535_pi0MC = GetSlim_exclusive(df_afterFid_6535_pi0MC_init, "dfSlim_6535_pi0MC_sdhep.root", "dfSlim_6535_pi0MC_sdhep", false);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_gen = GetSlim_exclusive(df_afterFid_6535_dvcsmc_gen_init, "dfSlim_6535_dvcsmc_gen_sdhep.root", "dfSlim_6535_dvcsmc_gen_sdhep", true);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rec = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rec_init, "dfSlim_6535_dvcsmc_rec_sdhep.root", "dfSlim_6535_dvcsmc_rec_sdhep", false);
+  ROOT::RDF::RNode df_afterFid_6535_bkg = GetSlim_exclusive(df_afterFid_6535_bkg_init, "dfSlim_6535_bkg_sdhep.root", "dfSlim_6535_bkg_sdhep", false);
+  ROOT::RDF::RNode df_afterFid_6535_nobkg = GetSlim_exclusive(df_afterFid_6535_nobkg_init, "dfSlim_6535_nobkg_sdhep.root", "dfSlim_6535_nobkg_sdhep", false);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rad = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rad_init, "dfSlim_6535_dvcsmc_rad_sdhep.root", "dfSlim_6535_dvcsmc_rad_sdhep", true);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad = GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_init, "dfSlim_6535_dvcsmc_norad_sdhep.root", "dfSlim_6535_dvcsmc_norad_sdhep", true);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_6535_dvcsmc_p1cut_init, "dfSlim_6535_dvcsmc_p1cut_sdhep.root", "dfSlim_6535_dvcsmc_p1cut_sdhep", true);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
 
@@ -448,6 +454,7 @@ void DISANA_Xplotter2csv6p5sdhep() {
   comparer.PlotIndividual(false);
   /// bins for cross-section plots
   BinManager xBins;
+  xBins.SetUseSDHEP(useSDHEP);
 
   //xBins.SetQ2Bins({1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50});
   //xBins.SetTBins({0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
@@ -474,7 +481,12 @@ void DISANA_Xplotter2csv6p5sdhep() {
   // xBins.AddCustomBin(0.160, 0.285, 1.00, 1.20, 0.23, 0.43);
   //
   // Equivalent batch configuration:
-  xBins.SetCustomBins({
+  if (useSDHEP) {
+    // Exploratory SDHEP binning; refine these edges using the phase-space PDF.
+    xBins.SetXiBins({0.00, 0.1, 0.2, 0.60});
+    xBins.SetCosThetaSDHEPBins({-0.80, 0.00, 0.40, 0.60, 0.80});
+    xBins.SetTBins({0.00, 0.25, 0.50, 1.00, 2.00});
+  } else xBins.SetCustomBins({
        {0.000, 0.170, 1.00, 7.00, 0.00, 0.25},
        {0.000, 0.170, 1.00, 7.00, 0.25, 0.38},
        {0.000, 0.170, 1.00, 7.00, 0.38, 0.56},
@@ -508,6 +520,7 @@ void DISANA_Xplotter2csv6p5sdhep() {
   });
 
   comparer.SetXBinsRanges(xBins);
+  comparer.SetUseSDHEP(useSDHEP);
 
   //double charge=4.815525219658029+(8.88177914805192-0.2128897513862203)*0.5; // mC (5681-5757, 5757-5870(trigger prescale 2), 5758removed) 7.5GeV
   double charge=17.644; // mC 6.5GeV 5919 removed
@@ -555,11 +568,12 @@ void DISANA_Xplotter2csv6p5sdhep() {
                               df_afterFid_6535_dvcsmc_rad,
                               df_afterFid_6535_dvcsmc_norad,
                               df_afterFid_6535_dvcsmc_p1cut,
-                              "RGK 6.5GeV", beam_energy, true, false, false, false, false, luminosity, 55.09, 60, 0.8335/*0.8280/0.9495*/);
+                              "RGK 6.5GeV", beam_energy, true, true, true, true, false, luminosity, 55.09, 60, 0.8335/*0.8280/0.9495*/);
 
 
   //comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
+  if (useSDHEP) comparer.PlotSDHEPPhaseSpace();
   //comparer.PlotxBQ2tBin();
   //comparer.PlotxBQ2tBinPi0();
   //comparer.PlotxBQ2tBinMC();
@@ -570,11 +584,11 @@ void DISANA_Xplotter2csv6p5sdhep() {
   comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(
       polarisation,
       true,   // BSA
-      false,  // DVCS cross section
+      true,  // DVCS cross section
       true,   // Pi0 correction
-      false,  // acceptance correction
-      false,  // efficiency correction
-      false,  // radiative correction
+      true,  // acceptance correction
+      true,  // efficiency correction
+      true,  // radiative correction
       false,  // P1 cut
       true); // mean kinematics
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
@@ -757,6 +771,11 @@ ROOT::RDF::RNode InitKinematics(const std::string& filename_, const std::string&
   df_ = define_DISCAT(df_, "xB", &DISANAMath::GetxB, beam_energy);
   df_ = define_DISCAT(df_, "t", &DISANAMath::GetT, beam_energy);
   df_ = define_DISCAT(df_, "phi", &DISANAMath::GetPhi, beam_energy);
+  df_ = define_DISCAT(df_, "xi_SDHEP", &DISANAMath::GetXi, beam_energy);
+  df_ = define_DISCAT(df_, "costheta_SDHEP", &DISANAMath::GetCostheta_SDHEP, beam_energy);
+  df_ = define_DISCAT(df_, "phi_SDHEP", &DISANAMath::GetPhi_SDHEP, beam_energy);
+  df_ = define_DISCAT(df_, "shat_SDHEP", &DISANAMath::GetShat_SDHEP, beam_energy);
+  df_ = define_DISCAT(df_, "qT_SDHEP", &DISANAMath::GetQT_SDHEP, beam_energy);
   df_ = define_DISCAT(df_, "W", &DISANAMath::GetW, beam_energy);
   df_ = define_DISCAT(df_, "nu", &DISANAMath::GetNu, beam_energy);
   df_ = define_DISCAT(df_, "y", &DISANAMath::Gety, beam_energy);
@@ -1439,6 +1458,11 @@ ROOT::RDF::RNode InitGenKinematics(const std::string& filename_, const std::stri
   *df_ = define_DISCAT(*df_, "xB", &DISANAMath::GetxB, beam_energy);
   *df_ = define_DISCAT(*df_, "t", &DISANAMath::GetT, beam_energy);
   *df_ = define_DISCAT(*df_, "phi", &DISANAMath::GetPhi, beam_energy);
+  *df_ = define_DISCAT(*df_, "xi_SDHEP", &DISANAMath::GetXi, beam_energy);
+  *df_ = define_DISCAT(*df_, "costheta_SDHEP", &DISANAMath::GetCostheta_SDHEP, beam_energy);
+  *df_ = define_DISCAT(*df_, "phi_SDHEP", &DISANAMath::GetPhi_SDHEP, beam_energy);
+  *df_ = define_DISCAT(*df_, "shat_SDHEP", &DISANAMath::GetShat_SDHEP, beam_energy);
+  *df_ = define_DISCAT(*df_, "qT_SDHEP", &DISANAMath::GetQT_SDHEP, beam_energy);
   *df_ = define_DISCAT(*df_, "W", &DISANAMath::GetW, beam_energy);
   *df_ = define_DISCAT(*df_, "nu", &DISANAMath::GetNu, beam_energy);
   *df_ = define_DISCAT(*df_, "y", &DISANAMath::Gety, beam_energy);
@@ -1503,6 +1527,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df, const std::st
 
     // ===== DISANAMath DVCS =====
     "Q2","xB","t","phi","W","nu","y",
+    "xi_SDHEP","costheta_SDHEP","phi_SDHEP","shat_SDHEP","qT_SDHEP",
     "Mx2_ep","Emiss","PTmiss",
     "Mx2_epg","Mx2_eg",
     "Theta_e_gamma","DeltaE","DeltaPhi","Theta_gamma_gamma"
@@ -1532,6 +1557,7 @@ ROOT::RDF::RNode WriteSlimAndReload_exclusive(ROOT::RDF::RNode df, const std::st
 
     // ===== DISANAMath DVCS =====
     "Q2","xB","t","phi","W","nu","y",
+    "xi_SDHEP","costheta_SDHEP","phi_SDHEP","shat_SDHEP","qT_SDHEP",
     "Mx2_ep","Emiss","PTmiss",
     "Mx2_epg","Mx2_eg",
     "Theta_e_gamma","DeltaE","DeltaPhi","Theta_gamma_gamma"

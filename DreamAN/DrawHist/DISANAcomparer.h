@@ -52,6 +52,8 @@ class DISANAcomparer {
  public:
   // Set the bin ranges used for cross-section calculations and plotting
   void SetXBinsRanges(BinManager bins) { fXbins = bins; }
+  void SetUseSDHEP(bool enabled = true) { fXbins.SetUseSDHEP(enabled); }
+  bool UsesSDHEP() const { return fXbins.UsesSDHEP(); }
 
   void SetDVCSWeightFunction(DVCSWeightFunction weightFunc) {
     dvcs_weight_function_ = std::move(weightFunc);
@@ -912,7 +914,7 @@ class DISANAcomparer {
               }
             }
           },
-          {"xB", "Q2", "t"});
+          {bins.GetFirstColumn(), bins.GetSecondColumn(), "t"});
 
       std::vector<std::vector<std::vector<std::tuple<double, double, double>>>> result(
           1,
@@ -983,11 +985,11 @@ class DISANAcomparer {
     auto rdf_binned = rdf
       .Define("iq_bin", [q2_bins, findBin](double Q2) {
         return findBin(Q2, q2_bins);
-      }, {"Q2"})
+      }, {bins.GetSecondColumn()})
       .Define("ix_bin", [bins, findBin](double xB, int iq) {
         if (iq < 0) return -1;
         return findBin(xB, bins.GetXBBins(static_cast<size_t>(iq)));
-      }, {"xB", "iq_bin"})
+      }, {bins.GetFirstColumn(), "iq_bin"})
       .Define("it_bin", [t_bins, findBin](double t) {
         return findBin(t, t_bins);
       }, {"t"})
@@ -1008,7 +1010,7 @@ class DISANAcomparer {
           acc.sum_t  += t;
           ++acc.count;
         },
-        {"xB", "Q2", "t", "ix_bin", "iq_bin", "it_bin"}
+        {bins.GetFirstColumn(), bins.GetSecondColumn(), "t", "ix_bin", "iq_bin", "it_bin"}
     );
   
     // 合并各个 slot 的结果
@@ -2353,6 +2355,75 @@ class DISANAcomparer {
     TGaxis::SetMaxDigits(oldMaxDigits);
   }
 
+  // SDHEP analogue of PlotxBQ2tBin.  The first two pads show the variables
+  // used for binning; qT is included as a hard-scale diagnostic.
+  void PlotSDHEPPhaseSpace() {
+    if (plotters.empty()) {
+      std::cerr << "[PlotSDHEPPhaseSpace] No models loaded.\n";
+      return;
+    }
+    auto rdf = plotters.front()->GetRDF();
+    for (const char* col : {"xi_SDHEP", "costheta_SDHEP", "t", "qT_SDHEP"}) {
+      if (!rdf.HasColumn(col)) {
+        std::cerr << "[PlotSDHEPPhaseSpace] Missing column: " << col << "\n";
+        return;
+      }
+    }
+
+    const auto xiEdges = GetAllConfiguredXBEdges();
+    const auto cosEdges = GetAllConfiguredQ2Edges();
+    const auto tEdges = GetAllConfiguredTEdges();
+    const double xiMin = xiEdges.empty() ? 0.0 : xiEdges.front();
+    const double xiMax = xiEdges.empty() ? 0.7 : xiEdges.back();
+    const double cosMin = -1.0;
+    const double cosMax = 1.0;
+    const double tMin = tEdges.empty() ? 0.0 : tEdges.front();
+    const double tMax = tEdges.empty() ? 2.0 : tEdges.back();
+
+    TCanvas* canvas = new TCanvas("SDHEPPhaseSpace", "SDHEP phase space", 5400, 1800);
+    canvas->Divide(3, 1);
+    auto style2D = [&](TH2* h) {
+      styleDVCS_.StylePad((TPad*)gPad);
+      gPad->SetRightMargin(0.16);
+      h->SetStats(0);
+      h->SetTitle("");
+      h->GetXaxis()->SetTitleSize(0.06);
+      h->GetYaxis()->SetTitleSize(0.06);
+      h->GetXaxis()->SetLabelSize(0.05);
+      h->GetYaxis()->SetLabelSize(0.05);
+      h->GetZaxis()->SetLabelSize(0.05);
+      h->DrawCopy("COLZ");
+    };
+
+    canvas->cd(1);
+    auto hXiCos = rdf.Histo2D(
+        {"h_SDHEP_costheta_vs_xi", ";#xi;cos#theta_{SDHEP}",
+         500, xiMin, xiMax, 500, cosMin, cosMax},
+        "xi_SDHEP", "costheta_SDHEP");
+    style2D(hXiCos.GetPtr());
+    DrawConfiguredXBQ2Grid(xiMin, xiMax, cosMin, cosMax, 1, 2, kRed);
+
+    canvas->cd(2);
+    auto hTCos = rdf.Histo2D(
+        {"h_SDHEP_costheta_vs_t", ";-t [GeV^{2}];cos#theta_{SDHEP}",
+         500, tMin, tMax, 500, cosMin, cosMax},
+        "t", "costheta_SDHEP");
+    style2D(hTCos.GetPtr());
+    DrawVerticalBinLines(tEdges, tMin, tMax, cosMin, cosMax, 1, 2, kRed);
+
+    canvas->cd(3);
+    auto hQTXi = rdf.Histo2D(
+        {"h_SDHEP_qT_vs_xi", ";#xi;q_{T}^{SDHEP} [GeV]",
+         500, xiMin, xiMax, 500, 0.0, 0.5 * std::sqrt(2.0 * 0.9382720813 * plotters.front()->GetBeamEnergy())},
+        "xi_SDHEP", "qT_SDHEP");
+    style2D(hQTXi.GetPtr());
+
+    const std::string path = outputDir + "/SDHEP_xi_costheta_t_PhaseSpace.pdf";
+    canvas->SaveAs(path.c_str());
+    std::cout << "Saved SDHEP phase space to: " << path << std::endl;
+    delete canvas;
+  }
+
   void PlotxBQ2tBinMC(bool plotIndividual = false) {
     // Store current global TGaxis state
     int oldMaxDigits = TGaxis::GetMaxDigits();
@@ -3609,17 +3680,18 @@ class DISANAcomparer {
       }
     }
 
-    if (plotBSA) MakeTiledGridComparison("DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
-    if (plotBSA && hasPi0CorrectedBSA) MakeTiledGridComparison("DIS_BSAraw", "A_{LU}^{raw}", allBSAraw, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
+    const std::string modePrefix = fXbins.UsesSDHEP() ? "SDHEP_" : "";
+    if (plotBSA) MakeTiledGridComparison(modePrefix + "DIS_BSA", "A_{LU}", allBSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
+    if (plotBSA && hasPi0CorrectedBSA) MakeTiledGridComparison(modePrefix + "DIS_BSAraw", "A_{LU}^{raw}", allBSAraw, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
     if (plotDVCSCross){
-        MakeTiledGridComparison("DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
-        MakeTiledGridComparison("DIS_PolCross_Section_Positive", "d#sigma^{+}/d#phi [nb/GeV^4]", allDVCSPolCross_postive, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
-        MakeTiledGridComparison("DIS_PolCross_Section_Negative", "d#sigma^{-}/d#phi [nb/GeV^4]", allDVCSPolCross_negative, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+        MakeTiledGridComparison(modePrefix + "DIS_Cross_Section", "d#sigma/d#phi [nb/GeV^4]", allDVCSCross, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+        MakeTiledGridComparison(modePrefix + "DIS_PolCross_Section_Positive", "d#sigma^{+}/d#phi [nb/GeV^4]", allDVCSPolCross_postive, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
+        MakeTiledGridComparison(modePrefix + "DIS_PolCross_Section_Negative", "d#sigma^{-}/d#phi [nb/GeV^4]", allDVCSPolCross_negative, &allBSAmeans, 0.0001, 1, "pdf", false, false, true, true, meanKinVar);
       }
-    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
-    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
-    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
-    if (plotPi0Corr) MakeTiledGridComparison("DIS_pi0BSA", "A_{LU}^{#pi^{0}}", allPi0BSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison(modePrefix + "DIS_pi0Corr", "#eta^{#pi^{0}}", allPi0Corr, &allBSAmeans, 0.0, 1, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison(modePrefix + "DIS_pi0DVCSdiffmc", "d_{mc}", allPi0DVCSdiffmc, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison(modePrefix + "DIS_pi0DVCSdiffexp", "d_{exp}", allPi0DVCSdiffexp, &allBSAmeans, 0.0, 2, "pdf", false, true, false, false, meanKinVar);
+    if (plotPi0Corr) MakeTiledGridComparison(modePrefix + "DIS_pi0BSA", "A_{LU}^{#pi^{0}}", allPi0BSA, &allBSAmeans, -0.65, 0.65, "pdf", true, true, false, false, meanKinVar);
     if (plotAccCorr) MakeTiledGridComparison("DIS_accCorr", "A_{acc}", allAccCorr, &allBSAmeans, 0.01, 1.0, "pdf", false, true, true, false, meanKinVar);
     if (plotEffCorr) MakeTiledGridComparison("DIS_effCorr", "A_{eff}", allEffCorr, &allBSAmeans, 0.1, 1.1, "pdf", false, true, false, false, meanKinVar);
     if (plotRadCorr) MakeTiledGridComparison("DIS_radCorr", "C_{rad}", allRadCorr, &allBSAmeans, 0.5, 1.5, "pdf", false, true, false, false, meanKinVar);
@@ -3648,8 +3720,12 @@ class DISANAcomparer {
     }
 
     if (!exists) {
-      fout << "# xB\tQ2\t-t\tphi\tvalue\terror\t"
-           << "xBmin\txBmax\tQ2min\tQ2max\ttmin\ttmax\tlabel\n";
+      if (fXbins.UsesSDHEP())
+        fout << "# xi_SDHEP\tcostheta_SDHEP\t-t\tphi_SDHEP\tvalue\terror\t"
+             << "xiMin\txiMax\tcosthetaMin\tcosthetaMax\ttmin\ttmax\tlabel\n";
+      else
+        fout << "# xB\tQ2\t-t\tphi\tvalue\terror\t"
+             << "xBmin\txBmax\tQ2min\tQ2max\ttmin\ttmax\tlabel\n";
     }
 
     for (int ibin = 1; ibin <= h->GetNbinsX(); ++ibin) {
@@ -3728,7 +3804,7 @@ class DISANAcomparer {
           h->SetMarkerStyle(20);
           h->SetMarkerSize(1.0);
           h->SetStats(0);
-          h->GetXaxis()->SetTitle("#phi [deg]");
+          h->GetXaxis()->SetTitle(Form("%s [deg]", fXbins.GetPhiLabel()));
           h->GetYaxis()->SetTitle(yAxisTitle.c_str());
           h->GetXaxis()->SetRangeUser(0.0, 360.0);
           if (setManualYrange) h->GetYaxis()->SetRangeUser(yMin, yMax);
@@ -3759,7 +3835,7 @@ class DISANAcomparer {
           graph->SetMarkerSize(1.0);
           graph->Draw(first ? "AP" : "P SAME");
           if (first) {
-            graph->GetXaxis()->SetTitle("#phi [deg]");
+            graph->GetXaxis()->SetTitle(Form("%s [deg]", fXbins.GetPhiLabel()));
             graph->GetYaxis()->SetTitle(yAxisTitle.c_str());
             graph->GetXaxis()->SetLimits(0.0, 360.0);
             if (setManualYrange) {
@@ -3807,8 +3883,10 @@ class DISANAcomparer {
         binLabel.SetTextSize(0.032);
         binLabel.DrawLatex(
             0.14, 0.92,
-            Form("x_{B}:[%.3f,%.3f), Q^{2}:[%.3f,%.3f), t:[%.3f,%.3f)",
-                 bin.xBMin, bin.xBMax, bin.Q2Min, bin.Q2Max, bin.tMin, bin.tMax));
+            Form("%s:[%.3f,%.3f), %s:[%.3f,%.3f), t:[%.3f,%.3f)",
+                 fXbins.GetFirstLabel(), bin.xBMin, bin.xBMax,
+                 fXbins.GetSecondLabel(), bin.Q2Min, bin.Q2Max,
+                 bin.tMin, bin.tMax));
         legend->Draw();
         canvas->SaveAs(
             Form("%s/%s_bin%03zu.%s",
@@ -3926,7 +4004,7 @@ class DISANAcomparer {
               // std::cout << "xb_bin: " << xb_bin << ", q2_bin: " << q2_bin << ", first_perbin_xb: " << first_perbin_xb << ", first_perbin_q2: " << first_perbin_q2 << ",
               // first_first_perbin_q2: " <<first_first_perbin_q2<< std::endl;
 
-              h->GetXaxis()->SetTitle((xb_bin == first_perbin_xb) ? "#phi [deg]" : "");
+              h->GetXaxis()->SetTitle((xb_bin == first_perbin_xb) ? Form("%s [deg]", fXbins.GetPhiLabel()) : "");
               h->GetYaxis()->SetTitle((first_perbin_q2) ? yAxisTitle.c_str() : "");
               h->GetXaxis()->SetLabelSize((xb_bin == first_perbin_xb) ? 0.085 : 0.0);
               h->GetXaxis()->SetTitleSize((xb_bin == first_perbin_xb) ? 0.095 : 0.0);
@@ -4004,7 +4082,9 @@ class DISANAcomparer {
             // auto [mean_xB, mean_Q2, mean_t] = meanValues[m][xb_bin][q2_bin][t_bin];
             if (showMeanKin) {
               auto [mean_xB, mean_Q2, mean_t] = (*meanValues)[m][xb_bin][q2_bin][t_bin];
-              TString meanText = Form("<x_{B}> = %.2f, <Q^{2}> = %.2f, <|t|> = %.2f", mean_xB, mean_Q2, mean_t);
+              TString meanText = Form("<%s> = %.2f, <%s> = %.2f, <|t|> = %.2f",
+                                      fXbins.GetFirstLabel(), mean_xB,
+                                      fXbins.GetSecondLabel(), mean_Q2, mean_t);
               TLatex* meanLatex = new TLatex(0.25, 0.78 - m * 0.10, meanText.Data());
               meanLatex->SetTextSize(0.05);
               meanLatex->SetNDC();

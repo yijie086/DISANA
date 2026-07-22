@@ -523,9 +523,9 @@ void DISANA_Xplotter2csv() {
   //xBins.SetXBBins({0.15, 0.175, 0.2, 0.225, 0.25, 0.275, 0.3});
   //xBins.SetXBBins({0.15, 0.175});
 
-  //*******xBins.SetQ2Bins({1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50});
-  //*******xBins.SetTBins({0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
-  //*******xBins.SetXBBins({0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430});
+  xBins.SetQ2Bins({1.00, 1.25, 1.50, 1.75, 2.00, 2.40, 2.90, 3.50});
+  xBins.SetTBins({0.13, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0});
+  xBins.SetXBBins({0.125, 0.150, 0.180, 0.210, 0.240, 0.285, 0.350, 0.430});
 
   //xBins.SetQ2Bins({1.0, 1.25, 1.5, 2.0});
   //xBins.SetTBins({0.2, 0.4, 0.6, 1.0});
@@ -552,7 +552,7 @@ void DISANA_Xplotter2csv() {
   // xBins.AddCustomBin(0.160, 0.285, 1.00, 1.20, 0.23, 0.43);
   //
   // Equivalent batch configuration:
-  xBins.SetCustomBins({
+  /*xBins.SetCustomBins({
        {0.000, 0.130, 1.00, 7.00, 0.00, 0.19},
        {0.000, 0.130, 1.00, 7.00, 0.19, 0.25},
        {0.000, 0.130, 1.00, 7.00, 0.25, 0.35},
@@ -583,7 +583,7 @@ void DISANA_Xplotter2csv() {
        {0.220, 0.600, 1.80, 7.00, 0.77, 1.07},
        {0.220, 0.600, 1.80, 7.00, 1.07, 1.50},
        {0.220, 0.600, 1.80, 7.00, 1.50, 2.00}
-  });
+  });*/
 
   comparer.SetXBinsRanges(xBins);
 
@@ -686,7 +686,7 @@ void DISANA_Xplotter2csv() {
                               df_afterFid_7546_dvcsmc_rad,
                               df_afterFid_7546_dvcsmc_norad,
                               df_afterFid_7546_dvcsmc_p1cut,
-                              "RGK 7.5GeV", beam_energy, true, false, false, false, false, luminosity, 39.32, 45, 0.9837/*0.9069/0.9647*/);
+                              "RGK 7.5GeV", beam_energy, true, true, true, true, true, luminosity, 39.32, 45, 0.9718);
 
   //comparer.PlotKinematicComparison();
   //comparer.PlotPi0KinematicComparison();
@@ -700,12 +700,12 @@ void DISANA_Xplotter2csv() {
   comparer.PlotDIS_BSA_Cross_Section_AndCorr_Comparison(
       polarisation,
       true,   // BSA
-      false,  // DVCS cross section
+      true,  // DVCS cross section
       true,   // Pi0 correction
-      false,  // acceptance correction
-      false,  // efficiency correction
-      false,  // radiative correction
-      false,  // P1 cut
+      true,  // acceptance correction
+      true,  // efficiency correction
+      true,  // radiative correction
+      true,  // P1 cut
       true); // mean kinematics
   //comparer.PlotDISCrossSectionComparison(luminosity);  // argument is Luminosity, polarisation
   //comparer.PlotDIS_BSA_Comparison(luminosity, polarisation);         // argument is Luminosity

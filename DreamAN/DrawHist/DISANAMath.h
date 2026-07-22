@@ -112,6 +112,7 @@ TLorentzVector Build4Vector(double p, double theta, double phi, double mass) {
 // -----------------------------------------------------------------------------
 class BinManager {
  public:
+  enum class KinematicScheme { Conventional, SDHEP };
   struct KinematicBin {
     double xBMin;
     double xBMax;
@@ -130,6 +131,32 @@ class BinManager {
     cos_thetaKK_bins_ = {-1.0, 1.0};
     trento_phi_bins_ = {-180.0, 180.0};
     z_phi_bins_      = {0.0, 0.2, 0.4, 0.6, 0.8, 1.0};  // example, change as you like
+  }
+
+  void SetUseSDHEP(bool enabled = true) {
+    scheme_ = enabled ? KinematicScheme::SDHEP : KinematicScheme::Conventional;
+  }
+  bool UsesSDHEP() const { return scheme_ == KinematicScheme::SDHEP; }
+  const char *GetFirstColumn() const { return UsesSDHEP() ? "xi_SDHEP" : "xB"; }
+  const char *GetSecondColumn() const { return UsesSDHEP() ? "costheta_SDHEP" : "Q2"; }
+  const char *GetPhiColumn() const { return UsesSDHEP() ? "phi_SDHEP" : "phi"; }
+  const char *GetFirstLabel() const { return UsesSDHEP() ? "#xi" : "x_{B}"; }
+  const char *GetSecondLabel() const { return UsesSDHEP() ? "cos#theta_{SDHEP}" : "Q^{2}"; }
+  const char *GetPhiLabel() const { return UsesSDHEP() ? "#phi_{SDHEP}" : "#phi"; }
+
+  // SDHEP aliases. Internally the established xB/Q2 storage is reused so all
+  // legacy histogram shapes and correction code remain binary compatible.
+  void SetXiBins(const std::vector<double> &v) { SetUseSDHEP(true); SetXBBins(v); }
+  void SetCosThetaSDHEPBins(const std::vector<double> &v) { SetUseSDHEP(true); SetQ2Bins(v); }
+  void AddSDHEPCustomBin(double xiMin, double xiMax,
+                         double cosThetaMin, double cosThetaMax,
+                         double tMin, double tMax) {
+    SetUseSDHEP(true);
+    AddCustomBin(xiMin, xiMax, cosThetaMin, cosThetaMax, tMin, tMax);
+  }
+  void SetSDHEPCustomBins(const std::vector<KinematicBin> &bins) {
+    SetUseSDHEP(true);
+    SetCustomBins(bins);
   }
 
   const std::vector<double> &GetQ2Bins() const { return q2_bins_; }
@@ -425,6 +452,7 @@ class BinManager {
   bool has_custom_backup_ = false;
   std::vector<double> custom_backup_q2_bins_, custom_backup_t_bins_, custom_backup_xb_bins_;
   std::vector<std::vector<double>> custom_backup_xb_bins_by_q2_;
+  KinematicScheme scheme_ = KinematicScheme::Conventional;
 };
 
 // -----------------------------------------------------------------------------
@@ -438,6 +466,8 @@ class DISANAMath {
   double xi_{};
   double costheta_SDHEP_{};
   double phi_SDHEP_deg_{};
+  double shat_SDHEP_{};
+  double qT_SDHEP_{};
 
   // Exclusivity
   double mx2_ep_{};
@@ -561,6 +591,8 @@ class DISANAMath {
   double GetXi() const { return xi_; }
   double GetCostheta_SDHEP() const { return costheta_SDHEP_; }
   double GetPhi_SDHEP() const { return phi_SDHEP_deg_; }
+  double GetShat_SDHEP() const { return shat_SDHEP_; }
+  double GetQT_SDHEP() const { return qT_SDHEP_; }
   double GetCosTheta_KK() const { return cosTheta_KK_; }
   double GetCosPhi_KK() const { return cosPhi_KK_; }
   double GetZ_phi() const { return z_phi_; }
@@ -748,21 +780,28 @@ class DISANAMath {
     double twoepsilonM =  EpsContract(electron_out,electron_in,proton_in+proton_out,Delta);
     double nom = (1-xi*xi)*s_hat*(t0-tt)*(deltalprime-tt/2);
 
-    double costheta = -2*((s_hat-tt)*deltalprime-(s_hat+tt)*llprime)/(s_hat*(s_hat-tt));
-    double cosphi = xi*(s-m_p*m_p)*(twoPlprime*xi-deltalprime)+(1+xi)*llprime*tt;
-    cosphi = cosphi/((1+xi)*sqrt(nom));
-    double sinphi = -xi*twoepsilonM/sqrt(nom);
-    double phi_SDHEP = std::atan2(sinphi, cosphi);
-    if (phi_SDHEP<0) phi_SDHEP = phi_SDHEP +2*pi;
-    double phi_SDHEP_deg = phi_SDHEP * 180/pi;
-
-    double qT = 0.5*sqrt(s_hat*(1-costheta*costheta));
-
-    phi_SDHEP_deg_ = phi_SDHEP_deg;
     xi_ = xi;
-    costheta_SDHEP_ = costheta;
-    //s_hat_ = s_hat;
-    //Q2_ = qT;
+    shat_SDHEP_ = s_hat;
+    costheta_SDHEP_ = std::numeric_limits<double>::quiet_NaN();
+    phi_SDHEP_deg_ = std::numeric_limits<double>::quiet_NaN();
+    qT_SDHEP_ = std::numeric_limits<double>::quiet_NaN();
+    const double costhetaDen = s_hat * (s_hat - tt);
+    if (std::isfinite(nom) && nom > 0.0 && std::isfinite(costhetaDen) &&
+        std::abs(costhetaDen) > 1e-15 && s_hat > 0.0 &&
+        std::isfinite(xi) && std::abs(1.0 + xi) > 1e-15) {
+      double costheta = -2.0 * ((s_hat-tt)*deltalprime-(s_hat+tt)*llprime) /
+                        costhetaDen;
+      costheta = std::clamp(costheta, -1.0, 1.0);
+      const double sqrtNom = std::sqrt(nom);
+      double cosphi = xi*(s-m_p*m_p)*(twoPlprime*xi-deltalprime)+(1+xi)*llprime*tt;
+      cosphi /= ((1+xi)*sqrtNom);
+      const double sinphi = -xi*twoepsilonM/sqrtNom;
+      double phi_SDHEP = std::atan2(sinphi, cosphi);
+      if (phi_SDHEP < 0.0) phi_SDHEP += 2.0*pi;
+      costheta_SDHEP_ = costheta;
+      phi_SDHEP_deg_ = phi_SDHEP * 180.0/pi;
+      qT_SDHEP_ = 0.5*std::sqrt(std::max(0.0, s_hat*(1.0-costheta*costheta)));
+    }
   }
 
   // Core (phi)
@@ -950,8 +989,9 @@ class DISANAMath {
         const auto &bin = customBins[ib];
         hist[0][ib][0] = new TH1D(
             Form("hphi_custom_%zu", ib),
-            Form("d#sigma/d#phi (x_{B}=[%.3f,%.3f], Q^{2}=[%.3f,%.3f], t=[%.3f,%.3f])",
-                 bin.xBMin, bin.xBMax, bin.Q2Min, bin.Q2Max, bin.tMin, bin.tMax),
+            Form("d#sigma/d%s (%s=[%.3f,%.3f], %s=[%.3f,%.3f], t=[%.3f,%.3f])",
+                 bins.GetPhiLabel(), bins.GetFirstLabel(), bin.xBMin, bin.xBMax,
+                 bins.GetSecondLabel(), bin.Q2Min, bin.Q2Max, bin.tMin, bin.tMax),
             n_phi_bins, phi_min, phi_max);
         hist[0][ib][0]->SetDirectory(nullptr);
       }
@@ -978,7 +1018,7 @@ class DISANAMath {
           }
         }
       };
-      df.ForeachSlot(fill, {"Q2", "t", "xB", "phi"});
+      df.ForeachSlot(fill, {bins.GetSecondColumn(), "t", bins.GetFirstColumn(), bins.GetPhiColumn()});
 
       const double phiWidth = (pi / 180.) * (phi_max - phi_min) / n_phi_bins;
       for (size_t ib = 0; ib < nBins; ++ib) {
@@ -1018,7 +1058,9 @@ class DISANAMath {
           const double tmin = t_bins[it], tmax = t_bins[it + 1];
           const double xbmin = xb_bins[ix], xbmax = xb_bins[ix + 1];
           auto name = Form("hphi_q%.1f_t%.1f_xb%.2f", qmin, tmin, xbmin);
-          auto title = Form("d#sigma/d#phi (Q^{2}=[%.1f,%.1f], t=[%.1f,%.1f], x_{B}=[%.2f,%.2f])", qmin, qmax, tmin, tmax, xbmin, xbmax);
+          auto title = Form("d#sigma/d%s (%s=[%.2f,%.2f], t=[%.2f,%.2f], %s=[%.3f,%.3f])",
+                            bins.GetPhiLabel(), bins.GetSecondLabel(), qmin, qmax,
+                            tmin, tmax, bins.GetFirstLabel(), xbmin, xbmax);
           hist[ix][iq][it] = new TH1D(name, title, n_phi_bins, phi_min, phi_max);
           hist[ix][iq][it]->SetDirectory(nullptr);
           q2xBtbins[ix][iq][it] = (qmax - qmin) * (tmax - tmin) * (xbmax - xbmin);
@@ -1038,7 +1080,7 @@ class DISANAMath {
       if (iq >= 0 && it >= 0 && ix >= 0) hist[ix][iq][it]->Fill(phi);
     };
 
-    df.Foreach(fill, {"Q2", "t", "xB", "phi"});
+    df.Foreach(fill, {bins.GetSecondColumn(), "t", bins.GetFirstColumn(), bins.GetPhiColumn()});
 
     const double bin_width = (pi / 180.) * (phi_max - phi_min) / n_phi_bins;
     for (size_t ix = 0; ix < n_xb; ++ix)
@@ -1080,8 +1122,9 @@ class DISANAMath {
         const auto &bin = customBins[ib];
         hist[0][ib][0] = new TH1D(
             Form("hphi_custom_weighted_%zu", ib),
-            Form("d#sigma/d#phi (x_{B}=[%.3f,%.3f], Q^{2}=[%.3f,%.3f], t=[%.3f,%.3f])",
-                 bin.xBMin, bin.xBMax, bin.Q2Min, bin.Q2Max, bin.tMin, bin.tMax),
+            Form("d#sigma/d%s (%s=[%.3f,%.3f], %s=[%.3f,%.3f], t=[%.3f,%.3f])",
+                 bins.GetPhiLabel(), bins.GetFirstLabel(), bin.xBMin, bin.xBMax,
+                 bins.GetSecondLabel(), bin.Q2Min, bin.Q2Max, bin.tMin, bin.tMax),
             n_phi_bins, phi_min, phi_max);
         hist[0][ib][0]->SetDirectory(nullptr);
         hist[0][ib][0]->Sumw2();
@@ -1118,7 +1161,7 @@ class DISANAMath {
           }
         }
       };
-      df.ForeachSlot(fillSlot, {"Q2", "t", "xB", "phi", "pho_det_region", "pro_det_region",
+      df.ForeachSlot(fillSlot, {bins.GetSecondColumn(), "t", bins.GetFirstColumn(), bins.GetPhiColumn(), "pho_det_region", "pro_det_region",
                                 "recel_p", "recel_theta", "recel_phi", "recpho_p", "recpho_theta", "recpho_phi",
                                 "recpro_p", "recpro_theta", "recpro_phi"});
 
@@ -1170,8 +1213,9 @@ class DISANAMath {
           const double xbmin = xb_bins[ix], xbmax = xb_bins[ix + 1];
 
           auto name  = Form("hphi_q%.2f_t%.2f_xb%.3f", qmin, tmin, xbmin);
-          auto title = Form("d#sigma/d#phi (Q^{2}=[%.2f,%.2f], t=[%.2f,%.2f], x_{B}=[%.3f,%.3f])",
-                            qmin, qmax, tmin, tmax, xbmin, xbmax);
+          auto title = Form("d#sigma/d%s (%s=[%.2f,%.2f], t=[%.2f,%.2f], %s=[%.3f,%.3f])",
+                            bins.GetPhiLabel(), bins.GetSecondLabel(), qmin, qmax,
+                            tmin, tmax, bins.GetFirstLabel(), xbmin, xbmax);
 
           hist[ix][iq][it] = new TH1D(name, title, n_phi_bins, phi_min, phi_max);
           hist[ix][iq][it]->SetDirectory(nullptr);
@@ -1219,7 +1263,7 @@ class DISANAMath {
       hslot[slot][ix][iq][it]->Fill(phi, w);
     };
 
-    df.ForeachSlot(fillSlot, {"Q2", "t", "xB", "phi", "pho_det_region", "pro_det_region",
+    df.ForeachSlot(fillSlot, {bins.GetSecondColumn(), "t", bins.GetFirstColumn(), bins.GetPhiColumn(), "pho_det_region", "pro_det_region",
                               "recel_p", "recel_theta", "recel_phi", "recpho_p", "recpho_theta", "recpho_phi",
                               "recpro_p", "recpro_theta", "recpro_phi"});
 
