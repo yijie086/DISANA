@@ -108,6 +108,273 @@ class DISANAcomparer {
     WriteDVCSPhysicalVolumeCSV(beamEnergy);
   }
 
+  // Register a generator-level He3 MC dataframe.  This intentionally does
+  // not construct a DVCS/Phi DISANAplotter or book any histograms: He3DIS
+  // currently provides only the inclusive electron plus nuclear spectators.
+  // He3-specific comparison and plotting behavior can be added here later
+  // without changing the calling macros.
+  void AddModelHe3(ROOT::RDF::RNode df_mc) {
+    he3Models.push_back(
+        std::make_unique<ROOT::RDF::RNode>(std::move(df_mc)));
+    std::cout << "Adding He3 MC model (no histograms booked). Total He3 models: "
+              << he3Models.size() << std::endl;
+  }
+
+  // Draw p, theta, and phi for every final-state particle in each of the
+  // three He3DIS topologies. With one registered He3 model this produces
+  // exactly three PDF files: epp, ed, and epn.
+  void PlotParticleKinematicHe3() {
+    if (he3Models.empty()) {
+      std::cerr << "[PlotParticleKinematicHe3] no He3 MC model was added.\n";
+      return;
+    }
+
+    struct ParticleSpec {
+      int pid;
+      int occurrence;
+      std::string key;
+      std::string title;
+      double momentumMax;
+      double thetaMax;
+    };
+    struct TopologySpec {
+      int finalState;
+      std::string key;
+      std::string title;
+      std::vector<ParticleSpec> particles;
+    };
+
+    const std::vector<TopologySpec> topologies = {
+        {1, "epp", "e' + p + p",
+         {{11, 0, "electron", "e'", 11.0, 60.0},
+          {2212, 0, "proton1", "p_{1}", 0.8, 180.0},
+          {2212, 1, "proton2", "p_{2}", 0.8, 180.0}}},
+        {2, "ed", "e' + d",
+         {{11, 0, "electron", "e'", 11.0, 60.0},
+          {1000010020, 0, "deuteron", "d", 0.8, 180.0}}},
+        {3, "epn", "e' + p + n",
+         {{11, 0, "electron", "e'", 11.0, 60.0},
+          {2212, 0, "proton", "p", 0.8, 180.0},
+          {2112, 0, "neutron", "n", 0.8, 180.0}}}
+    };
+
+    auto particleKinematic =
+        [](int targetPid, int occurrence, int observable) {
+          return [targetPid, occurrence, observable](
+                     const ROOT::VecOps::RVec<int>& pid,
+                     const ROOT::VecOps::RVec<float>& px,
+                     const ROOT::VecOps::RVec<float>& py,
+                     const ROOT::VecOps::RVec<float>& pz) {
+            const size_t size = std::min(
+                {pid.size(), px.size(), py.size(), pz.size()});
+            int found = 0;
+            for (size_t i = 0; i < size; ++i) {
+              if (pid[i] != targetPid) continue;
+              if (found++ != occurrence) continue;
+
+              const double momentum = std::sqrt(
+                  static_cast<double>(px[i]) * px[i] +
+                  static_cast<double>(py[i]) * py[i] +
+                  static_cast<double>(pz[i]) * pz[i]);
+              if (observable == 0) return momentum;
+              if (observable == 1) {
+                if (momentum == 0.0) return 0.0;
+                const double cosine = std::clamp(
+                    static_cast<double>(pz[i]) / momentum, -1.0, 1.0);
+                return std::acos(cosine) * 180.0 / M_PI;
+              }
+              double phi = std::atan2(py[i], px[i]);
+              if (phi < 0.0) phi += 2.0 * M_PI;
+              return phi * 180.0 / M_PI;
+            }
+            return -999.0;
+          };
+        };
+
+    fs::create_directories(outputDir);
+
+    for (size_t modelIndex = 0; modelIndex < he3Models.size(); ++modelIndex) {
+      for (const auto& topology : topologies) {
+        ROOT::RDF::RNode df = he3Models[modelIndex]->Filter(
+            [state = topology.finalState](int eventState) {
+              return eventState == state;
+            },
+            {"he3_final_state"},
+            "He3 topology " + topology.key);
+
+        struct ParticleHistograms {
+          ROOT::RDF::RResultPtr<TH1D> momentum;
+          ROOT::RDF::RResultPtr<TH1D> theta;
+          ROOT::RDF::RResultPtr<TH1D> phi;
+        };
+        std::vector<ParticleHistograms> histograms;
+        histograms.reserve(topology.particles.size());
+
+        for (const auto& particle : topology.particles) {
+          const std::string prefix =
+              "he3_m" + std::to_string(modelIndex) + "_" + topology.key +
+              "_" + particle.key;
+          const std::string pColumn = prefix + "_p";
+          const std::string thetaColumn = prefix + "_theta";
+          const std::string phiColumn = prefix + "_phi";
+
+          df = df
+              .Define(pColumn,
+                      particleKinematic(particle.pid, particle.occurrence, 0),
+                      {"MC_Particle_pid", "MC_Particle_px",
+                       "MC_Particle_py", "MC_Particle_pz"})
+              .Define(thetaColumn,
+                      particleKinematic(particle.pid, particle.occurrence, 1),
+                      {"MC_Particle_pid", "MC_Particle_px",
+                       "MC_Particle_py", "MC_Particle_pz"})
+              .Define(phiColumn,
+                      particleKinematic(particle.pid, particle.occurrence, 2),
+                      {"MC_Particle_pid", "MC_Particle_px",
+                       "MC_Particle_py", "MC_Particle_pz"});
+
+          const std::string pName = "h_" + prefix + "_p";
+          const std::string thetaName = "h_" + prefix + "_theta";
+          const std::string phiName = "h_" + prefix + "_phi";
+          const std::string pTitle = topology.title + ";p(" +
+                                     particle.title + ") [GeV];Events";
+          const std::string thetaTitle = topology.title + ";#theta(" +
+                                         particle.title + ") [deg];Events";
+          const std::string phiTitle = topology.title + ";#phi(" +
+                                       particle.title + ") [deg];Events";
+
+          histograms.push_back({
+              df.Histo1D({pName.c_str(), pTitle.c_str(), 120, 0.0,
+                          particle.momentumMax},
+                         pColumn),
+              df.Histo1D({thetaName.c_str(), thetaTitle.c_str(), 120, 0.0,
+                          particle.thetaMax},
+                         thetaColumn),
+              df.Histo1D({phiName.c_str(), phiTitle.c_str(), 120, 0.0,
+                          360.0},
+                         phiColumn)});
+        }
+
+        const int rows = static_cast<int>(topology.particles.size());
+        const std::string canvasName =
+            "c_he3_m" + std::to_string(modelIndex) + "_" + topology.key;
+        TCanvas canvas(canvasName.c_str(), topology.title.c_str(), 1500,
+                       400 * rows);
+        canvas.Divide(3, rows);
+
+        for (size_t row = 0; row < histograms.size(); ++row) {
+          canvas.cd(static_cast<int>(3 * row + 1));
+          histograms[row].momentum->Draw("hist");
+          canvas.cd(static_cast<int>(3 * row + 2));
+          histograms[row].theta->Draw("hist");
+          canvas.cd(static_cast<int>(3 * row + 3));
+          histograms[row].phi->Draw("hist");
+        }
+
+        std::string pdfName = outputDir + "/He3_" + topology.key +
+                              "_particle_kinematics";
+        if (he3Models.size() > 1) {
+          pdfName += "_model" + std::to_string(modelIndex);
+        }
+        pdfName += ".pdf";
+        canvas.SaveAs(pdfName.c_str());
+        std::cout << "[PlotParticleKinematicHe3] wrote " << pdfName
+                  << std::endl;
+      }
+    }
+  }
+
+  // Compare inclusive DIS kinematics for the three visible He3 final states.
+  // Rows are e'pp, e'd, and e'pn; columns are xB, Q2, W, and xB vs Q2.
+  void PlotDISKinematicHe3() {
+    if (he3Models.empty()) {
+      std::cerr << "[PlotDISKinematicHe3] no He3 MC model was added.\n";
+      return;
+    }
+
+    struct TopologySpec {
+      int finalState;
+      std::string key;
+      std::string title;
+    };
+    const std::array<TopologySpec, 3> topologies = {{
+        {1, "epp", "e' + p + p"},
+        {2, "ed", "e' + d"},
+        {3, "epn", "e' + p + n"}
+    }};
+
+    fs::create_directories(outputDir);
+
+    for (size_t modelIndex = 0; modelIndex < he3Models.size(); ++modelIndex) {
+      struct DISHistograms {
+        ROOT::RDF::RResultPtr<TH1D> xB;
+        ROOT::RDF::RResultPtr<TH1D> Q2;
+        ROOT::RDF::RResultPtr<TH1D> W;
+        ROOT::RDF::RResultPtr<TH2D> xBvsQ2;
+      };
+      std::vector<DISHistograms> histograms;
+      histograms.reserve(topologies.size());
+
+      for (const auto& topology : topologies) {
+        auto df = he3Models[modelIndex]->Filter(
+            [state = topology.finalState](int eventState) {
+              return eventState == state;
+            },
+            {"he3_final_state"},
+            "He3 DIS topology " + topology.key);
+
+        const std::string prefix =
+            "he3_dis_m" + std::to_string(modelIndex) + "_" + topology.key;
+        const std::string xBName = "h_" + prefix + "_xB";
+        const std::string Q2Name = "h_" + prefix + "_Q2";
+        const std::string WName = "h_" + prefix + "_W";
+        const std::string xBvsQ2Name = "h_" + prefix + "_xB_vs_Q2";
+        const std::string xBTitle =
+            topology.title + ";x_{B};Events";
+        const std::string Q2Title =
+            topology.title + ";Q^{2} [GeV^{2}];Events";
+        const std::string WTitle =
+            topology.title + ";W [GeV];Events";
+        const std::string xBvsQ2Title =
+            topology.title + ";x_{B};Q^{2} [GeV^{2}]";
+
+        histograms.push_back({
+            df.Histo1D({xBName.c_str(), xBTitle.c_str(), 120, 0.0, 1.0},
+                       "xB"),
+            df.Histo1D({Q2Name.c_str(), Q2Title.c_str(), 120, 0.0, 12.0},
+                       "Q2"),
+            df.Histo1D({WName.c_str(), WTitle.c_str(), 120, 0.0, 5.0},
+                       "W"),
+            df.Histo2D({xBvsQ2Name.c_str(), xBvsQ2Title.c_str(), 100,
+                        0.0, 1.0, 100, 0.0, 12.0},
+                       "xB", "Q2")});
+      }
+
+      const std::string canvasName =
+          "c_he3_dis_m" + std::to_string(modelIndex);
+      TCanvas canvas(canvasName.c_str(), "He3 DIS kinematics", 1900, 1200);
+      canvas.Divide(4, 3);
+
+      for (size_t row = 0; row < histograms.size(); ++row) {
+        canvas.cd(static_cast<int>(4 * row + 1));
+        histograms[row].xB->Draw("hist");
+        canvas.cd(static_cast<int>(4 * row + 2));
+        histograms[row].Q2->Draw("hist");
+        canvas.cd(static_cast<int>(4 * row + 3));
+        histograms[row].W->Draw("hist");
+        canvas.cd(static_cast<int>(4 * row + 4));
+        histograms[row].xBvsQ2->Draw("colz");
+      }
+
+      std::string pdfName = outputDir + "/He3_DIS_kinematics";
+      if (he3Models.size() > 1) {
+        pdfName += "_model" + std::to_string(modelIndex);
+      }
+      pdfName += ".pdf";
+      canvas.SaveAs(pdfName.c_str());
+      std::cout << "[PlotDISKinematicHe3] wrote " << pdfName << std::endl;
+    }
+  }
+
   void AddModelPhi(ROOT::RDF::RNode df_data, const std::string& label, double beamEnergy, double luminosity) {
     auto plotter = std::make_unique<DISANAplotter>(PhiModeTag{}, df_data, beamEnergy, luminosity);
     labels.push_back(label);
@@ -5390,6 +5657,10 @@ class DISANAcomparer {
 
   std::vector<std::unique_ptr<DISANAplotter>> plotters;
   std::vector<std::string> labels;
+
+  // Kept separate from the exclusive-DVCS and Phi plotters because the
+  // current He3 model has only one generator-level MC dataframe.
+  std::vector<std::unique_ptr<ROOT::RDF::RNode>> he3Models;
 
   std::vector<std::string> particleName = {"e", "p", "#gamma"};
   std::map<std::string, std::string> typeToParticle = {{"el", "electron"},     {"pro", "proton"},   {"pho", "#gamma_{1}"},

@@ -1,18 +1,14 @@
-// He3DIS generator-level analysis for the DISANA environment.
+// Initialize He3DIS generator-level kinematics in the DISANA RDataFrame style.
+// This file intentionally does not make plots yet.
 //
-// Example:
-//   root -l -q 'rootmacros/DISANA_XplotterHe3.cpp(
-//       "he3dis_rdf.root","He3DIS_plots")'
+// Run from DISANA/rootmacros with:
+//   clas12root DISANA_XplotterHe3.cpp
 
 #include <ROOT/RDataFrame.hxx>
 #include <ROOT/RVec.hxx>
-#include <TCanvas.h>
-#include <TFile.h>
-#include <TH1D.h>
-#include <TH2D.h>
-#include <TProfile.h>
-#include <TStyle.h>
-#include <TSystem.h>
+#include <TString.h>
+
+#include "../DreamAN/DrawHist/DISANAcomparer.h"
 
 #include <algorithm>
 #include <cmath>
@@ -21,70 +17,21 @@
 #include <string>
 #include <vector>
 
-namespace He3Plotter {
+namespace He3DISANA {
 
 using ROOT::VecOps::RVec;
 
-double momentum(float px, float py, float pz) {
-    return std::sqrt(static_cast<double>(px) * px +
-                     static_cast<double>(py) * py +
-                     static_cast<double>(pz) * pz);
-}
+constexpr double kNucleonMass = 0.93892;
 
-double electron_value(const RVec<int>& pid, const RVec<float>& px,
-                      const RVec<float>& py, const RVec<float>& pz,
-                      int requested_value) {
-    const auto size = std::min({pid.size(), px.size(), py.size(), pz.size()});
-    for (std::size_t i = 0; i < size; ++i) {
-        if (pid[i] != 11) continue;
-        const double p = momentum(px[i], py[i], pz[i]);
-        if (requested_value == 0) return p;
-        if (p == 0.0) return 0.0;
-        const double cosine = std::clamp(static_cast<double>(pz[i]) / p,
-                                         -1.0, 1.0);
-        return std::acos(cosine) * 180.0 / M_PI;
-    }
-    return -999.0;
-}
-
-RVec<double> spectator_momenta(const RVec<int>& pid, const RVec<float>& px,
-                               const RVec<float>& py,
-                               const RVec<float>& pz) {
-    RVec<double> result;
-    const auto size = std::min({pid.size(), px.size(), py.size(), pz.size()});
-    result.reserve(size);
-    for (std::size_t i = 0; i < size; ++i) {
-        // He3DIS spectators are protons, neutrons, or deuterons.
-        if (pid[i] == 2212 || pid[i] == 2112 || pid[i] == 1000010020) {
-            result.push_back(momentum(px[i], py[i], pz[i]));
-        }
-    }
-    return result;
-}
-
-RVec<int> spectator_pids(const RVec<int>& pid) {
-    RVec<int> result;
-    result.reserve(pid.size());
-    for (const int value : pid) {
-        if (value == 2212) {
-            result.push_back(1);  // proton
-        } else if (value == 2112) {
-            result.push_back(2);  // neutron
-        } else if (value == 1000010020) {
-            result.push_back(3);  // deuteron
-        }
-    }
-    return result;
-}
-
-void require_columns(const ROOT::RDF::RNode& dataframe,
-                     const std::vector<std::string>& columns) {
+void RequireColumns(ROOT::RDF::RNode& dataframe,
+                    const std::vector<std::string>& columns) {
     std::vector<std::string> missing;
     for (const auto& column : columns) {
         if (!dataframe.HasColumn(column)) missing.push_back(column);
     }
+
     if (!missing.empty()) {
-        std::string message = "input MC tree is missing required branch(es): ";
+        std::string message = "input tree is missing required branch(es): ";
         for (std::size_t i = 0; i < missing.size(); ++i) {
             if (i != 0) message += ", ";
             message += missing[i];
@@ -93,157 +40,243 @@ void require_columns(const ROOT::RDF::RNode& dataframe,
     }
 }
 
-}  // namespace He3Plotter
+float FindParticleComponent(const RVec<int>& pid,
+                            const RVec<float>& component,
+                            int requested_pid) {
+    const std::size_t size = std::min(pid.size(), component.size());
+    for (std::size_t i = 0; i < size; ++i) {
+        if (pid[i] == requested_pid) return component[i];
+    }
+    return -999.0F;
+}
 
-void DISANA_XplotterHe3(const char* input_file = "he3dis_rdf.root",
-                        const char* output_directory = "He3DIS_plots") {
-    using namespace He3Plotter;
+double Momentum(float px, float py, float pz) {
+    return std::sqrt(static_cast<double>(px) * px +
+                     static_cast<double>(py) * py +
+                     static_cast<double>(pz) * pz);
+}
 
-    ROOT::EnableImplicitMT();
-    gStyle->SetOptStat(0);
-    gSystem->mkdir(output_directory, true);
+double Theta(float px, float py, float pz) {
+    const double momentum = Momentum(px, py, pz);
+    if (momentum == 0.0) return 0.0;
+    return std::acos(std::clamp(static_cast<double>(pz) / momentum,
+                               -1.0, 1.0));
+}
 
-    ROOT::RDataFrame input("MC", input_file);
-    ROOT::RDF::RNode dataframe(input);
+double Phi(float px, float py) {
+    double phi = std::atan2(py, px);
+    return phi < 0.0 ? phi + 2.0 * M_PI : phi;
+}
 
-    require_columns(
-        dataframe,
+RVec<int> SpectatorPid(const RVec<int>& pid) {
+    RVec<int> result;
+    result.reserve(pid.size());
+    for (const int value : pid) {
+        if (value == 2212 || value == 2112 || value == 1000010020) {
+            result.push_back(value);
+        }
+    }
+    return result;
+}
+
+RVec<float> SpectatorComponent(const RVec<int>& pid,
+                               const RVec<float>& component) {
+    RVec<float> result;
+    const std::size_t size = std::min(pid.size(), component.size());
+    result.reserve(size);
+    for (std::size_t i = 0; i < size; ++i) {
+        if (pid[i] == 2212 || pid[i] == 2112 || pid[i] == 1000010020) {
+            result.push_back(component[i]);
+        }
+    }
+    return result;
+}
+
+RVec<double> SpectatorMomentum(const RVec<float>& px,
+                               const RVec<float>& py,
+                               const RVec<float>& pz) {
+    RVec<double> result;
+    const std::size_t size = std::min({px.size(), py.size(), pz.size()});
+    result.reserve(size);
+    for (std::size_t i = 0; i < size; ++i) {
+        result.push_back(Momentum(px[i], py[i], pz[i]));
+    }
+    return result;
+}
+
+}  // namespace He3DISANA
+
+struct He3FinalStateDataFrames {
+    ROOT::RDF::RNode all;
+    ROOT::RDF::RNode epp;
+    ROOT::RDF::RNode ed;
+    ROOT::RDF::RNode epn;
+};
+
+He3FinalStateDataFrames InitGenKinematicsHe3(
+    const std::string& filename,
+    const std::string& treename = "MC",
+    double beam_energy = 10.6) {
+    using namespace He3DISANA;
+
+    ROOT::RDataFrame rdf(treename, filename);
+    ROOT::RDF::RNode df(rdf);
+
+    RequireColumns(
+        df,
         {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py",
          "MC_Particle_pz", "MC_Event_helicity",
          "MC_Event_targetPolarization", "MC_Event_xB", "MC_Event_y",
          "MC_Event_W2", "MC_Event_Q2", "MC_Event_nu"});
 
-    auto df = dataframe
-        .Define("he3_electron_p",
-                [](const RVec<int>& pid, const RVec<float>& px,
-                   const RVec<float>& py, const RVec<float>& pz) {
-                    return electron_value(pid, px, py, pz, 0);
+    // Follow DISANA_Xplotter2csv.cpp::InitGenKinematics: first select the
+    // generated particles, then define their kinematics, then define DIS
+    // variables. He3DIS has an inclusive scattered electron plus spectators,
+    // rather than the exclusive e' p' gamma final state used by the DVCS code.
+    df = df
+        .Define("ele_px",
+                [](const RVec<int>& pid, const RVec<float>& value) {
+                    return FindParticleComponent(pid, value, 11);
                 },
-                {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py",
-                 "MC_Particle_pz"})
-        .Define("he3_electron_theta",
-                [](const RVec<int>& pid, const RVec<float>& px,
-                   const RVec<float>& py, const RVec<float>& pz) {
-                    return electron_value(pid, px, py, pz, 1);
+                {"MC_Particle_pid", "MC_Particle_px"})
+        .Define("ele_py",
+                [](const RVec<int>& pid, const RVec<float>& value) {
+                    return FindParticleComponent(pid, value, 11);
                 },
-                {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py",
-                 "MC_Particle_pz"})
-        .Define("he3_spectator_p", spectator_momenta,
-                {"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py",
-                 "MC_Particle_pz"})
-        .Define("he3_spectator_type", spectator_pids,
-                {"MC_Particle_pid"})
-        .Define("he3_spin_product",
-                [](Short_t beam, Short_t target) {
-                    return static_cast<double>(beam * target);
+                {"MC_Particle_pid", "MC_Particle_py"})
+        .Define("ele_pz",
+                [](const RVec<int>& pid, const RVec<float>& value) {
+                    return FindParticleComponent(pid, value, 11);
                 },
-                {"MC_Event_helicity", "MC_Event_targetPolarization"})
-        .Define("he3_spin_state",
-                [](Short_t beam, Short_t target) {
-                    if (beam > 0 && target > 0) return 1;
-                    if (beam > 0 && target < 0) return 2;
-                    if (beam < 0 && target > 0) return 3;
-                    if (beam < 0 && target < 0) return 4;
+                {"MC_Particle_pid", "MC_Particle_pz"})
+        .Filter("ele_px != -999.0f", "He3DIS: generated electron exists")
+        .Define("recel_p", Momentum, {"ele_px", "ele_py", "ele_pz"})
+        .Define("recel_theta", Theta, {"ele_px", "ele_py", "ele_pz"})
+        .Define("recel_phi", Phi, {"ele_px", "ele_py"})
+        .Define("recel_vz", []() { return 0.0; })
+        .Define("ele_det_region", []() { return 1; })
+        .Define("spectator_pid", SpectatorPid, {"MC_Particle_pid"})
+        .Define("spectator_px", SpectatorComponent,
+                {"MC_Particle_pid", "MC_Particle_px"})
+        .Define("spectator_py", SpectatorComponent,
+                {"MC_Particle_pid", "MC_Particle_py"})
+        .Define("spectator_pz", SpectatorComponent,
+                {"MC_Particle_pid", "MC_Particle_pz"})
+        .Define("spectator_p", SpectatorMomentum,
+                {"spectator_px", "spectator_py", "spectator_pz"})
+        .Define("nSpectators",
+                [](const RVec<int>& pid) {
+                    return static_cast<int>(pid.size());
+                },
+                {"spectator_pid"})
+        .Define("he3_final_state",
+                [](const RVec<int>& spectator_pid) {
+                    int n_proton = 0;
+                    int n_neutron = 0;
+                    int n_deuteron = 0;
+                    for (const int pid : spectator_pid) {
+                        if (pid == 2212) ++n_proton;
+                        if (pid == 2112) ++n_neutron;
+                        if (pid == 1000010020) ++n_deuteron;
+                    }
+                    if (n_proton == 2 && n_neutron == 0 &&
+                        n_deuteron == 0) return 1;  // e' + p + p
+                    if (n_proton == 0 && n_neutron == 0 &&
+                        n_deuteron == 1) return 2;  // e' + d
+                    if (n_proton == 1 && n_neutron == 1 &&
+                        n_deuteron == 0) return 3;  // e' + p + n
                     return 0;
+                },
+                {"spectator_pid"})
+        // Preserve the generator-header values under explicit gen_* names.
+        .Define("gen_xB", [](double value) { return value; },
+                {"MC_Event_xB"})
+        .Define("gen_Q2", [](double value) { return value; },
+                {"MC_Event_Q2"})
+        .Define("gen_W", [](double w2) {
+                    return std::sqrt(std::max(0.0, w2));
+                },
+                {"MC_Event_W2"})
+        .Define("gen_nu", [](double value) { return value; },
+                {"MC_Event_nu"})
+        .Define("gen_y", [](double value) { return value; },
+                {"MC_Event_y"})
+        // Standard DISANA column names, recalculated from the scattered
+        // electron for the supplied beam energy.
+        .Define("Q2",
+                [beam_energy](double scattered_energy, double theta) {
+                    return 2.0 * beam_energy * scattered_energy *
+                           (1.0 - std::cos(theta));
+                },
+                {"recel_p", "recel_theta"})
+        .Define("nu",
+                [beam_energy](double scattered_energy) {
+                    return beam_energy - scattered_energy;
+                },
+                {"recel_p"})
+        .Define("xB",
+                [](double q2, double nu) {
+                    return nu > 0.0
+                               ? q2 / (2.0 * kNucleonMass * nu)
+                               : -999.0;
+                },
+                {"Q2", "nu"})
+        .Define("W",
+                [](double q2, double nu) {
+                    const double w2 = kNucleonMass * kNucleonMass +
+                                      2.0 * kNucleonMass * nu - q2;
+                    return w2 >= 0.0 ? std::sqrt(w2) : -999.0;
+                },
+                {"Q2", "nu"})
+        .Define("y",
+                [beam_energy](double nu) {
+                    return beam_energy > 0.0 ? nu / beam_energy : -999.0;
+                },
+                {"nu"})
+        .Define("beam_target_spin",
+                [](Short_t beam, Short_t target) {
+                    return static_cast<int>(beam * target);
                 },
                 {"MC_Event_helicity", "MC_Event_targetPolarization"});
 
-    const auto event_count = df.Count();
+    // These filtered nodes are lazy views of the same event graph. No event
+    // data are copied, and downstream actions can process them concurrently.
+    return {
+        df,
+        df.Filter("he3_final_state == 1", "He3 final state: e' p p"),
+        df.Filter("he3_final_state == 2", "He3 final state: e' d"),
+        df.Filter("he3_final_state == 3", "He3 final state: e' p n")
+    };
+}
 
-    auto h_xb = df.Histo1D(
-        {"h_xB", "He3DIS;x_{B};Events", 100, 0.0, 1.0}, "MC_Event_xB");
-    auto h_q2 = df.Histo1D(
-        {"h_Q2", "He3DIS;Q^{2} [GeV^{2}];Events", 100, 0.0, 12.0},
-        "MC_Event_Q2");
-    auto h_w2 = df.Histo1D(
-        {"h_W2", "He3DIS;W^{2} [GeV^{2}];Events", 100, 0.0, 25.0},
-        "MC_Event_W2");
-    auto h_y = df.Histo1D(
-        {"h_y", "He3DIS;y;Events", 100, 0.0, 1.0}, "MC_Event_y");
-    auto h_nu = df.Histo1D(
-        {"h_nu", "He3DIS;#nu [GeV];Events", 100, 0.0, 11.0},
-        "MC_Event_nu");
-    auto h_q2_xb = df.Histo2D(
-        {"h_Q2_vs_xB", "He3DIS;x_{B};Q^{2} [GeV^{2}]", 100, 0.0,
-         1.0, 100, 0.0, 12.0},
-        "MC_Event_xB", "MC_Event_Q2");
+void DISANA_XplotterHe3() {
+    ROOT::EnableImplicitMT(40);
 
-    auto h_electron_p = df.Histo1D(
-        {"h_electron_p", "Scattered electron;p_{e'} [GeV];Events", 100,
-         0.0, 11.0},
-        "he3_electron_p");
-    auto h_electron_theta = df.Histo1D(
-        {"h_electron_theta", "Scattered electron;#theta_{e'} [deg];Events",
-         100, 0.0, 50.0},
-        "he3_electron_theta");
-    auto h_spectator_p = df.Histo1D(
-        {"h_spectator_p", "Spectators;p [GeV];Particles", 120, 0.0, 1.2},
-        "he3_spectator_p");
-    auto h_spectator_type = df.Histo1D(
-        {"h_spectator_type", "Spectator composition;particle;Particles", 3,
-         0.5, 3.5},
-        "he3_spectator_type");
-    auto h_spin_state = df.Histo1D(
-        {"h_spin_state", "Beam-target polarization;state;Events", 4, 0.5,
-         4.5},
-        "he3_spin_state");
-    auto p_double_spin_xb = df.Profile1D(
-        {"p_double_spin_xB",
-         "Raw double-spin observable;x_{B};<#it{h}_{e}#it{h}_{T}>", 20,
-         0.0, 1.0, -1.1, 1.1},
-        "MC_Event_xB", "he3_spin_product");
+    std::string input_path_from_He3DIS_mc ="/work/clas12/yijie/Simulation/He3DIS/He3DIS";
+    std::string filename_He3DIS_mc = Form("%s/CLAS12_3He_10p6_rdf.root",input_path_from_He3DIS_mc.c_str());
 
-    // Trigger the event loop before drawing and report the exact entry count.
-    std::cout << "Read " << *event_count << " He3DIS events from "
-              << input_file << '\n';
+    std::string treename_He3DIS_mc = "MC";
+    float beam_energy = 10.6;
 
-    h_spectator_type->GetXaxis()->SetBinLabel(1, "p");
-    h_spectator_type->GetXaxis()->SetBinLabel(2, "n");
-    h_spectator_type->GetXaxis()->SetBinLabel(3, "d");
-    h_spin_state->GetXaxis()->SetBinLabel(1, "beam+, target+");
-    h_spin_state->GetXaxis()->SetBinLabel(2, "beam+, target-");
-    h_spin_state->GetXaxis()->SetBinLabel(3, "beam-, target+");
-    h_spin_state->GetXaxis()->SetBinLabel(4, "beam-, target-");
+    He3FinalStateDataFrames df_He3DIS_mc_init = InitGenKinematicsHe3(filename_He3DIS_mc, treename_He3DIS_mc, beam_energy);
 
-    const std::string directory(output_directory);
+    DISANAcomparer comparer;
+    comparer.AddModelHe3(df_He3DIS_mc_init.all);
+    comparer.PlotParticleKinematicHe3();
+    comparer.PlotDISKinematicHe3();
 
-    TCanvas kinematics("c_he3_kinematics", "He3DIS kinematics", 1500, 900);
-    kinematics.Divide(3, 2);
-    kinematics.cd(1); h_xb->Draw("hist");
-    kinematics.cd(2); h_q2->Draw("hist");
-    kinematics.cd(3); h_w2->Draw("hist");
-    kinematics.cd(4); h_y->Draw("hist");
-    kinematics.cd(5); h_nu->Draw("hist");
-    kinematics.cd(6); h_q2_xb->Draw("colz");
-    kinematics.SaveAs((directory + "/He3DIS_kinematics.pdf").c_str());
+    auto all_count = df_He3DIS_mc_init.all.Count();
+    auto epp_count = df_He3DIS_mc_init.epp.Count();
+    auto ed_count = df_He3DIS_mc_init.ed.Count();
+    auto epn_count = df_He3DIS_mc_init.epn.Count();
 
-    TCanvas particles("c_he3_particles", "He3DIS particles", 1500, 900);
-    particles.Divide(3, 2);
-    particles.cd(1); h_electron_p->Draw("hist");
-    particles.cd(2); h_electron_theta->Draw("hist");
-    particles.cd(3); h_spectator_p->Draw("hist");
-    particles.cd(4); h_spectator_type->Draw("hist");
-    particles.cd(5); h_spin_state->Draw("hist");
-    particles.cd(6); p_double_spin_xb->SetMinimum(-1.1);
-    p_double_spin_xb->SetMaximum(1.1);
-    p_double_spin_xb->Draw();
-    particles.SaveAs((directory + "/He3DIS_particles_polarization.pdf").c_str());
-
-    TFile histogram_file((directory + "/He3DIS_histograms.root").c_str(),
-                         "RECREATE");
-    h_xb->Write();
-    h_q2->Write();
-    h_w2->Write();
-    h_y->Write();
-    h_nu->Write();
-    h_q2_xb->Write();
-    h_electron_p->Write();
-    h_electron_theta->Write();
-    h_spectator_p->Write();
-    h_spectator_type->Write();
-    h_spin_state->Write();
-    p_double_spin_xb->Write();
-    histogram_file.Close();
-
-    std::cout << "Wrote plots and histograms to " << output_directory << '\n';
+    std::cout << "Initialized " << all_count.GetValue()
+              << " He3DIS events with " << beam_energy
+              << " GeV beam energy using 40 ROOT threads.\n";
+    std::cout << "  e' + p + p : " << epp_count.GetValue() << '\n'
+              << "  e' + d     : " << ed_count.GetValue() << '\n'
+              << "  e' + p + n : " << epn_count.GetValue() << '\n';
+    std::cout << "The returned RDataFrame nodes have Q2, xB, W, nu, y, "
+                 "electron, spectator, and polarization columns ready for "
+                 "analysis.\n";
 }
