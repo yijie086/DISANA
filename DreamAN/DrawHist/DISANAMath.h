@@ -18,7 +18,10 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <map>
+#include <mutex>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -120,6 +123,24 @@ class BinManager {
     double Q2Max;
     double tMin;
     double tMax;
+  };
+
+  struct PhysicalVolumeResult {
+    double nominalVolume = 0.0;
+    double effectiveVolume = 0.0;
+    double fraction = 0.0;
+  };
+
+  struct GeneratorPhaseSpaceCuts {
+    double minXB = 0.10;
+    double maxXB = 0.65;
+    double minQ2 = 1.0;   // GeV^2
+    double maxQ2 = 10.0;  // GeV^2
+    double minY = 0.05;
+    double maxY = 0.90;
+    double minW2 = 4.0;   // GeV^2
+    double minAbsT = 0.0; // GeV^2
+    double maxAbsT = 1.0; // GeV^2
   };
 
   BinManager() {
@@ -254,6 +275,116 @@ class BinManager {
   void SetCosThetaKKBins(const std::vector<double>& v) { cos_thetaKK_bins_ = v; }
   void SetTrentoPhiBins(const std::vector<double>& v) { trento_phi_bins_ = v; }
   void SetZPhiBins(const std::vector<double>& v) { z_phi_bins_ = v; }
+
+  // Numerically integrate the exact massless-electron DVCS phase-space
+  // intersection of a rectangular (xB,Q2,|t|) bin at fixed beam energy.
+  // The same integral is also used by the final DVCS cross-section
+  // normalization when a finite beam energy is supplied.
+  static PhysicalVolumeResult ComputeDVCSPhysicalVolume(
+      const KinematicBin &bin, double beamEnergy,
+      const GeneratorPhaseSpaceCuts &cuts,
+      int nXBSteps = 240, int nQ2Steps = 240) {
+    PhysicalVolumeResult out;
+    out.nominalVolume = (bin.xBMax - bin.xBMin) *
+                        (bin.Q2Max - bin.Q2Min) *
+                        (bin.tMax - bin.tMin);
+    if (!(out.nominalVolume > 0.0) || !(beamEnergy > 0.0) ||
+        nXBSteps <= 0 || nQ2Steps <= 0) {
+      return out;
+    }
+
+    constexpr double protonMass = 0.9382720813;
+    const double dx = (bin.xBMax - bin.xBMin) / nXBSteps;
+    const double dQ2 = (bin.Q2Max - bin.Q2Min) / nQ2Steps;
+
+    double effective = 0.0;
+    for (int ix = 0; ix < nXBSteps; ++ix) {
+      const double xB = bin.xBMin + (ix + 0.5) * dx;
+      if (!(xB > 0.0 && xB < 1.0)) continue;
+      if (!(xB > cuts.minXB && xB < cuts.maxXB)) continue;
+
+      for (int iq = 0; iq < nQ2Steps; ++iq) {
+        const double Q2 = bin.Q2Min + (iq + 0.5) * dQ2;
+        if (!(Q2 > 0.0)) continue;
+        if (!(Q2 > cuts.minQ2 && Q2 < cuts.maxQ2)) continue;
+
+        // Inclusive electron kinematics at fixed-target beam energy.
+        const double nu = Q2 / (2.0 * protonMass * xB);
+        const double scatteredEnergy = beamEnergy - nu;
+        if (!(scatteredEnergy > 0.0)) continue;
+        const double y = nu / beamEnergy;
+        if (!(y > cuts.minY && y < cuts.maxY)) continue;
+        const double sin2HalfTheta = Q2 / (4.0 * beamEnergy * scatteredEnergy);
+        if (!(sin2HalfTheta >= 0.0 && sin2HalfTheta <= 1.0)) continue;
+
+        const double W2 = protonMass * protonMass + Q2 * (1.0 / xB - 1.0);
+        if (!(W2 > protonMass * protonMass)) continue;
+        if (!(W2 > cuts.minW2)) continue;
+        const double W = std::sqrt(W2);
+
+        // gamma* p -> gamma p two-body limits in the gamma*p CM frame.
+        const double lambda =
+            W2 * W2 + Q2 * Q2 + std::pow(protonMass, 4) +
+            2.0 * W2 * Q2 - 2.0 * W2 * protonMass * protonMass +
+            2.0 * Q2 * protonMass * protonMass;
+        if (lambda < -1e-12) continue;
+        const double pInitial = std::sqrt(std::max(0.0, lambda)) / (2.0 * W);
+        const double eVirtual = (W2 - Q2 - protonMass * protonMass) / (2.0 * W);
+        const double pFinal = (W2 - protonMass * protonMass) / (2.0 * W);
+
+        const double tForward = -Q2 - 2.0 * eVirtual * pFinal +
+                                2.0 * pInitial * pFinal;
+        const double tBackward = -Q2 - 2.0 * eVirtual * pFinal -
+                                 2.0 * pInitial * pFinal;
+        const double absTPhysicalMin = std::max(0.0, -std::max(tForward, tBackward));
+        const double absTPhysicalMax = std::max(0.0, -std::min(tForward, tBackward));
+
+        const double overlapLow = std::max({bin.tMin, absTPhysicalMin, cuts.minAbsT});
+        const double overlapHigh = std::min({bin.tMax, absTPhysicalMax, cuts.maxAbsT});
+        if (overlapHigh > overlapLow) {
+          effective += dx * dQ2 * (overlapHigh - overlapLow);
+        }
+      }
+    }
+
+    out.effectiveVolume = effective;
+    out.fraction = std::clamp(effective / out.nominalVolume, 0.0, 1.0);
+    return out;
+  }
+
+  static double ComputeDVCSNormalizationVolume(const KinematicBin &bin,
+                                                double beamEnergy,
+                                                int nXBSteps = 240,
+                                                int nQ2Steps = 240) {
+    const double nominal = (bin.xBMax - bin.xBMin) *
+                           (bin.Q2Max - bin.Q2Min) *
+                           (bin.tMax - bin.tMin);
+    // A non-finite beam energy explicitly requests the legacy nominal volume.
+    // This is used for correction-factor ratios, where the common volume
+    // cancels, and for non-DVCS/SDHEP coordinates.
+    if (!std::isfinite(beamEnergy)) return nominal;
+
+    using CacheKey = std::tuple<double, double, double, double,
+                                double, double, double, int, int>;
+    static std::map<CacheKey, double> cache;
+    static std::mutex cacheMutex;
+    const CacheKey key{bin.xBMin, bin.xBMax, bin.Q2Min, bin.Q2Max,
+                       bin.tMin, bin.tMax, beamEnergy, nXBSteps, nQ2Steps};
+    {
+      std::lock_guard<std::mutex> lock(cacheMutex);
+      const auto found = cache.find(key);
+      if (found != cache.end()) return found->second;
+    }
+
+    const GeneratorPhaseSpaceCuts cuts{};
+    const double effective = ComputeDVCSPhysicalVolume(
+        bin, beamEnergy, cuts, nXBSteps, nQ2Steps).effectiveVolume;
+    {
+      std::lock_guard<std::mutex> lock(cacheMutex);
+      cache.emplace(key, effective);
+    }
+    return effective;
+  }
 
   std::vector<double> ComputeAxisEdges2D(const TH2 *h, bool alongX, int nDesiredBins) {
     std::vector<double> edges;
@@ -973,7 +1104,9 @@ class DISANAMath {
   // ---------------------------------------------------------------------------
   // dσ/dφ (DVCS) and helpers (unchanged except includes)
   // ---------------------------------------------------------------------------
-  std::vector<std::vector<std::vector<TH1D *>>> ComputeDVCS_CrossSection(ROOT::RDF::RNode df, const BinManager &bins, double luminosity) {
+  std::vector<std::vector<std::vector<TH1D *>>> ComputeDVCS_CrossSection(
+      ROOT::RDF::RNode df, const BinManager &bins, double luminosity,
+      double beamEnergy = std::numeric_limits<double>::quiet_NaN()) {
     TStopwatch timer;
     timer.Start();
     constexpr double phi_min = 0.0, phi_max = 360.0;
@@ -1027,13 +1160,17 @@ class DISANAMath {
           delete slotHist[slot][ib];
         }
         const auto &bin = customBins[ib];
-        const double volume = (bin.xBMax - bin.xBMin) *
-                              (bin.Q2Max - bin.Q2Min) *
-                              (bin.tMax - bin.tMin);
+        const double volume = BinManager::ComputeDVCSNormalizationVolume(bin, beamEnergy);
         TH1D *h = hist[0][ib][0];
+        if (!(volume > 0.0)) {
+          std::cerr << "[Veff XS] WARNING: zero physical volume for custom bin "
+                    << ib << "; cross section set to NaN.\n";
+        }
         for (int b = 1; b <= h->GetNbinsX(); ++b) {
           const double n = h->GetBinContent(b);
-          const double scale = 1.0 / (luminosity * phiWidth * volume);
+          const double scale = volume > 0.0
+                                   ? 1.0 / (luminosity * phiWidth * volume)
+                                   : std::numeric_limits<double>::quiet_NaN();
           h->SetBinContent(b, n * scale);
           h->SetBinError(b, std::sqrt(std::max(0.0, n)) * scale);
         }
@@ -1063,7 +1200,8 @@ class DISANAMath {
                             tmin, tmax, bins.GetFirstLabel(), xbmin, xbmax);
           hist[ix][iq][it] = new TH1D(name, title, n_phi_bins, phi_min, phi_max);
           hist[ix][iq][it]->SetDirectory(nullptr);
-          q2xBtbins[ix][iq][it] = (qmax - qmin) * (tmax - tmin) * (xbmax - xbmin);
+          q2xBtbins[ix][iq][it] = BinManager::ComputeDVCSNormalizationVolume(
+              {xbmin, xbmax, qmin, qmax, tmin, tmax}, beamEnergy);
         }
     }
 
@@ -1091,21 +1229,28 @@ class DISANAMath {
           const double vol = q2xBtbins[ix][iq][it];
           for (int b = 1; b <= h->GetNbinsX(); ++b) {
             const double N = h->GetBinContent(b);
-            const double ds = N / (luminosity * bin_width * vol);
-            const double es = std::sqrt(std::max(0.0, N)) / (luminosity * bin_width * vol);
+            const double denominator = luminosity * bin_width * vol;
+            const double ds = vol > 0.0 ? N / denominator
+                                        : std::numeric_limits<double>::quiet_NaN();
+            const double es = vol > 0.0 ? std::sqrt(std::max(0.0, N)) / denominator
+                                        : std::numeric_limits<double>::quiet_NaN();
             h->SetBinContent(b, ds);
             h->SetBinError(b, es);
           }
         }
 
-    std::cout << "DVCS cross-sections computed in a single pass.\n";
+    std::cout << "DVCS cross-sections computed in a single pass using "
+              << (std::isfinite(beamEnergy) ? "effective physical" : "nominal")
+              << " (xB,Q2,|t|) bin volumes.\n";
     timer.Stop();
     std::cout << "Time elapsed: " << timer.RealTime() << " s (real), " << timer.CpuTime() << " s (CPU)\n";
     return hist;
   }
 
-    std::vector<std::vector<std::vector<TH1D *>>> ComputeDVCS_CrossSection_Weighted(ROOT::RDF::RNode df, const BinManager &bins, double luminosity,
-                                                                                   DVCSWeightFunction weightFunc = nullptr)
+    std::vector<std::vector<std::vector<TH1D *>>> ComputeDVCS_CrossSection_Weighted(
+        ROOT::RDF::RNode df, const BinManager &bins, double luminosity,
+        DVCSWeightFunction weightFunc = nullptr,
+        double beamEnergy = std::numeric_limits<double>::quiet_NaN())
   {
     TStopwatch timer;
     timer.Start();
@@ -1172,10 +1317,15 @@ class DISANAMath {
           delete slotHist[slot][ib];
         }
         const auto &bin = customBins[ib];
-        const double volume = (bin.xBMax - bin.xBMin) *
-                              (bin.Q2Max - bin.Q2Min) *
-                              (bin.tMax - bin.tMin);
-        hist[0][ib][0]->Scale(1.0 / (luminosity * phiWidth * volume));
+        const double volume = BinManager::ComputeDVCSNormalizationVolume(bin, beamEnergy);
+        const double scale = volume > 0.0
+                                 ? 1.0 / (luminosity * phiWidth * volume)
+                                 : std::numeric_limits<double>::quiet_NaN();
+        if (!(volume > 0.0)) {
+          std::cerr << "[Veff XS] WARNING: zero physical volume for custom bin "
+                    << ib << "; cross section set to NaN.\n";
+        }
+        hist[0][ib][0]->Scale(scale);
       }
       return hist;
     }
@@ -1221,7 +1371,8 @@ class DISANAMath {
           hist[ix][iq][it]->SetDirectory(nullptr);
           hist[ix][iq][it]->Sumw2(); // IMPORTANT: weighted errors
 
-          q2xBtbins[ix][iq][it] = (qmax - qmin) * (tmax - tmin) * (xbmax - xbmin);
+          q2xBtbins[ix][iq][it] = BinManager::ComputeDVCSNormalizationVolume(
+              {xbmin, xbmax, qmin, qmax, tmin, tmax}, beamEnergy);
         }
     }
 
@@ -1292,11 +1443,16 @@ class DISANAMath {
           TH1D *h = hist[ix][iq][it];
           if (!h) continue;
           const double vol = q2xBtbins[ix][iq][it];
-          const double scale = 1.0 / (luminosity * bin_width * vol);
+          const double scale = vol > 0.0
+                                   ? 1.0 / (luminosity * bin_width * vol)
+                                   : std::numeric_limits<double>::quiet_NaN();
           h->Scale(scale); // scales both content and errors
         }
 
-    std::cout << "DVCS cross-sections computed " << (weightFunc ? "(with custom event weights)" : "(unweighted)") << " in a single pass.\n";
+    std::cout << "DVCS cross-sections computed " << (weightFunc ? "(with custom event weights)" : "(unweighted)")
+              << " in a single pass using "
+              << (std::isfinite(beamEnergy) ? "effective physical" : "nominal")
+              << " (xB,Q2,|t|) bin volumes.\n";
     timer.Stop();
     std::cout << "Time elapsed: " << timer.RealTime() << " s (real), " << timer.CpuTime() << " s (CPU)\n";
     return hist;

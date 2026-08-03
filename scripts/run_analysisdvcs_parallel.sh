@@ -16,14 +16,14 @@ EXE="$SCRIPT_DIR/../build/AnalysisDVCS"
 OUTPUT_BASE="$SCRIPT_DIR/../build/dvcs_parallel_output"
 typeset -a INPUT_DIRS
 INPUT_DIRS=(
-  /volatile/clas12/osg/yijie/10870/
-  /volatile/clas12/osg/yijie/10871/
-  /volatile/clas12/osg/yijie/10872/
-  /volatile/clas12/osg/yijie/10873/
-  /volatile/clas12/osg/yijie/10874/
-  /volatile/clas12/osg/yijie/10877/
-  /volatile/clas12/osg/yijie/10878/
-  /volatile/clas12/osg/yijie/10879/
+    /volatile/clas12/osg/yijie/10854
+    /volatile/clas12/osg/yijie/10856
+    /volatile/clas12/osg/yijie/10857
+    /volatile/clas12/osg/yijie/10858
+    /volatile/clas12/osg/yijie/10859
+    /volatile/clas12/osg/yijie/10860
+    /volatile/clas12/osg/yijie/10861
+    /volatile/clas12/osg/yijie/10862
 )
 MAX_TOTAL_FILES=10000000000
 

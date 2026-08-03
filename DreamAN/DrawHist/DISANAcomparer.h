@@ -93,6 +93,7 @@ class DISANAcomparer {
     plotter->GeneratePi0KinematicHistos("pho2");
     labels.push_back(label);
     plotters.push_back(std::move(plotter));
+    WriteDVCSPhysicalVolumeCSV(beamEnergy);
   }
 
   void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, double luminosity = 1.0) {
@@ -104,6 +105,7 @@ class DISANAcomparer {
     plotter->GenerateKinematicHistos("pho");
     labels.push_back(label);
     plotters.push_back(std::move(plotter));
+    WriteDVCSPhysicalVolumeCSV(beamEnergy);
   }
 
   void AddModelPhi(ROOT::RDF::RNode df_data, const std::string& label, double beamEnergy, double luminosity) {
@@ -152,6 +154,94 @@ class DISANAcomparer {
     if (!fs::exists(outputDir)) {
       fs::create_directories(outputDir);
     }
+  }
+
+  // Write one row per configured (xB,Q2,|t|) bin.  Called automatically when
+  // a DVCS model is added, so every DISANA_Xplotter2csv*.cpp entry point that
+  // uses this comparer gets the diagnostic without per-macro changes.
+  void WriteDVCSPhysicalVolumeCSV(double beamEnergy,
+                                  int nXBSteps = 240,
+                                  int nQ2Steps = 240) {
+    if (fXbins.UsesSDHEP()) {
+      std::cout << "[Veff] SDHEP bins use (xi,cos(theta),t), not (xB,Q2,t); "
+                   "skipping the xB-Q2-t physical-volume CSV.\n";
+      return;
+    }
+
+    const long long energyKey = std::llround(beamEnergy * 1.0e6);
+    if (physicalVolumeCSVWritten_[energyKey]) return;
+
+    const BinManager::GeneratorPhaseSpaceCuts cuts{};
+    std::cout << "[Veff] Generator phase-space cuts used in the integral: "
+              << cuts.minXB << " < xB < " << cuts.maxXB << ", "
+              << cuts.minQ2 << " < Q2 < " << cuts.maxQ2 << " GeV^2, "
+              << cuts.minY << " < y < " << cuts.maxY << ", "
+              << "W2 > " << cuts.minW2 << " GeV^2, "
+              << cuts.minAbsT << " < |t| < " << cuts.maxAbsT << " GeV^2\n"
+              << "[Veff] Analysis cuts p_e' > 2 GeV and p_gamma > 2 GeV are NOT "
+                 "included in Veff; they are left to the acceptance correction.\n";
+
+    std::ostringstream energyTag;
+    energyTag << std::fixed << std::setprecision(3) << beamEnergy;
+    std::string tag = energyTag.str();
+    std::replace(tag.begin(), tag.end(), '.', 'p');
+    const std::string filename = outputDir + "/effective_bin_volume_Eb" + tag + ".csv";
+
+    std::ofstream csv(filename);
+    if (!csv.is_open()) {
+      std::cerr << "[Veff] Cannot open " << filename << " for writing\n";
+      return;
+    }
+
+    csv << "mode,bin_index,ixB,iQ2,it,xB_min,xB_max,Q2_min,Q2_max,"
+           "t_min,t_max,beam_energy,nominal_volume,effective_volume,"
+           "Veff_over_Vnominal,gen_xB_min,gen_xB_max,gen_Q2_min,gen_Q2_max,"
+           "gen_y_min,gen_y_max,gen_W2_min,gen_t_min,gen_t_max,"
+           "n_xB_steps,n_Q2_steps\n";
+    csv << std::setprecision(12);
+
+    size_t binIndex = 0;
+    auto writeRow = [&](const char *mode, long long ix, long long iq, long long it,
+                        const BinManager::KinematicBin &bin) {
+      const auto result = BinManager::ComputeDVCSPhysicalVolume(
+          bin, beamEnergy, cuts, nXBSteps, nQ2Steps);
+      csv << mode << ',' << binIndex++ << ',' << ix << ',' << iq << ',' << it << ','
+          << bin.xBMin << ',' << bin.xBMax << ','
+          << bin.Q2Min << ',' << bin.Q2Max << ','
+          << bin.tMin << ',' << bin.tMax << ',' << beamEnergy << ','
+          << result.nominalVolume << ',' << result.effectiveVolume << ','
+          << result.fraction << ',' << cuts.minXB << ',' << cuts.maxXB << ','
+          << cuts.minQ2 << ',' << cuts.maxQ2 << ','
+          << cuts.minY << ',' << cuts.maxY << ',' << cuts.minW2 << ','
+          << cuts.minAbsT << ',' << cuts.maxAbsT << ','
+          << nXBSteps << ',' << nQ2Steps << '\n';
+    };
+
+    if (fXbins.HasCustomBins()) {
+      const auto &bins = fXbins.GetCustomBins();
+      for (size_t ib = 0; ib < bins.size(); ++ib) {
+        writeRow("custom", static_cast<long long>(ib), -1, -1, bins[ib]);
+      }
+    } else {
+      const auto &q2Edges = fXbins.GetQ2Bins();
+      const auto &tEdges = fXbins.GetTBins();
+      for (size_t iq = 0; iq + 1 < q2Edges.size(); ++iq) {
+        const auto &xbEdges = fXbins.GetXBBins(iq);
+        for (size_t ix = 0; ix + 1 < xbEdges.size(); ++ix) {
+          for (size_t it = 0; it + 1 < tEdges.size(); ++it) {
+            writeRow("conventional", static_cast<long long>(ix),
+                     static_cast<long long>(iq), static_cast<long long>(it),
+                     {xbEdges[ix], xbEdges[ix + 1],
+                      q2Edges[iq], q2Edges[iq + 1],
+                      tEdges[it], tEdges[it + 1]});
+          }
+        }
+      }
+    }
+
+    csv.close();
+    physicalVolumeCSVWritten_[energyKey] = true;
+    std::cout << "[Veff] Wrote " << binIndex << " bins to " << filename << '\n';
   }
 
   // Enable or disable individual variable plotting
@@ -5296,6 +5386,7 @@ class DISANAcomparer {
 
   std::unique_ptr<ROOT::RDF::RNode> rdf;
   std::string outputDir = ".";
+  std::map<long long, bool> physicalVolumeCSVWritten_;
 
   std::vector<std::unique_ptr<DISANAplotter>> plotters;
   std::vector<std::string> labels;

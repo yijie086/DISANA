@@ -350,12 +350,12 @@ void DISANA_Xplotter2csv6p5() {
 
   ROOT::EnableImplicitMT(40);
  
-  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535BSA/PID/";
+  std::string input_path_from_analysisRun_6535_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535BSA/";
   std::string input_path_from_analysisRun_6535_pi0MC = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535BSA/Pi0MC/";
   std::string input_path_from_analysisRun_6535_dvcsmc_rec = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkg/";
   std::string input_path_from_analysisRun_6535_dvcsmc_gen = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkgall/";
-  std::string input_path_from_analysisRun_6535_bkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/bkg/";
-  std::string input_path_from_analysisRun_6535_nobkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkg/";
+  std::string input_path_from_analysisRun_6535_bkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/bkgLarge/";
+  std::string input_path_from_analysisRun_6535_nobkg = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/nobkgLarge/";
 
   std::string filename_afterFid_6535_data = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_data.c_str());
   std::string filename_afterFid_6535_pi0MC = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_pi0MC.c_str());
@@ -363,7 +363,7 @@ void DISANA_Xplotter2csv6p5() {
   std::string filename_afterFid_6535_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_dvcsmc_rec.c_str());
   std::string filename_afterFid_6535_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_bkg.c_str());
   std::string filename_afterFid_6535_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_nobkg.c_str());
-  std::string filename_afterFid_6535_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/rad6535v0p4.root";
+  std::string filename_afterFid_6535_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/rad6535v0p6.root";
   std::string filename_afterFid_6535_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535.root";
   std::string filename_afterFid_6535_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535P1.root";
 
@@ -412,8 +412,10 @@ void DISANA_Xplotter2csv6p5() {
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rec = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rec_init, "dfSlim_6535_dvcsmc_rec.root", "dfSlim_6535_dvcsmc_rec", false);
   ROOT::RDF::RNode df_afterFid_6535_bkg = GetSlim_exclusive(df_afterFid_6535_bkg_init, "dfSlim_6535_bkg.root", "dfSlim_6535_bkg", false);
   ROOT::RDF::RNode df_afterFid_6535_nobkg = GetSlim_exclusive(df_afterFid_6535_nobkg_init, "dfSlim_6535_nobkg.root", "dfSlim_6535_nobkg", false);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rad = GetSlim_exclusive(df_afterFid_6535_dvcsmc_rad_init, "dfSlim_6535_dvcsmc_rad.root", "dfSlim_6535_dvcsmc_rad", true);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad = GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_init, "dfSlim_6535_dvcsmc_norad.root", "dfSlim_6535_dvcsmc_norad", true);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rad = ApplyFinalDVCSRadSelections(
+      GetSlim_exclusive(df_afterFid_6535_dvcsmc_rad_init, "dfSlim_6535_dvcsmc_rad.root", "dfSlim_6535_dvcsmc_rad", true));
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad = ApplyFinalDVCSRadSelections(
+      GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_init, "dfSlim_6535_dvcsmc_norad.root", "dfSlim_6535_dvcsmc_norad", true));
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_6535_dvcsmc_p1cut_init, "dfSlim_6535_dvcsmc_p1cut.root", "dfSlim_6535_dvcsmc_p1cut", true);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
@@ -555,7 +557,7 @@ void DISANA_Xplotter2csv6p5() {
                               df_afterFid_6535_dvcsmc_rad,
                               df_afterFid_6535_dvcsmc_norad,
                               df_afterFid_6535_dvcsmc_p1cut,
-                              "RGK 6.5GeV", beam_energy, true, true, true, true, true, luminosity, 55.09, 60, 0.8446);
+                              "RGK 6.5GeV", beam_energy, true, true, true, true, true, luminosity, 55.09, 60, 0.9326);
 
 
   //comparer.PlotKinematicComparison();
@@ -1162,11 +1164,11 @@ ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df,
 
 
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df) {
-  return df;
-  //return df
-  //  .Filter("Emiss < 1.0", "Cut: Missing energy")
-  //  .Filter("Mx2_ep > -0.20 && Mx2_ep < 0.20", "Cut: MM^2(ep)")
-  //  .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma");
+  return df
+      .Filter("W > 2.0", "Rad cut: W > 2 GeV")
+      .Filter("recel_p > 2.0", "Rad cut: electron momentum > 2 GeV")
+      .Filter("recpho_p > 2.0", "Rad cut: photon momentum > 2 GeV")
+      .Filter("Q2 > 1.0", "Rad cut: Q2 > 1 GeV^2");
 }
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){

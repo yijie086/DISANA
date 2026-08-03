@@ -200,8 +200,10 @@ void DISANA_Xplotter2csv6p4() {
   ROOT::RDF::RNode df_afterFid_6395_dvcsmc_rec = GetSlim_exclusive(df_afterFid_6395_dvcsmc_rec_init, "dfSlim_6395_dvcsmc_rec.root", "dfSlim_6395_dvcsmc_rec", false);
   ROOT::RDF::RNode df_afterFid_6395_bkg = GetSlim_exclusive(df_afterFid_6395_bkg_init, "dfSlim_6395_bkg.root", "dfSlim_6395_bkg", false);
   ROOT::RDF::RNode df_afterFid_6395_nobkg = GetSlim_exclusive(df_afterFid_6395_nobkg_init, "dfSlim_6395_nobkg.root", "dfSlim_6395_nobkg", false);
-  ROOT::RDF::RNode df_afterFid_6395_dvcsmc_rad = GetSlim_exclusive(df_afterFid_6395_dvcsmc_rad_init, "dfSlim_6395_dvcsmc_rad.root", "dfSlim_6395_dvcsmc_rad", true);
-  ROOT::RDF::RNode df_afterFid_6395_dvcsmc_norad = GetSlim_exclusive(df_afterFid_6395_dvcsmc_norad_init, "dfSlim_6395_dvcsmc_norad.root", "dfSlim_6395_dvcsmc_norad", true);
+  ROOT::RDF::RNode df_afterFid_6395_dvcsmc_rad = ApplyFinalDVCSRadSelections(
+      GetSlim_exclusive(df_afterFid_6395_dvcsmc_rad_init, "dfSlim_6395_dvcsmc_rad.root", "dfSlim_6395_dvcsmc_rad", true));
+  ROOT::RDF::RNode df_afterFid_6395_dvcsmc_norad = ApplyFinalDVCSRadSelections(
+      GetSlim_exclusive(df_afterFid_6395_dvcsmc_norad_init, "dfSlim_6395_dvcsmc_norad.root", "dfSlim_6395_dvcsmc_norad", true));
   ROOT::RDF::RNode df_afterFid_6395_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_6395_dvcsmc_p1cut_init, "dfSlim_6395_dvcsmc_p1cut.root", "dfSlim_6395_dvcsmc_p1cut", true);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
@@ -845,11 +847,11 @@ ROOT::RDF::RNode ApplyFinalGenDVCSSelections(ROOT::RDF::RNode df,
 
 
 ROOT::RDF::RNode ApplyFinalDVCSRadSelections(ROOT::RDF::RNode df) {
-  return df;
-  //return df
-  //  .Filter("Emiss < 1.0", "Cut: Missing energy")
-  //  .Filter("Mx2_ep > -0.20 && Mx2_ep < 0.20", "Cut: MM^2(ep)")
-  //  .Filter("Theta_e_gamma > 5 ", "Cut: Theta_e_gamma");
+  return df
+      .Filter("W > 2.0", "Rad cut: W > 2 GeV")
+      .Filter("recel_p > 2.0", "Rad cut: electron momentum > 2 GeV")
+      .Filter("recpho_p > 2.0", "Rad cut: photon momentum > 2 GeV")
+      .Filter("Q2 > 1.0", "Rad cut: Q2 > 1 GeV^2");
 }
 
 ROOT::RDF::RNode DefineDVPi0Pass(ROOT::RDF::RNode df){

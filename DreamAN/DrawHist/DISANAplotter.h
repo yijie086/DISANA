@@ -353,9 +353,14 @@ class DISANAplotter {
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> ComputeDVCS_CrossSection(const BinManager& bins) {
-    auto result = kinCalc.ComputeDVCS_CrossSection_Weighted(rdf, bins, luminosity_nb_inv, dvcs_weight_function_);
+    const double volumeBeamEnergy = bins.UsesSDHEP()
+                                        ? std::numeric_limits<double>::quiet_NaN()
+                                        : beam_energy;
+    auto result = kinCalc.ComputeDVCS_CrossSection_Weighted(
+        rdf, bins, luminosity_nb_inv, dvcs_weight_function_, volumeBeamEnergy);
     if (dopi0corr) {
-      auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(*rdf_pi0_data, bins, luminosity_nb_inv);
+      auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(
+          *rdf_pi0_data, bins, luminosity_nb_inv, volumeBeamEnergy);
       result = UsePi0Correction(result, sigma_pi0_3d, ComputePi0Corr(bins));
     }
     if (doacceptcorr) {
@@ -384,9 +389,14 @@ class DISANAplotter {
     auto lumi_pol = luminosity_nb_inv * n_pol / n_all;
     std::cout << " Pol " << pol << " fraction: " << double(n_pol) / n_all << ", effective luminosity: " << lumi_pol << " nb^-1\n";
     
-    auto result = kinCalc.ComputeDVCS_CrossSection_Weighted(rdf_pol, bins, lumi_pol, dvcs_weight_function_);
+    const double volumeBeamEnergy = bins.UsesSDHEP()
+                                        ? std::numeric_limits<double>::quiet_NaN()
+                                        : beam_energy;
+    auto result = kinCalc.ComputeDVCS_CrossSection_Weighted(
+        rdf_pol, bins, lumi_pol, dvcs_weight_function_, volumeBeamEnergy);
     if (dopi0corr) {
-      auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(*rdf_pi0_data, bins, luminosity_nb_inv);
+      auto sigma_pi0_3d = kinCalc.ComputeDVCS_CrossSection(
+          *rdf_pi0_data, bins, luminosity_nb_inv, volumeBeamEnergy);
       result = UsePi0Correction(result, sigma_pi0_3d, ComputePi0Corr(bins));
     }
     if (doacceptcorr) {

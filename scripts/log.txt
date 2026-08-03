@@ -1,0 +1,103 @@
+[INFO] EXE            = /work/clas12/yijie/clas12ana/analysis1301/DISANA/scripts/../build/AnalysisDVCS
+[INFO] INPUT_DIRS     = /volatile/clas12/osg/yijie/10854,/volatile/clas12/osg/yijie/10856,/volatile/clas12/osg/yijie/10857,/volatile/clas12/osg/yijie/10858,/volatile/clas12/osg/yijie/10859,/volatile/clas12/osg/yijie/10860,/volatile/clas12/osg/yijie/10861,/volatile/clas12/osg/yijie/10862
+[INFO] OUTPUT_BASE    = /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output
+[INFO] WORKDIR        = /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/jobs_20260728_214645
+[INFO] K              = 40
+[INFO] MAX_CONCURRENT = 40
+[INFO] ARG3           = 1
+[INFO] OUTPUT_W_CSV   = 0
+[INFO] Found 79439 hipo files.
+[INFO] Will run 40 jobs.
+[INFO] Started job 000 with PID 1963362
+[INFO] Started job 001 with PID 1963367
+[INFO] Started job 002 with PID 1963372
+[INFO] Started job 003 with PID 1963378
+[INFO] Started job 004 with PID 1963383
+[INFO] Started job 005 with PID 1963388
+[INFO] Started job 006 with PID 1963394
+[INFO] Started job 007 with PID 1963400
+[INFO] Started job 008 with PID 1963407
+[INFO] Started job 009 with PID 1963419
+[INFO] Started job 010 with PID 1963428
+[INFO] Started job 011 with PID 1963444
+[INFO] Started job 012 with PID 1963454
+[INFO] Started job 013 with PID 1963466
+[INFO] Started job 014 with PID 1963479
+[INFO] Started job 015 with PID 1963490
+[INFO] Started job 016 with PID 1963498
+[INFO] Started job 017 with PID 1963512
+[INFO] Started job 018 with PID 1963521
+[INFO] Started job 019 with PID 1963533
+[INFO] Started job 020 with PID 1963546
+[INFO] Started job 021 with PID 1963554
+[INFO] Started job 022 with PID 1963567
+[INFO] Started job 023 with PID 1963577
+[INFO] Started job 024 with PID 1963586
+[INFO] Started job 025 with PID 1963595
+[INFO] Started job 026 with PID 1963604
+[INFO] Started job 027 with PID 1963618
+[INFO] Started job 028 with PID 1963627
+[INFO] Started job 029 with PID 1963646
+[INFO] Started job 030 with PID 1963659
+[INFO] Started job 031 with PID 1963666
+[INFO] Started job 032 with PID 1963680
+[INFO] Started job 033 with PID 1963691
+[INFO] Started job 034 with PID 1963697
+[INFO] Started job 035 with PID 1963707
+[INFO] Started job 036 with PID 1963718
+[INFO] Started job 037 with PID 1963729
+[INFO] Started job 038 with PID 1963737
+[INFO] Started job 039 with PID 1963748
+[INFO] Job 028 finished.
+[INFO] Job 037 finished.
+[INFO] Job 029 finished.
+[INFO] Job 020 finished.
+[INFO] Job 019 finished.
+[INFO] Job 035 finished.
+[INFO] Job 017 finished.
+[INFO] Job 038 finished.
+[INFO] Job 022 finished.
+[INFO] Job 032 finished.
+[INFO] Job 009 finished.
+[INFO] Job 034 finished.
+[INFO] Job 027 finished.
+[INFO] Job 024 finished.
+[INFO] Job 006 finished.
+[INFO] Job 036 finished.
+[INFO] Job 023 finished.
+[INFO] Job 018 finished.
+[INFO] Job 012 finished.
+[INFO] Job 007 finished.
+[INFO] Job 004 finished.
+[INFO] Job 015 finished.
+[INFO] Job 021 finished.
+[INFO] Job 008 finished.
+[INFO] Job 039 finished.
+[INFO] Job 033 finished.
+[INFO] Job 014 finished.
+[INFO] Job 005 finished.
+[INFO] Job 000 finished.
+[INFO] Job 026 finished.
+[INFO] Job 031 finished.
+[INFO] Job 013 finished.
+[INFO] Job 025 finished.
+[INFO] Job 002 finished.
+[INFO] Job 016 finished.
+[INFO] Job 001 finished.
+[INFO] Job 011 finished.
+[INFO] Job 010 finished.
+[INFO] Job 030 finished.
+[INFO] Job 003 finished.
+[INFO] All jobs finished.
+[INFO] Successful jobs: 40
+[INFO] Failed jobs    : 0
+[INFO] Merging ROOT dfSelected_afterFid_afterCorr.root from 40 jobs ...
+[INFO] No job produced ROOT dfSelected_afterFid.root, skip.
+[INFO] Merging ROOT dfSelected.root from 40 jobs ...
+[INFO] Merging CSV events_per_run_afterFid.csv from 40 jobs -> /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/merged_20260728_214645/events_per_run_afterFid_merged_raw.csv
+[INFO] Done.
+[INFO] Master log      : /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/jobs_20260728_214645/master.log
+[INFO] Run config      : /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/jobs_20260728_214645/run_config.txt
+[INFO] Summary text    : /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/jobs_20260728_214645/summary.txt
+[INFO] Summary csv     : /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/jobs_20260728_214645/job_summary.csv
+[INFO] Merged outputs  : /work/clas12/yijie/clas12ana/analysis1301/DISANA/build/dvcs_parallel_output/merged_20260728_214645
