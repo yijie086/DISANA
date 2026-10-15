@@ -9,11 +9,31 @@
 #include <TLatex.h>
 #include <TStopwatch.h>
 #include <iostream>
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <tuple>
 
 using namespace ROOT::VecOps;
+
+// Deterministic, thread-safe random sampling based on the global RDataFrame
+// entry number.  SplitMix64 gives a well-distributed pseudo-random value for
+// every event without sharing mutable RNG state between worker threads.
+bool AcceptRandomEvent(ULong64_t entry, double fraction, ULong64_t seed) {
+    if (fraction >= 1.0) return true;
+
+    std::uint64_t z = static_cast<std::uint64_t>(entry) +
+                      static_cast<std::uint64_t>(seed) +
+                      0x9e3779b97f4a7c15ULL;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    z ^= z >> 31;
+
+    // Convert the upper 53 bits to a uniform number in [0, 1).
+    const double randomValue = static_cast<double>(z >> 11) *
+                               (1.0 / 9007199254740992.0);
+    return randomValue < fraction;
+}
 
 int thetaRegionIndex(float thetaRad, const std::vector<float> &thetaCuts) {
     float deg = thetaRad * 180.0 / TMath::Pi();
@@ -27,11 +47,19 @@ void DrawECALHitResponse(const int &selectedPid, const int &selecteddetector,
                          const std::vector<int> &layers,
                          const std::vector<int> &sectors,
                          const std::string &filename, const std::string &treename,
-                         const bool doFid) {
+                         const bool doFid, const double fraction,
+                         const ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
+    auto totalEvents = df.Count();
+    auto acceptedEvents = sampledDf.Count();
     gStyle->SetOptStat(0);
 
     std::map<std::string, TH2F*> histos;
@@ -91,7 +119,7 @@ void DrawECALHitResponse(const int &selectedPid, const int &selecteddetector,
         }
     }
 
-    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    sampledDf.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                    const RVec<short> &sector, const RVec<int16_t> &pindex,
                    const RVec<int> &pid, const RVec<int> &passFid,
                    const RVec<float> &lu, const RVec<float> &lv, const RVec<float> &lw) {
@@ -122,6 +150,10 @@ void DrawECALHitResponse(const int &selectedPid, const int &selecteddetector,
     }, {"REC_Calorimeter_detector", "REC_Calorimeter_layer", "REC_Calorimeter_sector",
         "REC_Calorimeter_pindex", "REC_Particle_pid", "REC_Track_pass_fid",
         "REC_Calorimeter_lu", "REC_Calorimeter_lv", "REC_Calorimeter_lw"});
+
+    std::cout << "Random sampling: accepted " << *acceptedEvents << " / "
+              << *totalEvents << " events (requested fraction " << fraction
+              << ", seed " << randomSeed << ")" << std::endl;
 
     std::string outdir = "ECALHitResponsePlots";
     gSystem->Exec(("mkdir -p " + outdir).c_str());
@@ -163,11 +195,19 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
                                              const std::vector<int> &layers,
                                              const std::vector<int> &sectors,
                                              const std::string &filename, const std::string &treename,
-                                             const bool doFid) {
+                                             const bool doFid, const double fraction,
+                                             const ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
+    auto totalEvents = df.Count();
+    auto acceptedEvents = sampledDf.Count();
     gStyle->SetOptStat(0);
 
     std::map<int, TH2F*> hist_lw, hist_lv;
@@ -179,7 +219,7 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
         hist_lv[sector]->SetDirectory(nullptr);
     }
 
-    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    sampledDf.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                    const RVec<short> &sector, const RVec<int16_t> &pindex,
                    const RVec<int> &pid, const RVec<int> &passFid,
                    const RVec<float> &lv, const RVec<float> &lw,
@@ -229,6 +269,10 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
         "REC_Calorimeter_pindex", "REC_Particle_pid", "REC_Track_pass_fid",
         "REC_Calorimeter_lv", "REC_Calorimeter_lw", "REC_Calorimeter_energy",
         "REC_Particle_px", "REC_Particle_py", "REC_Particle_pz"});
+
+    std::cout << "Random sampling: accepted " << *acceptedEvents << " / "
+              << *totalEvents << " events (requested fraction " << fraction
+              << ", seed " << randomSeed << ")" << std::endl;
 
     std::string outdir = "ECALdepositedEnergyPlots";
     gSystem->Exec(("mkdir -p " + outdir).c_str());
@@ -281,14 +325,21 @@ void DrawECALEnergyProfile(const int &selectedPid, const int &selecteddetector,
 
 
 
-void analysisECALFid() {
-    //std::string path = "../build/photononly/";
-    std::string path = "../../../analysis1101/DISANA/build/bkg/";
+void analysisECALFid(double fraction = 0.05, ULong64_t randomSeed = 12345) {
+    if (fraction <= 0.0 || fraction > 1.0) {
+        std::cerr << "Error: fraction must satisfy 0 < fraction <= 1; got "
+                  << fraction << std::endl;
+        gApplication->Terminate(1);
+        return;
+    }
+
+    std::string path = "../build/";
+    //std::string path = "../../../analysis1101/DISANA/build/bkg/";
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected.root", "dfSelected",false);
-    //DrawECALHitResponse(11, 7, layers, sectors ,path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
-    //DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    //DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false);
+    DrawECALHitResponse(11, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
+    //DrawECALHitResponse(11, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    //DrawECALEnergyProfile(11, 7, layers, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    //DrawECALEnergyProfile(22, 7, layers, sectors, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
     gApplication->Terminate(0);
 }

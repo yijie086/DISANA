@@ -361,7 +361,7 @@ void DISANA_Xplotter2csv() {
 
   ROOT::EnableImplicitMT(40);
 
-  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546BSA/";
+  std::string input_path_from_analysisRun_7546_data = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546xsec/elecorr";
 
   std::string input_path_from_analysisRun_7546_pi0MC = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File7546BSA/Pi0MC/";
 
@@ -390,7 +390,7 @@ void DISANA_Xplotter2csv() {
   
 
   float beam_energy = 7.546;
-  bool momentumcorr_sys = false;  // Set to true to apply momentum correction systematic variation
+  bool momentumcorr_sys = true;  // Set to true to apply momentum correction systematic variation
   float momentumcorr_scale_factor = 0.9;  // Set to 1.0 for nominal, >1.0 for up variation, <1.0 for down variation
   bool dvcs_selection_sys = false;  // Vary DVCS CSV exclusivity windows
   float dvcs_selection_scale_factor = 1.25;

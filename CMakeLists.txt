@@ -102,6 +102,26 @@ add_executable(AnalysisDVCS
 )
 target_link_libraries(AnalysisDVCS PRIVATE ${COMMON_LIBS})
 
+# --- AnalysisHe3DVCS ---
+add_executable(AnalysisHe3DVCS
+    macros/mainHe3DVCS.C
+    macros/RunHe3DVCSAnalysis.C
+    ${COMMON_SOURCES}
+    DreamAN/core/DVCSAnalysis.cxx
+    DreamAN/core/He3DVCSAnalysis.cxx
+)
+target_link_libraries(AnalysisHe3DVCS PRIVATE ${COMMON_LIBS})
+
+# --- AnalysisHe3DIS ---
+add_executable(AnalysisHe3DIS
+    macros/mainHe3DIS.C
+    macros/RunHe3DISAnalysis.C
+    ${COMMON_SOURCES}
+    DreamAN/core/DVCSAnalysis.cxx
+    DreamAN/core/He3DISAnalysis.cxx
+)
+target_link_libraries(AnalysisHe3DIS PRIVATE ${COMMON_LIBS})
+
 # --- AnalysisPhi ---
 add_executable(AnalysisPhi
     macros/mainPhi.C

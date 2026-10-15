@@ -9,11 +9,27 @@
 #include <TLatex.h>
 #include <TStopwatch.h>
 #include <iostream>
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <tuple>
 
 using namespace ROOT::VecOps;
+
+bool AcceptRandomEvent(ULong64_t entry, double fraction, ULong64_t seed) {
+    if (fraction >= 1.0) return true;
+
+    std::uint64_t z = static_cast<std::uint64_t>(entry) +
+                      static_cast<std::uint64_t>(seed) +
+                      0x9e3779b97f4a7c15ULL;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    z ^= z >> 31;
+
+    const double randomValue = static_cast<double>(z >> 11) *
+                               (1.0 / 9007199254740992.0);
+    return randomValue < fraction;
+}
 
 int thetaRegionIndex(float thetaRad, const std::vector<float> &thetaCuts) {
     float deg = thetaRad * 180.0 / TMath::Pi();
@@ -30,11 +46,17 @@ void DrawDCChi2ndf_Optimized(const int &selectedPid, const int &selecteddetector
                                const std::vector<float> &xmins,
                                const std::vector<float> &xmaxs,
                                const std::vector<float> &thetaCuts,
-                               const std::string &filename, const std::string &treename, const bool doFid) {
+                               const std::string &filename, const std::string &treename, const bool doFid,
+                               double fraction, ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
     gStyle->SetOptStat(0);
 
     std::map<std::string, TH2F*> histos;
@@ -49,17 +71,17 @@ void DrawDCChi2ndf_Optimized(const int &selectedPid, const int &selecteddetector
         }
     }
 
-    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    sampledDf.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                 const RVec<float> &edge, const RVec<float> &theta,
                 const RVec<float> &chi2, const RVec<int16_t> &ndf,
                 const RVec<int16_t> &trackpindex, const RVec<short> &sector,
                 const RVec<int16_t> &pindex, const RVec<int> &pid, const RVec<int> &passFid) {
 
     for (size_t i = 0; i < layer.size(); ++i) {
-        if (i >= det.size() || i >= edge.size() || i >= theta.size() || i >= pindex.size()) continue;
+        if (i >= det.size() || i >= edge.size() || i >= pindex.size()) continue;
 
         int idx = pindex[i];
-        if (idx < 0 || idx >= (int)pid.size()) continue;
+        if (idx < 0 || idx >= (int)pid.size() || idx >= (int)theta.size()) continue;
         if (doFid && idx >= (int)passFid.size()) continue;
 
         int fidpass = doFid ? passFid[idx] : 1;
@@ -87,7 +109,7 @@ void DrawDCChi2ndf_Optimized(const int &selectedPid, const int &selecteddetector
         auto it = std::find(layers.begin(), layers.end(), lay);
         if (it == layers.end()) continue;
 
-        int ti = thetaRegionIndex(theta[i], thetaCuts);
+        int ti = thetaRegionIndex(theta[idx], thetaCuts);
 
         std::string key = "L" + std::to_string(lay)
                         + "_S" + std::to_string(tracksector)
@@ -226,11 +248,16 @@ void DrawDCChi2ndf_Optimized(const int &selectedPid, const int &selecteddetector
 void DrawDCHitResponse(const int &selectedPid, const int &selecteddetector,
                         const std::vector<int> &layers,
                         const std::string &filename, const std::string &treename,
-                        const bool doFid) {
+                        const bool doFid, double fraction, ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
     gStyle->SetOptStat(0);
 
     // 初始化所有层的TH2F
@@ -286,7 +313,7 @@ void DrawDCHitResponse(const int &selectedPid, const int &selecteddetector,
         histos[layer]->SetDirectory(nullptr);
     }
 
-    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    sampledDf.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                              const RVec<float> &theta_deg, const RVec<float> &phi_deg,
                              const RVec<int16_t> &pindex, const RVec<int> &pid,
                              const RVec<int> &passFid) {
@@ -340,20 +367,28 @@ void DrawDCHitResponse(const int &selectedPid, const int &selecteddetector,
 }
 
 
-void analysisDCFid() {
-    std::string path = "../build/";
+void analysisDCFid(double fraction = 0.5, ULong64_t randomSeed = 12345) {
+    if (fraction <= 0.0 || fraction > 1.0) {
+        std::cerr << "Error: fraction must satisfy 0 < fraction <= 1; got "
+                  << fraction << std::endl;
+        gApplication->Terminate(1);
+        return;
+    }
+
+    std::string path = "../build/File6395/";
     std::vector<int> layers = {6, 18, 36};
     std::vector<float> xmins = {0, 0, 0, 0, 0, 0};
     std::vector<float> xmaxs = {25, 25, 25, 25, 25, 25};
     std::vector<float> thetaCuts = {10, 15, 20, 25};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawDCChi2ndf_Optimized(11, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    //DrawDCChi2ndf_Optimized(11, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
-    //DrawDCChi2ndf_Optimized(2212, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    //DrawDCChi2ndf_Optimized(2212, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
-    DrawDCHitResponse(11, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
-    //DrawDCHitResponse(2212, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr",true);
-    //DrawDCHitResponse(11, 6, layers, path + "dfSelected.root", "dfSelected",false);
-    //DrawDCHitResponse(2212, 6, layers, path + "dfSelected.root", "dfSelected",false);
+    //DrawDCChi2ndf_Optimized(11, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    //DrawDCChi2ndf_Optimized(11, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
+    //DrawDCChi2ndf_Optimized(2212, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    //DrawDCChi2ndf_Optimized(2212, 6, 0, 40, 50, layers, sectors, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
+    //DrawDCHitResponse(11, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    DrawDCHitResponse(2212, 6, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    //DrawDCHitResponse(11, 6, layers, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
+    //DrawDCHitResponse(2212, 6, layers, path + "dfSelected.root", "dfSelected", false,
+    //                  fraction, randomSeed);
     gApplication->Terminate(0);
 }

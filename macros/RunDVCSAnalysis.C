@@ -31,8 +31,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   //std::string dataconfig = "rgasp18_inb";
   //std::string dataconfig = "rgasp18_outb";
   //std::string dataconfig = "rgkfa18_7546";
-  std::string dataconfig = "rgkfa18_6535";
-  //std::string dataconfig = "rgksp24_8477";
+  //std::string dataconfig = "rgkfa18_6535";
+  std::string dataconfig = "rgksp24_8477";
   //std::string dataconfig = "rgksp24_6395";
 
   if (dataconfig == "rgkfa18_7546") {
@@ -271,12 +271,28 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
 
   if (dataconfig == "rgksp24_8477"){
     trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(11, 4, "lw", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(11, 6, "lw", 0.0, 23.5);
+    trackCuts->AddECoutFiducialRange(11, 1, "lv", 0, 40.5);
+
     trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(22, 4, "lw", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(22, 6, "lw", 0.0, 23.5);
+    trackCuts->AddECoutFiducialRange(22, 1, "lv", 0, 40.5);
+    trackCuts->AddECoutFiducialRange(22, 2, "lu", 0, 23.5);
   }
 
   if (dataconfig == "rgksp24_6395"){
     trackCuts->AddECinFiducialRange(11, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(11, 4, "lw", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(11, 6, "lw", 0.0, 23.5);
+    trackCuts->AddECoutFiducialRange(11, 1, "lv", 0, 40.5);
+
     trackCuts->AddECinFiducialRange(22, 1, "lv", 67.5, 94.5);
+    trackCuts->AddECinFiducialRange(22, 4, "lw", 0.0, 23.5);
+    trackCuts->AddECinFiducialRange(22, 6, "lw", 0.0, 23.5);
+    trackCuts->AddECoutFiducialRange(22, 1, "lv", 0, 40.5);
+    trackCuts->AddECoutFiducialRange(22, 2, "lu", 0, 23.5);
   }
 
   if (!PIDSystematics){
@@ -353,32 +369,32 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     trackCuts->AddSamplingFractionMaxCut(11, 6, 0.295828, -0.00145277, -0.0000326392);  // Electro sector 6
   }
   if (dataconfig == "rgksp24_8477") {
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.164881, 0.0141665, -0.00117114);     // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.301056, -0.0032795, -0.000145282);  // Electro sector 1
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.156663, 0.0175241, -0.00145808);     // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.29405, -0.00122628, -0.000280721);   // Electronsector 2
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.161494, 0.0174769, -0.00148192);    // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.301309, -0.0019405, -0.000309095);  // Electro sector 3
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.165207, 0.0139857, -0.0010526);    // Electronsector4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.297, -0.000547201, -0.000341421);   // Electronsector4
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.165653, 0.0129317, -0.000933028);    // Electronsector5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.293605, -0.00275463, -0.0000800457);   // Electronsector5
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.161239, 0.0156868, -0.00128746);    // Electronsector6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.299963, -0.0030303, -0.000150413);  // Electro sector 6
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.165973, 0.0133864, -0.00107977);  // Electron sector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.299992, -0.00290688, -0.000186663);  // Electron sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.158972, 0.0163636, -0.00133584);  // Electron sector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.291293, -0.000150201, -0.000379228);  // Electron sector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.163151, 0.0168613, -0.00142903);  // Electron sector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.30054, -0.00206012, -0.00028037);  // Electron sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.163163, 0.0146998, -0.00111285);  // Electron sector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.297286, -0.000917694, -0.000312218);  // Electron sector 4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.165933, 0.0126408, -0.000903938);  // Electron sector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.292042, -0.00255753, -9.42652e-05);  // Electron sector 5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.162438, 0.0150171, -0.00121014);  // Electron sector 6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.298754, -0.0027826, -0.000167497);  // Electron sector 6
   }
-  if (dataconfig == "rgksp24_6395") { //**********resuing rgk fall18 6.5GeV, better to re-run a new one */
-    trackCuts->AddSamplingFractionMinCut(11, 1, 0.129479, 0.0284944, -0.00255477);     // Electronsector 1
-    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.291026, 0.00267055, -0.000682925);  // Electro sector 1
-    trackCuts->AddSamplingFractionMinCut(11, 2, 0.148413, 0.0175468, -0.00101822);     // Electronsector 2
-    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.291265, 0.00131041, -0.000321427);   // Electronsector 2
-    trackCuts->AddSamplingFractionMinCut(11, 3, 0.133683, 0.0284258, -0.00245536);    // Electronsector 3
-    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.278676, 0.010232, -0.00156497);  // Electro sector 3
-    trackCuts->AddSamplingFractionMinCut(11, 4, 0.127047, 0.0315586, -0.00306858);    // Electronsector4
-    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.283795, 0.00622474, -0.00114807);   // Electronsector4
-    trackCuts->AddSamplingFractionMinCut(11, 5, 0.14653, 0.0173448, -0.00100931);    // Electronsector5
-    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.289485, 0.00126921, -0.000440945);   // Electronsector5
-    trackCuts->AddSamplingFractionMinCut(11, 6, 0.147071, 0.0176412, -0.000913347);    // Electronsector6
-    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.295828, -0.00145277, -0.0000326392);  // Electro sector 6
+  if (dataconfig == "rgksp24_6395") {
+    trackCuts->AddSamplingFractionMinCut(11, 1, 0.149104, 0.018508, -0.00127241);       // Electron sector 1
+    trackCuts->AddSamplingFractionMaxCut(11, 1, 0.29378, 0.000297219, -0.000449567);   // Electron sector 1
+    trackCuts->AddSamplingFractionMinCut(11, 2, 0.150239, 0.0183577, -0.00142901);     // Electron sector 2
+    trackCuts->AddSamplingFractionMaxCut(11, 2, 0.295987, -0.00324119, 0.000139787);   // Electron sector 2
+    trackCuts->AddSamplingFractionMinCut(11, 3, 0.13295, 0.0296961, -0.00295187);      // Electron sector 3
+    trackCuts->AddSamplingFractionMaxCut(11, 3, 0.281298, 0.00826285, -0.00156208);    // Electron sector 3
+    trackCuts->AddSamplingFractionMinCut(11, 4, 0.136021, 0.0276157, -0.00264362);     // Electron sector 4
+    trackCuts->AddSamplingFractionMaxCut(11, 4, 0.274114, 0.0112768, -0.00187195);     // Electron sector 4
+    trackCuts->AddSamplingFractionMinCut(11, 5, 0.148989, 0.0182679, -0.0013775);      // Electron sector 5
+    trackCuts->AddSamplingFractionMaxCut(11, 5, 0.285649, -0.000202396, -0.000307074);// Electron sector 5
+    trackCuts->AddSamplingFractionMinCut(11, 6, 0.147342, 0.0184873, -0.00114918);     // Electron sector 6
+    trackCuts->AddSamplingFractionMaxCut(11, 6, 0.289035, 0.00124132, -0.000488834);   // Electron sector 6
   }
   // particles for the reaction DVCS: e, p, and gamma
   EventCut* eventCuts = new EventCut();
@@ -419,8 +435,8 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   if (dataconfig == "rgksp24_8477") {
     proton.pid = 2212;            // Proton PID
     proton.charge = 1;            // Proton charge
-    proton.minCount = 1;          // Minimum count of protons
-    proton.maxCount = 1;          // Maximum count of protons
+    proton.minCount = 0;          // Minimum count of protons
+    proton.maxCount = 100;          // Maximum count of protons
     proton.minCDMomentum = 0.3f;  // Minimum momentum for protons
     proton.minFDMomentum = 0.3f;  // Minimum momentum for protons in FD
   }
@@ -443,7 +459,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   ParticleCut photon;
   photon.pid = 22;      // Photon PID
   photon.charge = 0;    // Photon charge
-  photon.minCount = 1;  // Minimum count of photons
+  photon.minCount = 0;  // Minimum count of photons
   photon.minFDMomentum = 0.15f;
   photon.minFTMomentum = 0.15f;
   photon.minBeta = 0.9f;  // Minimum beta for photons
@@ -506,7 +522,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
           return p + deltaP;
         });
   };
-  if (dataconfig == "rgkfa18_6535") {
+  if (!IsMC && dataconfig == "rgkfa18_6535") {
     static const double a0_6535[7][3] = {
         {0, 0, 0},
         {-0.0607703608299, 0.00947409009913, -0.00027910350385},
@@ -529,7 +545,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     addElectronWCorrection(a0_6535, a1_6535, "RGK Fa18 6.535 GeV");
   }
 
-  if (dataconfig == "rgkfa18_7546") {
+  if (!IsMC && dataconfig == "rgkfa18_7546") {
     static const double a0_7546[7][3] = {
         {0, 0, 0},
         {-0.0558480918304, 0.00947563717397, -0.00026752320451},
@@ -551,8 +567,54 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     std::cout<<"Applying rgkfa18_7546 electron momentum correction"<<std::endl;
     addElectronWCorrection(a0_7546, a1_7546, "RGK Fa18 7.546 GeV");
   }
+
+  if (!IsMC && dataconfig == "rgksp24_6395") {
+    static const double a0_6395[7][3] = {
+        {0, 0, 0},
+        {-0.0454128146113, 0.00646562961712, -0.000168959494359},
+        {-0.0558420236653, 0.00212776736718, 0.000100095998731},
+        {-0.447255975848, 0.0797088768489, -0.0027330058661},
+        {-0.34302523092, 0.0547320953873, -0.00175705036539},
+        {0.0798698322841, -0.012385054019, 0.000315917849109},
+        {-0.0896642632248, 0.017722412778, -0.000679494838959},
+    };
+    static const double a1_6395[7][3] = {
+        {0, 0, 0},
+        {-0.000828699350601, 0.000246168841441, -1.05576440536e-05},
+        {8.79079572686e-05, 9.27546426111e-05, -5.61257549414e-06},
+        {0.00326996579404, -0.000591412266954, 2.05006137332e-05},
+        {0.00175945544985, -0.000274411084273, 8.85957067917e-06},
+        {0.00108670802976, -0.000165181786377, 4.60988913893e-06},
+        {-0.000522178452331, 0.000138910651151, -6.41990713685e-06},
+    };
+    std::cout<<"Applying rgksp24_6395 electron momentum correction"<<std::endl;
+    addElectronWCorrection(a0_6395, a1_6395, "RGK Sp24 6.395 GeV");
+  }
+
+  if (!IsMC && dataconfig == "rgksp24_8477") {
+    static const double a0_8477[7][3] = {
+        {0, 0, 0},
+        {-0.0628304953767, 0.00937132245523, -0.00024827559381},
+        {-0.0925687315036, 0.00310034555167, 0.000176155492115},
+        {-0.580816783727, 0.108114921971, -0.00377057833864},
+        {-0.423965099606, 0.0708211724157, -0.00237418824441},
+        {0.111610942769, -0.0149046028002, 0.000322469083499},
+        {-0.124038331792, 0.0250079564741, -0.000948139849733},
+    };
+    static const double a1_8477[7][3] = {
+        {0, 0, 0},
+        {-0.00107491844772, 0.000377929876569, -1.63465087852e-05},
+        {0.000283745343684, 0.000147933955845, -9.02451770366e-06},
+        {0.00429377472137, -0.000807440232049, 2.85182590278e-05},
+        {0.00222912280527, -0.000351130457534, 1.19402455926e-05},
+        {0.00150098741572, -0.000208152060063, 5.32211561148e-06},
+        {-0.00072028731276, 0.000193288425919, -8.74839956097e-06},
+    };
+    std::cout<<"Applying rgksp24_8477 electron momentum correction"<<std::endl;
+    addElectronWCorrection(a0_8477, a1_8477, "RGK Sp24 8.477 GeV");
+  }
   /*
-  if (dataconfig == "rgkfa18_7546") {
+  if (!IsMC && dataconfig == "rgkfa18_7546") {
     std::cout<<"Applying rgkfa18_7546 proton energy loss correction"<<std::endl;
     corr->AddPiecewiseCorrection(  // Energy Loss correction for proton RGA 7.546GeV Fa18 out
         2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::FD}, [](double p, double theta, double phi) {
@@ -566,7 +628,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
           return p + (A_p + B_p / p + C_p / (p * p));
         });
   }*/
-  if (dataconfig == "rgasp18_inb") {
+  if (!IsMC && dataconfig == "rgasp18_inb") {
     corr->AddPiecewiseCorrection(  // Momentum correction for proton RGA sp18 inb
         2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
           theta = theta * 180.0 / M_PI;  // Convert theta to degrees
@@ -585,7 +647,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
           return p + (A_p + B_p / p + C_p / (p * p));
         });
   }
-  if (dataconfig == "rgasp18_outb") {
+  if (!IsMC && dataconfig == "rgasp18_outb") {
     corr->AddPiecewiseCorrection(  // Momentum correction for proton RGK sp18 out
         2212, {0.0, 10.0, 0.0 * M_PI / 180, 180.0 * M_PI / 180, 0.0 * M_PI / 180, 360.0 * M_PI / 180, MomentumCorrection::CD}, [](double p, double theta, double phi) {
           theta = theta * 180.0 / M_PI;  // Convert theta to degrees
@@ -615,7 +677,7 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
     qadbCuts->SetDefects(qaDefects);
   }
 
-  if (dataconfig == "rgkfa18_7546" || dataconfig == "rgkfa18_6535" || dataconfig == "rgasp18_inb") {
+  if (dataconfig == "rgksp24_6395" || dataconfig == "rgksp24_8477" || dataconfig == "rgkfa18_7546" || dataconfig == "rgkfa18_6535" || dataconfig == "rgasp18_inb") {
     const char* qaDefects[] = {"TotalOutlier",      "TerminalOutlier",   "MarginalOutlier", "SectorLoss",     "LowLiveTime",   "Misc",          "TotalOutlierFT",
                                "TerminalOutlierFT", "MarginalOutlierFT", "LossFT",          "BSAWrong",       "BSAUnknown",    "TSAWrong",      "TSAUnknown",
                                "DSAWrong",          "DSAUnknown",        "ChargeHigh",      "ChargeNegative", "ChargeUnknown", "PossiblyNoBeam"};
@@ -659,13 +721,15 @@ void RunDVCSAnalysis(const std::string& inputDir, int nfile, int nthreads = 0) {
   dvcsTask->SetMomentumCorrection(corr);    // Set the momentum correction object
   dvcsTask->SetMaxEvents(0);                // Set the maximum number of events to process, 0 means no limit
   dvcsTask->SetOutputWCSV(OutputWCSV);      // If true, writes electron_w_afterCorr.csv and skips all ROOT snapshots
-  dvcsTask->SetAcceptEverything(false);     // Set to true to accept all events, false to apply cuts
+  dvcsTask->SetAcceptEverything(true);     // Set to true to accept all events, false to apply cuts
   dvcsTask->SetQADBCuts(qadbCuts);          // <-- this now matters
   if(IsMC) {
     dvcsTask->SetDoQADBCuts(false);  // for MC we usually do not apply QADB false rejection
     dvcsTask->SetOptimizeColumns(true);       // Set to true to optimize the columns in the output file based on the cuts applied
   } else {
     dvcsTask->SetDoQADBCuts(true);   // for data we usually apply QADB false rejection
+    //if(dataconfig == "rgksp24_6395") dvcsTask->SetDoQADBCuts(false);
+    //if(dataconfig == "rgksp24_8477") dvcsTask->SetDoQADBCuts(false);
     dvcsTask->SetOptimizeColumns(false);       // Set to true to optimize the columns in the output file based on the cuts applied
   }
 

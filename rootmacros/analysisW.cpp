@@ -390,11 +390,18 @@ size_t FillHistPacksFromCSVParallel(const std::string& csvPath,
                                     const std::vector<std::pair<std::streamoff, std::streamoff>>& ranges,
                                     const std::array<SectorPhiRange, 7>& sectorPhiRanges,
                                     std::vector<HistPack>& hists,
-                                    double beamEnergyGeV) {
+                                    double beamEnergyGeV,
+                                    TH2D& phiThetaHist) {
   std::vector<std::vector<HistPack>> localHists;
+  std::vector<std::unique_ptr<TH2D>> localPhiThetaHists;
   localHists.reserve(ranges.size());
+  localPhiThetaHists.reserve(ranges.size());
   for (size_t i = 0; i < ranges.size(); ++i) {
     localHists.push_back(CloneHistPacks(hists, Form("_thread%zu", i)));
+    auto* phiTheta = dynamic_cast<TH2D*>(phiThetaHist.Clone(Form("%s_thread%zu", phiThetaHist.GetName(), i)));
+    phiTheta->Reset("ICES");
+    phiTheta->SetDirectory(nullptr);
+    localPhiThetaHists.emplace_back(phiTheta);
   }
 
   std::vector<size_t> accepted(ranges.size(), 0);
@@ -410,13 +417,20 @@ size_t FillHistPacksFromCSVParallel(const std::string& csvPath,
   for (size_t i = 0; i < ranges.size(); ++i) {
     workers.emplace_back([&, i]() {
       accepted[i] = ForEachCSVRowInRange(csvPath, ranges[i].first, ranges[i].second, [&](const ElectronWRow& row) {
-        FillHistPacks(row, sectorPhiRanges, localHists[i], beamEnergyGeV);
+        if (FillHistPacks(row, sectorPhiRanges, localHists[i], beamEnergyGeV)) {
+          localPhiThetaHists[i]->Fill(row.phi, row.theta);
+        }
       }, &doneBytes);
     });
   }
   for (auto& worker : workers) worker.join();
   finished.store(true);
   monitor.join();
+
+  phiThetaHist.Reset("ICES");
+  for (const auto& localPhiTheta : localPhiThetaHists) {
+    phiThetaHist.Add(localPhiTheta.get());
+  }
 
   for (auto& item : hists) {
     item.displayHist->Reset("ICES");
@@ -772,13 +786,15 @@ void DrawWMapOnly(TH2D* displayHist,
                   const std::string& outBase,
                   const std::string& xVar,
                   const std::string& label,
-                  const std::string& yTitle) {
+                  const std::string& yTitle,
+                  bool logZ = false) {
   gSystem->Exec(("mkdir -p " + outBase).c_str());
 
   const bool isPhi = (xVar == "phi");
   auto* c2 = new TCanvas((std::string("c2_") + displayHist->GetName()).c_str(), "", isPhi ? 1800 : 1100, isPhi ? 650 : 850);
   c2->SetMargin(0.13, 0.14, 0.13, 0.06);
   c2->SetTicks(1, 1);
+  c2->SetLogz(logZ);
   Style2D(displayHist, xVar, yTitle);
   displayHist->Draw("COLZ");
   DrawProtonMassLineForWVsPhi(displayHist, xVar, yTitle);
@@ -1255,15 +1271,15 @@ void DrawGlobalPhiThetaStrip(const std::vector<TGraphErrors*>& graphs,
 
 }  // namespace
 
-void analysisW(const std::string& csvPath = "../build/Elastic6535Corr/electron_w_afterCorr_merged_raw.csv",
-               const std::string& outDir = "ElectronWCorrectionCSV",
+void analysisW(const std::string& csvPath = "../build/Elastic8477Corr/electron_w_afterCorr_merged_raw.csv",
+               const std::string& outDir = "ElectronWCorrectionCSV8477Corr",
                double targetW = kProtonMassGeV,
                int minEntries = 80,
                int nThreads = 400,
                double sector1PhiStartDeg = 335.0,
                int nPhiBinsPerSector = 6,
                const std::vector<double>& thetaBinEdges = {6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 13.0, 15.0, 25.0},
-               double beamEnergyGeV = 6.535,
+               double beamEnergyGeV = 8.477,
                int fitParameterPolyOrder = 2) {
   TStopwatch timer;
   timer.Start();
@@ -1365,13 +1381,18 @@ void analysisW(const std::string& csvPath = "../build/Elastic6535Corr/electron_w
 
   PrepareHistPacks(hists);
 
-  const size_t filledRows = FillHistPacksFromCSVParallel(cleanCsvPath, csvRanges, sectorPhiRanges, hists, beamEnergyGeV);
+  // One map per worker is filled during the existing CSV pass, then merged before drawing.
+  TH2D phiThetaHist("electron_csv_allSectors_theta_vs_phi", "", 360, 0.0, 360.0, 80, 0.0, 40.0);
+  phiThetaHist.SetDirectory(nullptr);
+  const size_t filledRows = FillHistPacksFromCSVParallel(cleanCsvPath, csvRanges, sectorPhiRanges, hists, beamEnergyGeV, phiThetaHist);
   std::cout << "[analysisW] Filled histograms from " << filledRows << " valid rows" << std::endl;
   if (filledRows == 0) {
     std::cerr << "[analysisW] No valid rows. Stop." << std::endl;
     DeleteHistPacks(hists);
     return;
   }
+
+  DrawWMapOnly(&phiThetaHist, outDir, "phi", "all sectors", AxisTitle("theta"), true);
 
   const PeakConfig peakCfg{minEntries, 1.6, 0.08};
   std::vector<std::array<TGraphErrors*, 7>> summaryGraphsW(nThetaBins);

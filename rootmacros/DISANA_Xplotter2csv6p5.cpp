@@ -363,8 +363,9 @@ void DISANA_Xplotter2csv6p5() {
   std::string filename_afterFid_6535_dvcsmc_rec = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_dvcsmc_rec.c_str());
   std::string filename_afterFid_6535_bkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_bkg.c_str());
   std::string filename_afterFid_6535_nobkg = Form("%s/dfSelected_afterFid_afterCorr.root", input_path_from_analysisRun_6535_nobkg.c_str());
-  std::string filename_afterFid_6535_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/rad6535v0p6.root";
-  std::string filename_afterFid_6535_dvcsmc_norad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535.root";
+  std::string filename_afterFid_6535_dvcsmc_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/radkm15_6535.root";
+  std::string filename_afterFid_6535_dvcsmc_norad_rad = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/noradkm15_6535.root";
+  std::string filename_afterFid_6535_dvcsmc_norad_p1 = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535.root";
   std::string filename_afterFid_6535_dvcsmc_p1cut = "/work/clas12/yijie/clas12ana/analysis1301/DISANA/build/File6535/radandP1gen/nor6535P1.root";
 
 
@@ -403,7 +404,8 @@ void DISANA_Xplotter2csv6p5() {
   ROOT::RDF::RNode df_afterFid_6535_bkg_init = InitKinematics(filename_afterFid_6535_bkg, "dfSelected_afterFid_afterCorr", beam_energy);
   ROOT::RDF::RNode df_afterFid_6535_nobkg_init = InitKinematics(filename_afterFid_6535_nobkg, "dfSelected_afterFid_afterCorr", beam_energy);
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rad_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_rad, "MC", beam_energy);
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_norad, "MC", beam_energy);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad_rad_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_norad_rad, "MC", beam_energy);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad_p1_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_norad_p1, "MC", beam_energy);
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut_init = InitGenKinematics(filename_afterFid_6535_dvcsmc_p1cut, "MC", beam_energy);
 
   ROOT::RDF::RNode df_afterFid_6535_data = GetSlim_exclusive(df_afterFid_6535_data_init, "dfSlim_6535_data.root", "dfSlim_6535_data", false);
@@ -414,9 +416,12 @@ void DISANA_Xplotter2csv6p5() {
   ROOT::RDF::RNode df_afterFid_6535_nobkg = GetSlim_exclusive(df_afterFid_6535_nobkg_init, "dfSlim_6535_nobkg.root", "dfSlim_6535_nobkg", false);
   ROOT::RDF::RNode df_afterFid_6535_dvcsmc_rad = ApplyFinalDVCSRadSelections(
       GetSlim_exclusive(df_afterFid_6535_dvcsmc_rad_init, "dfSlim_6535_dvcsmc_rad.root", "dfSlim_6535_dvcsmc_rad", true));
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad = ApplyFinalDVCSRadSelections(
-      GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_init, "dfSlim_6535_dvcsmc_norad.root", "dfSlim_6535_dvcsmc_norad", true));
-  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut = GetSlim_exclusive(df_afterFid_6535_dvcsmc_p1cut_init, "dfSlim_6535_dvcsmc_p1cut.root", "dfSlim_6535_dvcsmc_p1cut", true);
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad_rad = ApplyFinalDVCSRadSelections(
+      GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_rad_init, "dfSlim_6535_dvcsmc_norad_rad.root", "dfSlim_6535_dvcsmc_norad_rad", true));
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_norad_p1 = ApplyFinalDVCSRadSelections(
+      GetSlim_exclusive(df_afterFid_6535_dvcsmc_norad_p1_init, "dfSlim_6535_dvcsmc_norad_p1.root", "dfSlim_6535_dvcsmc_norad_p1", true));
+  ROOT::RDF::RNode df_afterFid_6535_dvcsmc_p1cut = GetSlim_exclusive(
+      df_afterFid_6535_dvcsmc_p1cut_init, "dfSlim_6535_dvcsmc_p1cut.root", "dfSlim_6535_dvcsmc_p1cut", true);
 
   DrawStyle fitStyle(0.06, 0.05, 1.0, 1.3);  // You can tweak this
 
@@ -542,7 +547,8 @@ void DISANA_Xplotter2csv6p5() {
                               df_final_dvcsPi_rejected_6535_dvcsmc_bkg,
                               df_final_dvcsPi_rejected_6535_dvcsmc_nobkg,
                               df_afterFid_6535_dvcsmc_rad,
-                              df_afterFid_6535_dvcsmc_norad,
+                              df_afterFid_6535_dvcsmc_norad_rad,
+                              df_afterFid_6535_dvcsmc_norad_p1,
                               df_afterFid_6535_dvcsmc_p1cut,
                               "RGK 6.5GeV MC", beam_energy, true, true, true, true, false, luminosity);*/
   comparer.AddModelwithPi0Corr(df_final_dvcsPi_rejected_6535_data,
@@ -555,7 +561,8 @@ void DISANA_Xplotter2csv6p5() {
                               df_final_dvcsPi_rejected_6535_dvcsmc_bkg,
                               df_final_dvcsPi_rejected_6535_dvcsmc_nobkg,
                               df_afterFid_6535_dvcsmc_rad,
-                              df_afterFid_6535_dvcsmc_norad,
+                              df_afterFid_6535_dvcsmc_norad_rad,
+                              df_afterFid_6535_dvcsmc_norad_p1,
                               df_afterFid_6535_dvcsmc_p1cut,
                               "RGK 6.5GeV", beam_energy, true, true, true, true, true, luminosity, 55.09, 60, 0.9326);
 

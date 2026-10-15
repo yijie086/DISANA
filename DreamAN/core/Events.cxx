@@ -4,10 +4,13 @@
 
 #include "Events.h"
 
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
@@ -104,7 +107,41 @@ std::vector<std::string>Events::getHipoFilesInPath(const std::string& pathOrPatt
   std::vector<std::string> files;
   std::size_t count = 0;
 
+  // Optional bad-file list. Each non-empty, non-comment line may contain
+  // either a full path or just a filename. If the environment variable is not
+  // set, input discovery behaves exactly as before.
+  std::unordered_set<std::string> skippedPaths;
+  std::unordered_set<std::string> skippedNames;
+  if (const char* listPath = std::getenv("DREAMAN_HIPO_SKIP_LIST")) {
+    std::ifstream list(listPath);
+    if (!list) {
+      std::cerr << "[Converter] Warning: cannot open HIPO skip list: "
+                << listPath << "\n";
+    } else {
+      std::string line;
+      while (std::getline(list, line)) {
+        const auto first = line.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos || line[first] == '#') continue;
+        const auto last = line.find_last_not_of(" \t\r\n");
+        line = line.substr(first, last - first + 1);
+        const fs::path entry(line);
+        if (entry.has_parent_path()) skippedPaths.insert(entry.lexically_normal().string());
+        else skippedNames.insert(entry.filename().string());
+      }
+      std::cout << "[Converter] Loaded HIPO skip list: " << listPath
+                << " (" << skippedPaths.size() + skippedNames.size()
+                << " entries)\n";
+    }
+  }
+
   auto push = [&](const fs::path& p) {
+    const std::string normalized = p.lexically_normal().string();
+    if (skippedPaths.count(normalized) ||
+        skippedNames.count(p.filename().string())) {
+      std::cerr << "[Converter] Skipping blacklisted HIPO file: "
+                << p << "\n";
+      return true;
+    }
     files.push_back(p.string());
     ++count;
     return !(nfiles > 0 && static_cast<int>(count) >= nfiles);

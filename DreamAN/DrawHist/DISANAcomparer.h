@@ -3,11 +3,16 @@
 
 // ROOT headers
 #include <TCanvas.h>
+#include <TBox.h>
 #include <TF1.h>
+#include <TGraph.h>
+#include <TGraphAsymmErrors.h>
 #include <TGraphErrors.h>
 #include <TLegend.h>
+#include <TLatex.h>
 #include <TH2D.h>
 #include <TLine.h>
+#include <TProfile.h>
 #include <TVector3.h>
 #include <TVirtualFitter.h>
 #include <ROOT/RDFHelpers.hxx>
@@ -22,10 +27,12 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -49,7 +56,41 @@ std::vector<std::tuple<double, double, double>> modelShades = {
 };
 
 class DISANAcomparer {
+  // Shared display binning for He3DIS spectator distributions and acceptance.
+  // These ranges are NOT event-selection cuts. pT and alpha use the q axis.
+  struct He3DISSpectatorPlotSpec {
+    std::string variable, axis;
+    int bins;
+    double lo, hi;
+  };
+  static std::vector<He3DISSpectatorPlotSpec> He3DISSpectatorPlotSpecs() {
+    return {{"p_sum", "|#Sigma #vec{p}_{spectator}| [GeV]", 50, 0., 0.5},
+            {"alpha", "#alpha_{S} = 3(E_{S}-p_{L,S})/M_{^{3}He}", 50, 1.5, 2.5},
+            {"pT", "p_{T,S} relative to #vec{q} [GeV]", 50, 0., 0.2}};
+  }
+  struct He3DISModel {
+    std::unique_ptr<ROOT::RDF::RNode> all;
+    std::unique_ptr<ROOT::RDF::RNode> epp;
+    std::unique_ptr<ROOT::RDF::RNode> epn;
+    std::unique_ptr<ROOT::RDF::RNode> ed;
+    std::string label;
+  };
+
  public:
+  void SetHe3DISXActiveBinning(int bins,double xMin,double xMax,
+                               double modelXMax) {
+    if(bins<1 || !std::isfinite(xMin) || !std::isfinite(xMax) ||
+       !std::isfinite(modelXMax) || !(xMin<xMax) ||
+       !(modelXMax>xMin && modelXMax<=xMax))
+      throw std::invalid_argument(
+          "He3DIS x_active binning requires bins>=1, xMin<xMax, and "
+          "xMin<modelXMax<=xMax");
+    he3DISXActiveBins=bins;
+    he3DISXActiveMin=xMin;
+    he3DISXActiveMax=xMax;
+    he3DISModelXMax=modelXMax;
+  }
+
   // Set the bin ranges used for cross-section calculations and plotting
   void SetXBinsRanges(BinManager bins) { fXbins = bins; }
   void SetUseSDHEP(bool enabled = true) { fXbins.SetUseSDHEP(enabled); }
@@ -67,14 +108,16 @@ class DISANAcomparer {
     double integral = hist->Integral();
     if (integral > 0) hist->Scale(1.0 / integral);
   }
-  // Add a new model with its DataFrame, label, and beam energy
+  // New interface: radiative and P1 corrections may use different
+  // no-radiation reference samples.
   void AddModelwithPi0Corr(ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data, ROOT::RDF::RNode df_dvcs_pi0mc, ROOT::RDF::RNode df_pi0_pi0mc,
                            ROOT::RDF::RNode df_gen_dvcsmc, ROOT::RDF::RNode df_accept_dvcsmc, ROOT::RDF::RNode df_dvcsmc_bkg, ROOT::RDF::RNode df_dvcsmc_nobkg,
-                           ROOT::RDF::RNode df_dvcsmc_rad, ROOT::RDF::RNode df_dvcsmc_norad, ROOT::RDF::RNode df_dvcsmc_p1cut, const std::string& label, double beamEnergy,
+                           ROOT::RDF::RNode df_dvcsmc_rad, ROOT::RDF::RNode df_dvcsmc_norad_rad, ROOT::RDF::RNode df_dvcsmc_norad_p1,
+                           ROOT::RDF::RNode df_dvcsmc_p1cut, const std::string& label, double beamEnergy,
                            bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false,
                            bool fP1cut = false, double luminosity = 1.0, double I_avg = 60.0, double I_mc = 60.0, double eff_corr = 1.0) {
     auto plotter = std::make_unique<DISANAplotter>(DVCSModeTag{}, df_dvcs_data, beamEnergy, luminosity, I_avg, I_mc, eff_corr, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc, df_gen_dvcsmc, df_accept_dvcsmc,
-                                                   df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad, df_dvcsmc_p1cut);
+                                                   df_dvcsmc_bkg, df_dvcsmc_nobkg, df_dvcsmc_rad, df_dvcsmc_norad_rad, df_dvcsmc_p1cut, df_dvcsmc_norad_p1);
     std::cout << "Adding model: " << label << " with beam energy: " << beamEnergy << " GeV with Pi0 Correction: " << fPi0Correction
               << ", Acceptance Correction: " << fAcceptanceCorrection << ", Background Merging efficiency: " << fEfficiencyCorrection
               << ", Radiative Correction: " << fRadiativeCorrection << ", P1 cut: " << fP1cut << std::endl;
@@ -94,6 +137,22 @@ class DISANAcomparer {
     labels.push_back(label);
     plotters.push_back(std::move(plotter));
     WriteDVCSPhysicalVolumeCSV(beamEnergy);
+  }
+
+  // Backward-compatible interface used by existing macros.  Its behavior is
+  // unchanged: the same no-radiation sample is used for both corrections.
+  void AddModelwithPi0Corr(ROOT::RDF::RNode df_dvcs_data, ROOT::RDF::RNode df_pi0_data, ROOT::RDF::RNode df_dvcs_pi0mc, ROOT::RDF::RNode df_pi0_pi0mc,
+                           ROOT::RDF::RNode df_gen_dvcsmc, ROOT::RDF::RNode df_accept_dvcsmc, ROOT::RDF::RNode df_dvcsmc_bkg, ROOT::RDF::RNode df_dvcsmc_nobkg,
+                           ROOT::RDF::RNode df_dvcsmc_rad, ROOT::RDF::RNode df_dvcsmc_norad, ROOT::RDF::RNode df_dvcsmc_p1cut, const std::string& label, double beamEnergy,
+                           bool fPi0Correction = false, bool fAcceptanceCorrection = false, bool fEfficiencyCorrection = false, bool fRadiativeCorrection = false,
+                           bool fP1cut = false, double luminosity = 1.0, double I_avg = 60.0, double I_mc = 60.0, double eff_corr = 1.0) {
+    AddModelwithPi0Corr(
+        df_dvcs_data, df_pi0_data, df_dvcs_pi0mc, df_pi0_pi0mc,
+        df_gen_dvcsmc, df_accept_dvcsmc, df_dvcsmc_bkg, df_dvcsmc_nobkg,
+        df_dvcsmc_rad, df_dvcsmc_norad, df_dvcsmc_norad,
+        df_dvcsmc_p1cut, label, beamEnergy,
+        fPi0Correction, fAcceptanceCorrection, fEfficiencyCorrection,
+        fRadiativeCorrection, fP1cut, luminosity, I_avg, I_mc, eff_corr);
   }
 
   void AddModel(ROOT::RDF::RNode df, const std::string& label, double beamEnergy, double luminosity = 1.0) {
@@ -120,7 +179,3136 @@ class DISANAcomparer {
               << he3Models.size() << std::endl;
   }
 
-  // Draw p, theta, and phi for every final-state particle in each of the
+  // Register coherent e' gamma He3' generator-level events separately from
+  // both inclusive He3DIS and the proton-DVCS DISANAplotter.
+  void AddModelHe3DVCS(ROOT::RDF::RNode df_mc) {
+    const auto eventCount = df_mc.Count().GetValue();
+    he3DVCSModels.push_back(
+        std::make_unique<ROOT::RDF::RNode>(std::move(df_mc)));
+    he3DVCSModelEventCounts.push_back(eventCount);
+    std::cout << "Adding coherent He3 DVCS MC model. Total He3DVCS models: "
+              << he3DVCSModels.size() << ", selected events: "
+              << FormatMillions(eventCount) << std::endl;
+  }
+
+  // Overlay GEN and REC He3DVCS distributions with the same binning and
+  // independent unit-area normalization. Model 0 is GEN and model 1 is REC.
+  // Variables that require a reconstructed He3 are still booked for REC; if
+  // no He3 exists their sentinel values stay outside the displayed range.
+  void PlotNormalizedComparisonHe3DVCS(bool drawFakeHe3Rec = false) {
+    if (he3DVCSModels.size() < 2) {
+      std::cerr << "[PlotNormalizedComparisonHe3DVCS] requires GEN and REC models.\n";
+      return;
+    }
+    struct Spec {
+      std::string var, title, xTitle;
+      int bins;
+      double lo, hi;
+      bool requiresHe3 = false;
+    };
+    const std::vector<Spec> particles = {
+      {"recel_p", "Electron momentum", "p_{e'} [GeV]", 120, 0, 11},
+      {"recel_theta", "Electron polar angle", "#theta_{e'} [deg]", 60, 0, 30},
+      {"recel_phi", "Electron azimuth", "#phi_{e'} [deg]", 60, 0, 360},
+      {"recpho_p", "Photon momentum", "p_{#gamma} [GeV]", 120, 0, 11},
+      {"recpho_theta", "Photon polar angle", "#theta_{#gamma} [deg]", 60, 0, 20},
+      {"recpho_phi", "Photon azimuth", "#phi_{#gamma} [deg]", 60, 0, 360},
+      {"reche3_p", "He3 momentum", "p_{He3} [GeV]", 120, 0, 0.7, true},
+      {"reche3_theta", "He3 polar angle", "#theta_{He3} [deg]", 60, 0, 100, true},
+      {"reche3_phi", "He3 azimuth", "#phi_{He3} [deg]", 60, 0, 360, true}};
+    const std::vector<Spec> dvcs = {
+      {"Q2", "Q^{2}", "Q^{2} [GeV^{2}]", 120, 0, 6},
+      {"xB", "x_{B}", "x_{B}", 120, 0, 0.4},
+      {"WN", "Nucleon invariant mass", "W_{N} [GeV]", 120, 1, 5},
+      {"WHe3", "He3 invariant mass", "W_{^{3}He} [GeV]", 120, 2.5, 9},
+      {"y", "y", "y", 120, 0, 1},
+      {"nu", "Energy transfer", "#nu [GeV]", 120, 0, 11},
+      {"minus_t", "-t from q-#gamma", "-t [GeV^{2}]", 120, 0, 1},
+      {"phi", "Trento #phi", "#phi [deg]", 120, 0, 360}};
+    const std::vector<Spec> exclusivity = {
+      {"mm2_ehe3", "MM^{2}(eHe3)", "MM^{2}(eHe3) [GeV^{2}]", 160, -0.3, 0.3, true},
+      {"mm2_ehe3gamma", "MM^{2}(eHe3#gamma)", "MM^{2}(eHe3#gamma) [GeV^{2}]", 160, -0.2, 0.2, true},
+      {"mm2_egamma", "MM^{2}(e#gamma)", "MM^{2}(e#gamma) [GeV^{2}]", 160, 6.5, 9.5},
+      {"missing_energy", "Missing energy", "E_{miss} [GeV]", 160, -0.7, 0.7, true},
+      {"missing_pt", "Missing transverse momentum", "P_{T,miss} [GeV]", 160, 0, 0.4, true},
+      {"theta_gamma_gamma_pred", "Measured/predicted photon angle", "#theta_{#gamma#gamma'} [deg]", 160, 0, 5, true},
+      {"theta_e_gamma", "Electron-photon angle", "#theta_{e#gamma} [deg]", 180, 0, 60},
+      {"coplanarity", "Coplanarity", "#Delta#phi [deg]", 180, 0, 40, true}};
+
+    fs::create_directories(outputDir);
+    auto drawGroup = [&](const std::vector<Spec>& specs,
+                         const std::string& tag, int columns,
+                         bool appendRecQ2VsXB = false) {
+      const int padCount = static_cast<int>(specs.size()) +
+                           (appendRecQ2VsXB ? 1 : 0);
+      const int rows = (padCount + columns - 1) / columns;
+      TCanvas canvas(("c_he3dvcs_compare_" + tag).c_str(),
+                     ("He3DVCS GEN/REC " + tag).c_str(),
+                     500 * columns, 400 * rows);
+      canvas.Divide(columns, rows);
+      std::vector<std::unique_ptr<TH1D>> owned;
+      owned.reserve(specs.size() * 2);
+      for (size_t i = 0; i < specs.size(); ++i) {
+        canvas.cd(static_cast<int>(i + 1));
+        gPad->SetTicks();
+        TLegend legend(0.63, 0.76, 0.88, 0.89);
+        legend.SetBorderSize(0);
+        legend.SetFillStyle(0);
+        double maximum = 0.0;
+        TH1D* first = nullptr;
+        bool haveRecMoments = false;
+        double recMean = 0.0, recSigma = 0.0;
+        const size_t modelCount = (!specs[i].requiresHe3 || drawFakeHe3Rec) ? 2 : 1;
+        for (size_t model = 0; model < modelCount; ++model) {
+          const auto& s = specs[i];
+          const std::string name = "h_he3dvcs_compare_" + tag + "_" +
+                                   std::to_string(i) + "_m" +
+                                   std::to_string(model);
+          // For fake-He3 REC, He3-dependent observables must use only events
+          // where the simulated ALERT acceptance/PID decision succeeded.
+          ROOT::RDF::RNode plotNode = *he3DVCSModels[model];
+          if (model == 1 && s.requiresHe3 && drawFakeHe3Rec)
+            plotNode = plotNode.Filter("fake_he3_pass");
+          auto action = plotNode.Histo1D(
+              {name.c_str(), (s.title + ";" + s.xTitle + ";Normalized events").c_str(),
+               s.bins, s.lo, s.hi}, s.var);
+          auto hist = std::unique_ptr<TH1D>(
+              static_cast<TH1D*>(action.GetValue().Clone((name + "_draw").c_str())));
+          hist->SetDirectory(nullptr);
+          // Report the REC exclusivity peak directly from histogram moments.
+          // This is not a Gaussian fit: mu=<x> and sigma=sqrt(<x^2>-<x>^2),
+          // evaluated over the displayed histogram range.
+          if (tag == "exclusivity" && model == 1) {
+            recMean = hist->GetMean();
+            recSigma = hist->GetStdDev();
+            haveRecMoments = true;
+            std::cout << "[He3DVCS exclusivity REC] " << s.var
+                      << ": mu = " << recMean
+                      << ", sigma = " << recSigma << '\n';
+          }
+          const double integral = hist->Integral(1, hist->GetNbinsX());
+          if (integral > 0.0) hist->Scale(1.0 / integral);
+          const bool scaleRecByTen = tag == "exclusivity" && model == 1 &&
+                                     s.var != "theta_e_gamma";
+          if (scaleRecByTen) hist->Scale(10.0);
+          hist->SetLineColor(model == 0 ? kBlue + 1 : kRed + 1);
+          hist->SetLineWidth(2);
+          hist->SetStats(0);
+          maximum = std::max(maximum, hist->GetMaximum());
+          if (!first) {
+            first = hist.get();
+            hist->Draw("hist");
+          } else {
+            hist->Draw("hist same");
+          }
+          const std::string countLabel =
+              model < he3DVCSModelEventCounts.size()
+                  ? FormatMillions(he3DVCSModelEventCounts[model]) : "? M";
+          const std::string modelLabel = model == 0
+              ? "GEN (" + countLabel + ")"
+              : (scaleRecByTen ? "10#times REC (" + countLabel + ")"
+                               : "REC (" + countLabel + ")");
+          legend.AddEntry(hist.get(),modelLabel.c_str(),"l");
+          owned.push_back(std::move(hist));
+        }
+        if (first) first->SetMaximum(maximum > 0.0 ? 1.22 * maximum : 1.0);
+        legend.DrawClone();
+        if (haveRecMoments) {
+          std::ostringstream moments;
+          moments << std::setprecision(4)
+                  << "#mu = " << recMean << ",  #sigma = " << recSigma;
+          TLatex label;
+          label.SetNDC();
+          label.SetTextSize(0.036);
+          label.SetTextColor(kRed + 1);
+          label.DrawLatex(0.14,0.70,moments.str().c_str());
+        }
+      }
+      std::unique_ptr<TH2D> q2VsXB;
+      if (appendRecQ2VsXB) {
+        canvas.cd(static_cast<int>(specs.size()+1));
+        gPad->SetTicks();
+        auto action=he3DVCSModels[1]->Histo2D(
+            {("h_he3dvcs_"+tag+"_rec_q2_vs_xb").c_str(),
+             "REC Q^{2} vs x_{B};x_{B};Q^{2} [GeV^{2}];Events",
+             120,0.0,0.4,120,0.0,6.0},"xB","Q2");
+        q2VsXB=std::unique_ptr<TH2D>(static_cast<TH2D*>(
+            action.GetValue().Clone(("h_he3dvcs_"+tag+
+                                     "_rec_q2_vs_xb_draw").c_str())));
+        q2VsXB->SetDirectory(nullptr);
+        q2VsXB->SetStats(0);
+        q2VsXB->Draw("COLZ");
+        gPad->SetLogz();
+        TLatex count; count.SetNDC(); count.SetTextSize(0.035);
+        count.DrawLatex(0.13,0.92,
+            ("GEN ("+FormatMillions(he3DVCSModelEventCounts[0])+")  REC ("+
+             FormatMillions(he3DVCSModelEventCounts[1])+")").c_str());
+      }
+      const std::string output = outputDir + "/He3DVCS_GEN_REC_" + tag + ".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout << "[PlotNormalizedComparisonHe3DVCS] wrote " << output << '\n';
+    };
+    // One combined particle canvas: each row is e', gamma, or He3; columns
+    // are normalized p/theta/phi overlays followed by REC-only p-vs-theta.
+    TCanvas particleCanvas("c_he3dvcs_particles_combined",
+                           "He3DVCS particle kinematics",2000,1350);
+    particleCanvas.Divide(4,3);
+    std::vector<std::unique_ptr<TH1D>> particleOwned1D;
+    std::vector<std::unique_ptr<TH2D>> particleOwned2D;
+    for (size_t row=0; row<3; ++row) {
+      const bool requiresHe3 = row==2;
+      for (size_t column=0; column<3; ++column) {
+        const Spec& s = particles[3*row+column];
+        particleCanvas.cd(static_cast<int>(4*row+column+1));
+        gPad->SetTicks();
+        TLegend legend(0.63,0.76,0.88,0.89);
+        legend.SetBorderSize(0); legend.SetFillStyle(0);
+        TH1D* first=nullptr; double maximum=0.0;
+        const size_t modelCount = (!requiresHe3 || drawFakeHe3Rec) ? 2 : 1;
+        for (size_t model=0; model<modelCount; ++model) {
+          ROOT::RDF::RNode node=*he3DVCSModels[model];
+          if (model==1 && requiresHe3) node=node.Filter("fake_he3_pass");
+          const std::string name="h_he3dvcs_particle_combined_"+
+              std::to_string(row)+"_"+std::to_string(column)+"_m"+
+              std::to_string(model);
+          auto action=node.Histo1D(
+              {name.c_str(),(s.title+";"+s.xTitle+";Normalized events").c_str(),
+               s.bins,s.lo,s.hi},s.var);
+          auto hist=std::unique_ptr<TH1D>(static_cast<TH1D*>(
+              action.GetValue().Clone((name+"_draw").c_str())));
+          hist->SetDirectory(nullptr); hist->SetStats(0);
+          const double integral=hist->Integral(1,hist->GetNbinsX());
+          if (integral>0.0) hist->Scale(1.0/integral);
+          hist->SetLineColor(model==0?kBlue+1:kRed+1);
+          hist->SetLineWidth(2);
+          maximum=std::max(maximum,hist->GetMaximum());
+          if (!first) { first=hist.get(); hist->Draw("hist"); }
+          else hist->Draw("hist same");
+          const std::string modelLabel=(model==0?"GEN (":"REC (")+
+              FormatMillions(he3DVCSModelEventCounts[model])+")";
+          legend.AddEntry(hist.get(),modelLabel.c_str(),"l");
+          particleOwned1D.push_back(std::move(hist));
+        }
+        if (first) first->SetMaximum(maximum>0.0?1.22*maximum:1.0);
+        legend.DrawClone();
+      }
+
+      particleCanvas.cd(static_cast<int>(4*row+4));
+      gPad->SetTicks();
+      if (requiresHe3 && !drawFakeHe3Rec) {
+        TLatex label; label.SetNDC(); label.SetTextAlign(22); label.SetTextSize(0.045);
+        label.DrawLatex(0.5,0.55,"REC He3 not drawn");
+        label.DrawLatex(0.5,0.47,"fake He3 is OFF");
+        continue;
+      }
+      ROOT::RDF::RNode recNode=*he3DVCSModels[1];
+      if (requiresHe3) recNode=recNode.Filter("fake_he3_pass");
+      const Spec& pSpec=particles[3*row];
+      const Spec& thetaSpec=particles[3*row+1];
+      const std::string name="h_he3dvcs_rec_p_vs_theta_"+std::to_string(row);
+      auto action=recNode.Histo2D(
+          {name.c_str(),(std::string("REC ")+pSpec.title+
+           ";#theta [deg];p [GeV];Events").c_str(),
+           thetaSpec.bins,thetaSpec.lo,thetaSpec.hi,
+           pSpec.bins,pSpec.lo,pSpec.hi},thetaSpec.var,pSpec.var);
+      auto hist=std::unique_ptr<TH2D>(static_cast<TH2D*>(
+          action.GetValue().Clone((name+"_draw").c_str())));
+      hist->SetDirectory(nullptr); hist->SetStats(0); hist->Draw("COLZ");
+      gPad->SetLogz();
+      TLatex count; count.SetNDC(); count.SetTextSize(0.035);
+      count.DrawLatex(0.13,0.92,
+          ("GEN ("+FormatMillions(he3DVCSModelEventCounts[0])+")  REC ("+
+           FormatMillions(he3DVCSModelEventCounts[1])+")").c_str());
+      particleOwned2D.push_back(std::move(hist));
+    }
+    const std::string particleOutput=outputDir+"/He3DVCS_GEN_REC_particles.pdf";
+    particleCanvas.SaveAs(particleOutput.c_str());
+    std::cout << "[PlotNormalizedComparisonHe3DVCS] wrote "
+              << particleOutput << '\n';
+
+    drawGroup(dvcs, "kinematics", 4, true);
+    drawGroup(exclusivity, "exclusivity", 4);
+  }
+
+  // He3DVCS acceptance: probability-weighted He3 response, direct REC/GEN
+  // event acceptance, and electron acceptance inferred by factorization.
+  void PlotHe3DVCSAcc() {
+    if (he3DVCSModels.size()<2) {
+      std::cerr<<"[PlotHe3DVCSAcc] requires GEN and REC models.\n"; return;
+    }
+    fs::create_directories(outputDir);
+    ROOT::RDF::RNode gen=*he3DVCSModels[0];
+    ROOT::RDF::RNode rec=he3DVCSModels[1]->Filter("fake_he3_pass");
+    const std::string selectedCounts =
+        "GEN ("+FormatMillions(he3DVCSModelEventCounts[0])+")  REC ("+
+        FormatMillions(he3DVCSModelEventCounts[1])+")";
+    auto drawSelectedCounts=[&]() {
+      TLatex label; label.SetNDC(); label.SetTextSize(0.032);
+      label.DrawLatex(0.13,0.92,selectedCounts.c_str());
+    };
+    auto r1=[](const TH1D& n,const TH1D& d,const std::string& name,
+               const std::string& title) {
+      auto h=std::unique_ptr<TH1D>(static_cast<TH1D*>(n.Clone(name.c_str())));
+      h->SetDirectory(nullptr); h->Divide(&d); h->SetTitle(title.c_str());
+      h->SetStats(0); h->SetMinimum(0); h->SetMaximum(1.05); h->SetLineWidth(2);
+      return h;
+    };
+    auto r2=[](const TH2D& n,const TH2D& d,const std::string& name,
+               const std::string& title) {
+      auto h=std::unique_ptr<TH2D>(static_cast<TH2D*>(n.Clone(name.c_str())));
+      h->SetDirectory(nullptr); h->Divide(&d); h->SetTitle(title.c_str());
+      h->SetStats(0); h->SetMinimum(0); h->SetMaximum(1.0);
+      h->GetZaxis()->SetTitle("Acceptance"); return h;
+    };
+    auto b1=[](ROOT::RDF::RNode n,const std::string& name,const std::string& v,
+               int bins,double lo,double hi,const std::string& w="") {
+      return w.empty()?n.Histo1D({name.c_str(),"",bins,lo,hi},v)
+                      :n.Histo1D({name.c_str(),"",bins,lo,hi},v,w);
+    };
+    auto b2=[](ROOT::RDF::RNode n,const std::string& name,
+               const std::string& x,const std::string& y,
+               int nx,double xl,double xh,int ny,double yl,double yh,
+               const std::string& w="") {
+      return w.empty()?n.Histo2D({name.c_str(),"",nx,xl,xh,ny,yl,yh},x,y)
+                      :n.Histo2D({name.c_str(),"",nx,xl,xh,ny,yl,yh},x,y,w);
+    };
+
+    auto hpD=b1(gen,"h_h3pa_pd","reche3_p",60,0,.7);
+    auto htD=b1(gen,"h_h3pa_td","reche3_theta",30,0,100);
+    auto hfD=b1(gen,"h_h3pa_fd","reche3_phi",36,0,360);
+    auto hptD=b2(gen,"h_h3pa_ptd","reche3_theta","reche3_p",30,0,100,60,0,.7);
+    auto hpW=b1(gen,"h_h3pa_pw","reche3_p",60,0,.7,"fake_he3_acceptance");
+    auto htW=b1(gen,"h_h3pa_tw","reche3_theta",30,0,100,"fake_he3_acceptance");
+    auto hfW=b1(gen,"h_h3pa_fw","reche3_phi",36,0,360,"fake_he3_acceptance");
+    auto hptW=b2(gen,"h_h3pa_ptw","reche3_theta","reche3_p",30,0,100,60,0,.7,"fake_he3_acceptance");
+    auto hp=r1(hpW.GetValue(),hpD.GetValue(),"h_h3pa_p","He3 particle acceptance;p(He3) [GeV];Acceptance");
+    auto ht=r1(htW.GetValue(),htD.GetValue(),"h_h3pa_t","He3 particle acceptance;#theta(He3) [deg];Acceptance");
+    auto hf=r1(hfW.GetValue(),hfD.GetValue(),"h_h3pa_f","He3 particle acceptance;#phi(He3) [deg];Acceptance");
+    auto hpt=r2(hptW.GetValue(),hptD.GetValue(),"h_h3pa_pt","He3 particle acceptance;#theta(He3) [deg];p(He3) [GeV];Acceptance");
+    TCanvas pc("c_h3pa","He3 particle acceptance",2000,450); pc.Divide(4,1);
+    pc.cd(1);hp->Draw("HIST");drawSelectedCounts();
+    pc.cd(2);ht->Draw("HIST");drawSelectedCounts();
+    pc.cd(3);hf->Draw("HIST");drawSelectedCounts();
+    pc.cd(4);hpt->Draw("COLZ");drawSelectedCounts();
+    pc.SaveAs((outputDir+"/He3DVCS_acceptance_particle_He3.pdf").c_str());
+
+    auto hpR=b1(rec,"h_h3ea_pr","reche3_p",60,0,.7);
+    auto htR=b1(rec,"h_h3ea_tr","reche3_theta",30,0,100);
+    auto hfR=b1(rec,"h_h3ea_fr","reche3_phi",36,0,360);
+    auto hptR=b2(rec,"h_h3ea_ptr","reche3_theta","reche3_p",30,0,100,60,0,.7);
+    auto evp=r1(hpR.GetValue(),hpD.GetValue(),"h_h3ea_p","He3DVCS event acceptance;p(He3) [GeV];Event acceptance");
+    auto evt=r1(htR.GetValue(),htD.GetValue(),"h_h3ea_t","He3DVCS event acceptance;#theta(He3) [deg];Event acceptance");
+    auto evf=r1(hfR.GetValue(),hfD.GetValue(),"h_h3ea_f","He3DVCS event acceptance;#phi(He3) [deg];Event acceptance");
+    auto evpt=r2(hptR.GetValue(),hptD.GetValue(),"h_h3ea_pt","He3DVCS event acceptance;#theta(He3) [deg];p(He3) [GeV];Event acceptance");
+
+    auto epD=b1(gen,"h_h3el_pd","recel_p",60,0,11);
+    auto etD=b1(gen,"h_h3el_td","recel_theta",30,0,30);
+    auto efD=b1(gen,"h_h3el_fd","recel_phi",36,0,360);
+    auto eptD=b2(gen,"h_h3el_ptd","recel_theta","recel_p",30,0,30,60,0,11);
+    auto epR=b1(rec,"h_h3el_pr","recel_p",60,0,11);
+    auto etR=b1(rec,"h_h3el_tr","recel_theta",30,0,30);
+    auto efR=b1(rec,"h_h3el_fr","recel_phi",36,0,360);
+    auto eptR=b2(rec,"h_h3el_ptr","recel_theta","recel_p",30,0,30,60,0,11);
+    auto epS=b1(gen,"h_h3el_ps","recel_p",60,0,11,"fake_he3_acceptance");
+    auto etS=b1(gen,"h_h3el_ts","recel_theta",30,0,30,"fake_he3_acceptance");
+    auto efS=b1(gen,"h_h3el_fs","recel_phi",36,0,360,"fake_he3_acceptance");
+    auto eptS=b2(gen,"h_h3el_pts","recel_theta","recel_p",30,0,30,60,0,11,"fake_he3_acceptance");
+    auto tep=r1(epR.GetValue(),epD.GetValue(),"h_h3el_tp","");
+    auto tet=r1(etR.GetValue(),etD.GetValue(),"h_h3el_tt","");
+    auto tef=r1(efR.GetValue(),efD.GetValue(),"h_h3el_tf","");
+    auto tept=r2(eptR.GetValue(),eptD.GetValue(),"h_h3el_tpt","");
+    auto sep=r1(epS.GetValue(),epD.GetValue(),"h_h3el_sp","");
+    auto set=r1(etS.GetValue(),etD.GetValue(),"h_h3el_st","");
+    auto sef=r1(efS.GetValue(),efD.GetValue(),"h_h3el_sf","");
+    auto sept=r2(eptS.GetValue(),eptD.GetValue(),"h_h3el_spt","");
+    auto eap=r1(*tep,*sep,"h_h3el_p","Inferred electron acceptance;p(e') [GeV];Acceptance");
+    auto eat=r1(*tet,*set,"h_h3el_t","Inferred electron acceptance;#theta(e') [deg];Acceptance");
+    auto eaf=r1(*tef,*sef,"h_h3el_f","Inferred electron acceptance;#phi(e') [deg];Acceptance");
+    auto eapt=r2(*tept,*sept,"h_h3el_pt","Inferred electron acceptance;#theta(e') [deg];p(e') [GeV];Acceptance");
+    TCanvas ec("c_h3ea","He3DVCS event and electron acceptance",2000,900); ec.Divide(4,2);
+    ec.cd(1);evp->Draw("HIST");drawSelectedCounts();
+    ec.cd(2);evt->Draw("HIST");drawSelectedCounts();
+    ec.cd(3);evf->Draw("HIST");drawSelectedCounts();
+    ec.cd(4);evpt->Draw("COLZ");drawSelectedCounts();
+    ec.cd(5);eap->Draw("HIST");drawSelectedCounts();
+    ec.cd(6);eat->Draw("HIST");drawSelectedCounts();
+    ec.cd(7);eaf->Draw("HIST");drawSelectedCounts();
+    ec.cd(8);eapt->Draw("COLZ");drawSelectedCounts();
+    ec.SaveAs((outputDir+"/He3DVCS_acceptance_event.pdf").c_str());
+
+    struct KV {std::string v,label;int bins;double lo,hi;};
+    const std::vector<KV> kv={{"xB","x_{B}",60,0,.4},{"Q2","Q^{2} [GeV^{2}]",60,0,6},
+      {"W","W [GeV]",60,1,5},{"y","y",60,0,1},{"nu","#nu [GeV]",60,0,11}};
+    std::vector<std::unique_ptr<TH1D>> ka;
+    for(size_t i=0;i<kv.size();++i){
+      auto d=b1(gen,"h_h3ka_d"+std::to_string(i),kv[i].v,kv[i].bins,kv[i].lo,kv[i].hi);
+      auto n=b1(rec,"h_h3ka_n"+std::to_string(i),kv[i].v,kv[i].bins,kv[i].lo,kv[i].hi);
+      ka.push_back(r1(n.GetValue(),d.GetValue(),"h_h3ka_a"+std::to_string(i),
+          "He3DVCS event acceptance;"+kv[i].label+";Event acceptance"));
+    }
+    auto xqd=b2(gen,"h_h3ka_xqd","xB","Q2",60,0,.4,60,0,6);
+    auto xqn=b2(rec,"h_h3ka_xqn","xB","Q2",60,0,.4,60,0,6);
+    auto xqa=r2(xqn.GetValue(),xqd.GetValue(),"h_h3ka_xqa",
+        "He3DVCS event acceptance;x_{B};Q^{2} [GeV^{2}];Event acceptance");
+    xqa->GetZaxis()->SetTitle("Event acceptance");
+    TCanvas kc("c_h3ka","He3DVCS event acceptance",1800,900);kc.Divide(3,2);
+    for(size_t i=0;i<ka.size();++i){
+      kc.cd(int(i+1));ka[i]->Draw("HIST");drawSelectedCounts();
+    }
+    kc.cd(6);xqa->Draw("COLZ");drawSelectedCounts();
+    kc.SaveAs((outputDir+"/He3DVCS_acceptance_event_DIS.pdf").c_str());
+    std::cout<<"[PlotHe3DVCSAcc] wrote He3DVCS acceptance PDFs\n";
+  }
+
+  // Plot coherent-He3 longitudinal spin asymmetries versus Trento phi.
+  // The four yields are N_{beam,target}; generator events are already
+  // unweighted, so event_weight is one for both GEN and REC.  Both models use
+  // identical spin definitions and binning and are overlaid in every panel.
+  void PlotAsymmetryHe3(double beamPolarization=0.80,
+                        double targetPolarization=0.50,
+                        bool drawCorrected=true) {
+    if (he3DVCSModels.size() < 2) {
+      std::cerr << "[PlotAsymmetryHe3] requires GEN and REC models.\n";
+      return;
+    }
+    if (!std::isfinite(beamPolarization) || !std::isfinite(targetPolarization) ||
+        beamPolarization <= 0.0 || beamPolarization > 1.0 ||
+        targetPolarization <= 0.0 || targetPolarization > 1.0)
+      throw std::runtime_error("He3 beam/target polarizations must be in (0,1]");
+
+    struct SpinYields {
+      std::unique_ptr<TH1D> pp, pm, mp, mm;
+    };
+    struct AsymmetrySpec {
+      const char* key;
+      const char* yTitle;
+      // First pair minus second pair, divided by their sum.
+      std::array<int, 4> signs;
+    };
+    const std::array<AsymmetrySpec, 3> specs = {{
+        {"ALU", "A_{LU}", {{+1, +1, -1, -1}}},
+        {"AUL", "A_{UL}", {{+1, -1, +1, -1}}},
+        {"ALL", "A_{LL}", {{+1, -1, -1, +1}}}
+    }};
+
+    fs::create_directories(outputDir);
+    std::vector<SpinYields> yields;
+    yields.reserve(2);
+    for (size_t model = 0; model < 2; ++model) {
+      SpinYields spin;
+      const std::array<std::pair<const char*, std::unique_ptr<TH1D>*>, 4> channels = {{
+          {"real_beam_spin > 0 && real_target_spin > 0", &spin.pp},
+          {"real_beam_spin > 0 && real_target_spin < 0", &spin.pm},
+          {"real_beam_spin < 0 && real_target_spin > 0", &spin.mp},
+          {"real_beam_spin < 0 && real_target_spin < 0", &spin.mm}
+      }};
+      for (size_t channel = 0; channel < channels.size(); ++channel) {
+        const std::string name = "h_he3_asym_yield_m" + std::to_string(model) +
+                                 "_s" + std::to_string(channel);
+        auto action = he3DVCSModels[model]->Filter(channels[channel].first)
+            .Histo1D({name.c_str(), ";#phi [deg];Weighted yield",
+                      24, 0.0, 360.0}, "phi", "event_weight");
+        *channels[channel].second = std::unique_ptr<TH1D>(
+            static_cast<TH1D*>(action.GetValue().Clone((name + "_draw").c_str())));
+        (*channels[channel].second)->SetDirectory(nullptr);
+      }
+      yields.push_back(std::move(spin));
+    }
+
+    auto makeAsymmetry = [drawCorrected](const std::string& name,
+                            const AsymmetrySpec& spec,const SpinYields& spin,
+                            double polarizationFactor) {
+      auto result = std::make_unique<TH1D>(
+          name.c_str(), (std::string(";#phi [deg];") + spec.yTitle).c_str(),
+          24, 0.0, 360.0);
+      result->SetDirectory(nullptr);
+      result->SetStats(0);
+      const std::array<const TH1D*, 4> h = {{
+          spin.pp.get(), spin.pm.get(), spin.mp.get(), spin.mm.get()}};
+      for (int bin = 1; bin <= result->GetNbinsX(); ++bin) {
+        double numerator = 0.0, denominator = 0.0, varianceNumerator = 0.0;
+        for (size_t i = 0; i < h.size(); ++i) {
+          const double n = h[i]->GetBinContent(bin);
+          numerator += spec.signs[i] * n;
+          denominator += n;
+        }
+        if (denominator <= 0.0) continue;
+        const double asymmetry = numerator / denominator;
+        // General propagation for A=(sum s_i N_i)/(sum N_i), including Sumw2.
+        for (size_t i = 0; i < h.size(); ++i) {
+          const double derivative = (spec.signs[i] - asymmetry) / denominator;
+          varianceNumerator += derivative * derivative *
+                               std::pow(h[i]->GetBinError(bin), 2);
+        }
+        const double correction=drawCorrected?polarizationFactor:1.0;
+        result->SetBinContent(bin,asymmetry/correction);
+        result->SetBinError(bin,
+            std::sqrt(std::max(0.0,varianceNumerator))/correction);
+      }
+      return result;
+    };
+
+    TCanvas canvas("c_he3_asymmetry", "He3DVCS spin asymmetries", 1800, 600);
+    canvas.Divide(3, 1);
+    std::vector<std::unique_ptr<TH1D>> owned;
+    owned.reserve(6);
+    for (size_t observable = 0; observable < specs.size(); ++observable) {
+      canvas.cd(static_cast<int>(observable + 1));
+      gPad->SetTicks();
+      TLegend legend(0.68, 0.78, 0.88, 0.90);
+      legend.SetBorderSize(0);
+      legend.SetFillStyle(0);
+      const double polarizationFactor=observable==0?beamPolarization:
+          (observable==1?targetPolarization:beamPolarization*targetPolarization);
+      for (size_t model = 0; model < 2; ++model) {
+        auto hist = makeAsymmetry(
+            "h_he3_" + std::string(specs[observable].key) + "_m" +
+                std::to_string(model), specs[observable], yields[model],
+                polarizationFactor);
+        const double yRange = observable == 0 ? 1.0 : 0.1;
+        hist->SetMinimum(-yRange);
+        hist->SetMaximum(+yRange);
+        hist->SetLineColor(model == 0 ? kBlue + 1 : kRed + 1);
+        hist->SetMarkerColor(model == 0 ? kBlue + 1 : kRed + 1);
+        hist->SetMarkerStyle(model == 0 ? 20 : 24);
+        hist->SetMarkerSize(0.85);
+        hist->SetLineWidth(2);
+        hist->Draw(model == 0 ? "E1" : "E1 SAME");
+        const std::string modelLabel=(model==0?"GEN (":"REC (")+
+            FormatMillions(he3DVCSModelEventCounts[model])+")";
+        legend.AddEntry(hist.get(),modelLabel.c_str(),"lep");
+        owned.push_back(std::move(hist));
+      }
+      TLine zero(0.0, 0.0, 360.0, 0.0);
+      zero.SetLineStyle(2);
+      zero.SetLineColor(kGray + 1);
+      zero.DrawClone();
+      legend.DrawClone();
+      std::ostringstream polarizationLabel;
+      polarizationLabel<<std::fixed<<std::setprecision(2)
+          <<(drawCorrected?"Reconstructed A":"Raw A")
+          <<", P_{b}="<<beamPolarization<<", P_{t}="<<targetPolarization;
+      TLatex label;label.SetNDC();label.SetTextSize(0.035);
+      label.DrawLatex(0.13,0.92,polarizationLabel.str().c_str());
+    }
+    const std::string output = outputDir + "/He3DVCS_GEN_REC_asymmetries.pdf";
+    canvas.SaveAs(output.c_str());
+    std::cout << "[PlotAsymmetryHe3] Pb=" << beamPolarization
+              << ", Pt=" << targetPolarization
+              << ", output=" << (drawCorrected?"reconstructed A":"raw A")
+              << "\n[PlotAsymmetryHe3] wrote " << output << '\n';
+  }
+
+  void AddModelHe3DIS(ROOT::RDF::RNode all, ROOT::RDF::RNode epp,
+                      ROOT::RDF::RNode epn, ROOT::RDF::RNode ed,
+                      const std::string& label) {
+    he3DISModels.push_back({
+        std::make_unique<ROOT::RDF::RNode>(std::move(all)),
+        std::make_unique<ROOT::RDF::RNode>(std::move(epp)),
+        std::make_unique<ROOT::RDF::RNode>(std::move(epn)),
+        std::make_unique<ROOT::RDF::RNode>(std::move(ed)), label});
+    std::cout << "Adding He3DIS model: " << label
+              << ". Total He3DIS models: " << he3DISModels.size() << '\n';
+  }
+
+  // Overlay unit-area GEN and REC distributions for inclusive He3DIS and
+  // the epp, epn, and ed topology views.
+  void PlotNormalizedComparisonHe3DIS() {
+    if (he3DISModels.size() < 2) {
+      std::cerr << "[PlotNormalizedComparisonHe3DIS] requires GEN and REC.\n";
+      return;
+    }
+    struct Spec {
+      std::string var, title, xTitle;
+      int bins;
+      double lo, hi;
+    };
+    struct PairSpec {
+      std::string p, theta, title;
+      double pHi, thetaHi;
+    };
+    const std::vector<Spec> electron = {
+        {"recel_p", "Electron momentum", "p_{e'} [GeV]", 120, 0, 11},
+        {"recel_theta", "Electron polar angle", "#theta_{e'} [deg]", 60, 0, 35},
+        {"recel_phi", "Electron azimuth", "#phi_{e'} [deg]", 60, 0, 360}};
+    const std::vector<Spec> dis = {
+        {"Q2", "Q^{2}", "Q^{2} [GeV^{2}]", 120, 0, 10},
+        {"xB", "x_{B}", "x_{B}", 120, 0, 1},
+        {"WN", "Nucleon invariant mass", "W_{N} [GeV]", 120, 0, 5},
+        {"WHe3", "He3 invariant mass", "W_{^{3}He} [GeV]", 120, 2.5, 9},
+        {"nu", "nu", "#nu [GeV]", 120, 0, 11},
+        {"y", "y", "y", 120, 0, 1}};
+    const std::vector<Spec> protons = {
+        {"pro1_p", "Leading proton momentum", "p_{p1} [GeV]", 120, 0, 0.5},
+        {"pro1_theta", "Leading proton angle", "#theta_{p1} [deg]", 60, 0, 180},
+        {"pro1_phi", "Leading proton azimuth", "#phi_{p1} [deg]", 60, 0, 360},
+        {"pro2_p", "Subleading proton momentum", "p_{p2} [GeV]", 120, 0, 0.5},
+        {"pro2_theta", "Subleading proton angle", "#theta_{p2} [deg]", 60, 0, 180},
+        {"pro2_phi", "Subleading proton azimuth", "#phi_{p2} [deg]", 60, 0, 360}};
+    const std::vector<Spec> neutron = {
+        {"neu_p", "Neutron momentum", "p_{n} [GeV]", 120, 0, 3},
+        {"neu_theta", "Neutron angle", "#theta_{n} [deg]", 60, 0, 180},
+        {"neu_phi", "Neutron azimuth", "#phi_{n} [deg]", 60, 0, 360}};
+    const std::vector<Spec> deuteron = {
+        {"deu_p", "Deuteron momentum", "p_{d} [GeV]", 120, 0, 0.5},
+        {"deu_theta", "Deuteron angle", "#theta_{d} [deg]", 60, 0, 180},
+        {"deu_phi", "Deuteron azimuth", "#phi_{d} [deg]", 60, 0, 360}};
+
+    auto combine = [](std::initializer_list<std::vector<Spec>> groups) {
+      std::vector<Spec> result;
+      for (const auto& group : groups)
+        result.insert(result.end(), group.begin(), group.end());
+      return result;
+    };
+    fs::create_directories(outputDir);
+    auto nodeFor = [](He3DISModel& model, const std::string& topology)
+        -> ROOT::RDF::RNode& {
+      if (topology == "epp") return *model.epp;
+      if (topology == "epn") return *model.epn;
+      if (topology == "ed") return *model.ed;
+      return *model.all;
+    };
+    auto draw = [&](const std::string& category,
+                    const std::string& topology,
+                    const std::vector<Spec>& specs,
+                    const std::vector<PairSpec>& pairs) {
+      const std::string tag = category + "_" + topology;
+      const int pads = static_cast<int>(specs.size() + pairs.size());
+      const int columns = 4;
+      const int rows = (pads + columns - 1)/columns;
+      // Particle specifications are stored as repeating p/theta/phi triples.
+      // When each triple has a matching 2D entry, reserve the fourth pad in
+      // that same row for p-vs-theta.
+      const bool particleRows = !pairs.empty() && specs.size() == 3*pairs.size();
+      TCanvas canvas(("c_he3dis_" + tag).c_str(),
+                     ("He3DIS GEN/REC " + tag).c_str(),
+                     500*columns, 400*rows);
+      canvas.Divide(columns, rows);
+      std::vector<std::unique_ptr<TH1D>> owned1D;
+      std::vector<std::unique_ptr<TH2D>> owned2D;
+      for (size_t i = 0; i < specs.size(); ++i) {
+        const size_t pad = particleRows ? 4*(i/3)+(i%3)+1 : i+1;
+        canvas.cd(static_cast<int>(pad));
+        gPad->SetTicks();
+        TLegend legend(0.66, 0.77, 0.88, 0.90);
+        legend.SetBorderSize(0); legend.SetFillStyle(0);
+        TH1D* first = nullptr;
+        double maximum = 0.0;
+        for (size_t model = 0; model < 2; ++model) {
+          const auto& spec = specs[i];
+          const std::string name = "h_he3dis_" + tag + "_" +
+              std::to_string(i) + "_m" + std::to_string(model);
+          auto action = nodeFor(he3DISModels[model], topology).Histo1D(
+              {name.c_str(), (spec.title + ";" + spec.xTitle +
+               ";Normalized events").c_str(), spec.bins, spec.lo, spec.hi},
+              spec.var);
+          auto hist = std::unique_ptr<TH1D>(static_cast<TH1D*>(
+              action.GetValue().Clone((name + "_draw").c_str())));
+          hist->SetDirectory(nullptr); hist->SetStats(0);
+          const double integral = hist->Integral(1, hist->GetNbinsX());
+          if (integral > 0.0) hist->Scale(1.0/integral);
+          hist->SetLineColor(model == 0 ? kBlue+1 : kRed+1);
+          hist->SetLineWidth(2);
+          maximum = std::max(maximum, hist->GetMaximum());
+          if (!first) { first = hist.get(); hist->Draw("HIST"); }
+          else hist->Draw("HIST SAME");
+          const std::string label = he3DISModels[model].label +
+              (hist->GetEntries() == 0 ? " (no entries)" : "");
+          legend.AddEntry(hist.get(), label.c_str(), "l");
+          owned1D.push_back(std::move(hist));
+        }
+        if (first) first->SetMaximum(maximum > 0.0 ? 1.22*maximum : 1.0);
+        legend.DrawClone();
+      }
+      for (size_t i = 0; i < pairs.size(); ++i) {
+        const size_t pad = particleRows ? 4*i+4 : specs.size()+i+1;
+        canvas.cd(static_cast<int>(pad));
+        gPad->SetTicks();
+        const auto& pair = pairs[i];
+        const std::string name = "h_he3dis_" + tag + "_rec_2d_" +
+                                 std::to_string(i);
+        auto action = nodeFor(he3DISModels[1], topology).Histo2D(
+            {name.c_str(), ("REC " + pair.title +
+             ";#theta [deg];p [GeV];Events").c_str(),
+             50, 0, pair.thetaHi, 100, 0, pair.pHi},
+            pair.theta, pair.p);
+        auto hist = std::unique_ptr<TH2D>(static_cast<TH2D*>(
+            action.GetValue().Clone((name + "_draw").c_str())));
+        hist->SetDirectory(nullptr); hist->SetStats(0);
+        hist->Draw("COLZ"); gPad->SetLogz();
+        owned2D.push_back(std::move(hist));
+      }
+      const std::string output =
+          outputDir + "/He3DIS_GEN_REC_" + tag + ".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout << "[PlotNormalizedComparisonHe3DIS] wrote "
+                << output << '\n';
+    };
+
+    // Every general plot class is produced for every topology.  Keeping the
+    // category and topology as separate arguments is important: the latter
+    // selects the correct RDF, while both appear in the output file name.
+    for (const auto& topology : {std::string("all"), std::string("epp"),
+                                 std::string("epn"), std::string("ed")}) {
+      auto specs = dis;
+      if (topology != "all") {
+        for (const auto& s : He3DISSpectatorPlotSpecs())
+          specs.push_back({topology+"_"+s.variable,
+              topology+" spectator "+s.variable, s.axis, s.bins, s.lo, s.hi});
+      }
+      draw("kinematics", topology, specs, {});
+    }
+    const auto allSpectators = combine({protons, neutron, deuteron});
+    const std::vector<PairSpec> allParticlePairs = {
+        {"recel_p", "recel_theta", "electron p vs theta", 11, 35},
+        {"pro1_p", "pro1_theta", "leading proton p vs theta", 0.5, 180},
+        {"pro2_p", "pro2_theta", "subleading proton p vs theta", 0.5, 180},
+        {"neu_p", "neu_theta", "neutron p vs theta", 3, 180},
+        {"deu_p", "deu_theta", "deuteron p vs theta", 0.5, 180}};
+    draw("particles", "all", combine({electron,allSpectators}),
+         allParticlePairs);
+    draw("particles", "epp", combine({electron,protons}),
+         {{"recel_p", "recel_theta", "electron p vs theta", 11, 35},
+          {"pro1_p", "pro1_theta", "leading proton p vs theta", 0.5, 180},
+          {"pro2_p", "pro2_theta", "subleading proton p vs theta", 0.5, 180}});
+    draw("particles", "epn",
+         combine({electron,
+                  std::vector<Spec>(protons.begin(),protons.begin()+3),neutron}),
+         {{"recel_p", "recel_theta", "electron p vs theta", 11, 35},
+          {"pro1_p", "pro1_theta", "proton p vs theta", 0.5, 180},
+          {"neu_p", "neu_theta", "neutron p vs theta", 3, 180}});
+    draw("particles", "ed", combine({electron,deuteron}),
+         {{"recel_p", "recel_theta", "electron p vs theta", 11, 35},
+          {"deu_p", "deu_theta", "deuteron p vs theta", 0.5, 180}});
+  }
+
+  // Particle acceptance uses the probability-weighted fake ALERT response.
+  // Event acceptance is counted directly as REC/GEN.  Their ratio is shown as
+  // an inferred electron acceptance under the factorization Aevent=Ae*Aspect.
+  void PlotHe3DISAcc(ROOT::RDF::RNode gen, ROOT::RDF::RNode rec) {
+    fs::create_directories(outputDir);
+    struct AccSpec {
+      std::string tag, title, p, theta, phi, weight, selection;
+    };
+    const std::vector<AccSpec> particleSpecs = {
+        {"particle_p", "Per-particle proton", "acc_p_p", "acc_p_theta",
+         "acc_p_phi", "acc_p_weight", "GEN_pass_epp || GEN_pass_epn"},
+        {"particle_d", "Per-particle deuteron", "acc_d_p", "acc_d_theta",
+         "acc_d_phi", "acc_d_weight", "GEN_pass_ed"}};
+
+    auto ratio1D=[](const TH1D& numerator,const TH1D& denominator,
+                    const std::string& name,const std::string& title) {
+      auto result=std::unique_ptr<TH1D>(static_cast<TH1D*>(
+          numerator.Clone(name.c_str())));
+      result->SetDirectory(nullptr); result->Divide(&denominator);
+      result->SetTitle(title.c_str()); result->SetStats(0);
+      result->SetMinimum(0.0); result->SetMaximum(1.05);
+      result->SetLineWidth(2); return result;
+    };
+    auto ratio2D=[](const TH2D& numerator,const TH2D& denominator,
+                    const std::string& name,const std::string& title) {
+      auto result=std::unique_ptr<TH2D>(static_cast<TH2D*>(
+          numerator.Clone(name.c_str())));
+      result->SetDirectory(nullptr); result->Divide(&denominator);
+      result->SetTitle(title.c_str()); result->SetStats(0);
+      result->SetMinimum(0.0); result->SetMaximum(1.0);
+      result->GetZaxis()->SetTitle("Acceptance"); return result;
+    };
+
+    auto drawOne = [&](const AccSpec& spec) {
+      auto node=gen.Filter(spec.selection);
+      const double pHi=0.5;
+      const std::string prefix="h_he3dis_acc_"+spec.tag;
+      ROOT::RDF::TH1DModel pModel((prefix+"_p_den").c_str(),
+          (spec.title+";p [GeV];Acceptance").c_str(),50,0,pHi);
+      ROOT::RDF::TH1DModel thetaModel((prefix+"_theta_den").c_str(),
+          (spec.title+";#theta [deg];Acceptance").c_str(),30,0,180);
+      ROOT::RDF::TH1DModel phiModel((prefix+"_phi_den").c_str(),
+          (spec.title+";#phi [deg];Acceptance").c_str(),36,0,360);
+      ROOT::RDF::TH2DModel ptModel((prefix+"_pt_den").c_str(),
+          (spec.title+";#theta [deg];p [GeV]").c_str(),30,0,180,50,0,pHi);
+
+      auto pDen=node.Histo1D(pModel,spec.p);
+      auto pNum=node.Histo1D(
+          {(prefix+"_p_num").c_str(),"",50,0,pHi},spec.p,spec.weight);
+      auto thetaDen=node.Histo1D(thetaModel,spec.theta);
+      auto thetaNum=node.Histo1D(
+          {(prefix+"_theta_num").c_str(),"",30,0,180},spec.theta,spec.weight);
+      auto phiDen=node.Histo1D(phiModel,spec.phi);
+      auto phiNum=node.Histo1D(
+          {(prefix+"_phi_num").c_str(),"",36,0,360},spec.phi,spec.weight);
+      auto ptDen=node.Histo2D(ptModel,spec.theta,spec.p);
+      auto ptNum=node.Histo2D(
+          {(prefix+"_pt_num").c_str(),"",30,0,180,50,0,pHi},
+          spec.theta,spec.p,spec.weight);
+
+      auto rp=ratio1D(pNum.GetValue(),pDen.GetValue(),prefix+"_p_acc",
+          spec.title+" acceptance;p [GeV];Acceptance");
+      auto rt=ratio1D(thetaNum.GetValue(),thetaDen.GetValue(),prefix+"_theta_acc",
+          spec.title+" acceptance;#theta [deg];Acceptance");
+      auto rf=ratio1D(phiNum.GetValue(),phiDen.GetValue(),prefix+"_phi_acc",
+          spec.title+" acceptance;#phi [deg];Acceptance");
+      auto r2=ratio2D(ptNum.GetValue(),ptDen.GetValue(),prefix+"_pt_acc",
+          spec.title+" acceptance;#theta [deg];p [GeV];Acceptance");
+
+      TCanvas canvas(("c_"+prefix).c_str(),spec.title.c_str(),2000,450);
+      canvas.Divide(4,1);
+      canvas.cd(1); rp->Draw("HIST");
+      canvas.cd(2); rt->Draw("HIST");
+      canvas.cd(3); rf->Draw("HIST");
+      canvas.cd(4); r2->Draw("COLZ");
+      const std::string output=outputDir+"/He3DIS_acceptance_"+spec.tag+".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout<<"[PlotHe3DISAcc] wrote "<<output<<'\n';
+    };
+    for (const auto& spec:particleSpecs) drawOne(spec);
+
+    struct EventSpec {
+      std::string tag,title,genP,genTheta,genPhi,recP,recTheta,recPhi;
+      std::string spectatorWeight,genSelection,recSelection,axisParticle;
+    };
+    const std::vector<EventSpec> eventSpecs = {
+      {"event_epp","epp","acc_epp_p","acc_epp_theta","acc_epp_phi",
+       "pro1_p","pro1_theta","pro1_phi","acc_event_epp","GEN_pass_epp",
+       "REC_Event_pass_epp","leading proton"},
+      {"event_ed","ed","acc_ed_p","acc_ed_theta","acc_ed_phi",
+       "deu_p","deu_theta","deu_phi","acc_event_ed","GEN_pass_ed",
+       "REC_Event_pass_ed","deuteron"}};
+    for (const auto& spec:eventSpecs) {
+      auto gd=gen.Filter(spec.genSelection);
+      auto rn=rec.Filter(spec.recSelection);
+      const double pHi=0.5;
+      const std::string prefix="h_he3dis_acc_"+spec.tag;
+      auto pDen=gd.Histo1D({(prefix+"_p_den").c_str(),"",50,0,pHi},spec.genP);
+      auto tDen=gd.Histo1D({(prefix+"_t_den").c_str(),"",30,0,180},spec.genTheta);
+      auto fDen=gd.Histo1D({(prefix+"_f_den").c_str(),"",36,0,360},spec.genPhi);
+      auto ptDen=gd.Histo2D({(prefix+"_pt_den").c_str(),"",30,0,180,50,0,pHi},spec.genTheta,spec.genP);
+      auto pRec=rn.Histo1D({(prefix+"_p_rec").c_str(),"",50,0,pHi},spec.recP);
+      auto tRec=rn.Histo1D({(prefix+"_t_rec").c_str(),"",30,0,180},spec.recTheta);
+      auto fRec=rn.Histo1D({(prefix+"_f_rec").c_str(),"",36,0,360},spec.recPhi);
+      auto ptRec=rn.Histo2D({(prefix+"_pt_rec").c_str(),"",30,0,180,50,0,pHi},spec.recTheta,spec.recP);
+      // The inferred electron acceptance must be binned in electron variables,
+      // not in spectator variables.  GEN recel_* columns are MC electron truth.
+      auto epDen=gd.Histo1D({(prefix+"_ep_den").c_str(),"",60,0,11},"recel_p");
+      auto etDen=gd.Histo1D({(prefix+"_et_den").c_str(),"",30,0,35},"recel_theta");
+      auto efDen=gd.Histo1D({(prefix+"_ef_den").c_str(),"",36,0,360},"recel_phi");
+      auto eptDen=gd.Histo2D({(prefix+"_ept_den").c_str(),"",30,0,35,60,0,11},"recel_theta","recel_p");
+      auto epRec=rn.Histo1D({(prefix+"_ep_rec").c_str(),"",60,0,11},"recel_p");
+      auto etRec=rn.Histo1D({(prefix+"_et_rec").c_str(),"",30,0,35},"recel_theta");
+      auto efRec=rn.Histo1D({(prefix+"_ef_rec").c_str(),"",36,0,360},"recel_phi");
+      auto eptRec=rn.Histo2D({(prefix+"_ept_rec").c_str(),"",30,0,35,60,0,11},"recel_theta","recel_p");
+      auto epSpec=gd.Histo1D({(prefix+"_ep_spec").c_str(),"",60,0,11},"recel_p",spec.spectatorWeight);
+      auto etSpec=gd.Histo1D({(prefix+"_et_spec").c_str(),"",30,0,35},"recel_theta",spec.spectatorWeight);
+      auto efSpec=gd.Histo1D({(prefix+"_ef_spec").c_str(),"",36,0,360},"recel_phi",spec.spectatorWeight);
+      auto eptSpec=gd.Histo2D({(prefix+"_ept_spec").c_str(),"",30,0,35,60,0,11},"recel_theta","recel_p",spec.spectatorWeight);
+
+      const std::string base="Total "+spec.title+" event acceptance";
+      auto totalP=ratio1D(pRec.GetValue(),pDen.GetValue(),prefix+"_total_p",
+          base+";p("+spec.axisParticle+") [GeV];Acceptance");
+      auto totalT=ratio1D(tRec.GetValue(),tDen.GetValue(),prefix+"_total_t",
+          base+";#theta("+spec.axisParticle+") [deg];Acceptance");
+      auto totalF=ratio1D(fRec.GetValue(),fDen.GetValue(),prefix+"_total_f",
+          base+";#phi("+spec.axisParticle+") [deg];Acceptance");
+      auto totalPT=ratio2D(ptRec.GetValue(),ptDen.GetValue(),prefix+"_total_pt",
+          base+";#theta("+spec.axisParticle+") [deg];p("+spec.axisParticle+") [GeV];Acceptance");
+      auto totalEP=ratio1D(epRec.GetValue(),epDen.GetValue(),prefix+"_total_ep","");
+      auto totalET=ratio1D(etRec.GetValue(),etDen.GetValue(),prefix+"_total_et","");
+      auto totalEF=ratio1D(efRec.GetValue(),efDen.GetValue(),prefix+"_total_ef","");
+      auto totalEPT=ratio2D(eptRec.GetValue(),eptDen.GetValue(),prefix+"_total_ept","");
+      auto specEP=ratio1D(epSpec.GetValue(),epDen.GetValue(),prefix+"_spec_ep","");
+      auto specET=ratio1D(etSpec.GetValue(),etDen.GetValue(),prefix+"_spec_et","");
+      auto specEF=ratio1D(efSpec.GetValue(),efDen.GetValue(),prefix+"_spec_ef","");
+      auto specEPT=ratio2D(eptSpec.GetValue(),eptDen.GetValue(),prefix+"_spec_ept","");
+      auto eleP=ratio1D(*totalEP,*specEP,prefix+"_electron_p",
+          "Inferred electron acceptance from "+spec.title+";p(e') [GeV];Acceptance");
+      auto eleT=ratio1D(*totalET,*specET,prefix+"_electron_t",
+          "Inferred electron acceptance from "+spec.title+";#theta(e') [deg];Acceptance");
+      auto eleF=ratio1D(*totalEF,*specEF,prefix+"_electron_f",
+          "Inferred electron acceptance from "+spec.title+";#phi(e') [deg];Acceptance");
+      auto elePT=ratio2D(*totalEPT,*specEPT,prefix+"_electron_pt",
+          "Inferred electron acceptance from "+spec.title+";#theta(e') [deg];p(e') [GeV];Acceptance");
+
+      TCanvas canvas(("c_"+prefix).c_str(),spec.title.c_str(),2000,900);
+      canvas.Divide(4,2);
+      canvas.cd(1); totalP->Draw("HIST"); canvas.cd(2); totalT->Draw("HIST");
+      canvas.cd(3); totalF->Draw("HIST"); canvas.cd(4); totalPT->Draw("COLZ");
+      canvas.cd(5); eleP->Draw("HIST"); canvas.cd(6); eleT->Draw("HIST");
+      canvas.cd(7); eleF->Draw("HIST"); canvas.cd(8); elePT->Draw("COLZ");
+      const std::string output=outputDir+"/He3DIS_acceptance_"+spec.tag+".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout<<"[PlotHe3DISAcc] wrote "<<output<<'\n';
+
+    }
+    // DIS and spectator-system acceptance for every topology, including epn
+    // (zero REC by construction while neutron detection is disabled).
+    for (const std::string topology : {"epp", "epn", "ed"}) {
+      auto gd=gen.Filter("GEN_pass_"+topology);
+      auto rn=rec.Filter("REC_Event_pass_"+topology);
+      const std::string prefix="h_he3dis_acc_event_"+topology;
+      // Direct REC/GEN event acceptance in the inclusive DIS variables.
+      auto xbDen=gd.Histo1D({(prefix+"_xb_den").c_str(),"",60,0,1},"xB");
+      auto q2Den=gd.Histo1D({(prefix+"_q2_den").c_str(),"",60,0,10},"Q2");
+      auto wDen=gd.Histo1D({(prefix+"_w_den").c_str(),"",60,0,5},"W");
+      auto yDen=gd.Histo1D({(prefix+"_y_den").c_str(),"",60,0,1},"y");
+      auto nuDen=gd.Histo1D({(prefix+"_nu_den").c_str(),"",60,0,11},"nu");
+      auto xbq2Den=gd.Histo2D({(prefix+"_xbq2_den").c_str(),"",60,0,1,60,0,10},"xB","Q2");
+      auto xbRec=rn.Histo1D({(prefix+"_xb_rec").c_str(),"",60,0,1},"xB");
+      auto q2Rec=rn.Histo1D({(prefix+"_q2_rec").c_str(),"",60,0,10},"Q2");
+      auto wRec=rn.Histo1D({(prefix+"_w_rec").c_str(),"",60,0,5},"W");
+      auto yRec=rn.Histo1D({(prefix+"_y_rec").c_str(),"",60,0,1},"y");
+      auto nuRec=rn.Histo1D({(prefix+"_nu_rec").c_str(),"",60,0,11},"nu");
+      auto xbq2Rec=rn.Histo2D({(prefix+"_xbq2_rec").c_str(),"",60,0,1,60,0,10},"xB","Q2");
+      const std::string disTitle=topology+" event acceptance";
+      auto accXB=ratio1D(xbRec.GetValue(),xbDen.GetValue(),prefix+"_acc_xb",
+          disTitle+";x_{B};Event acceptance");
+      auto accQ2=ratio1D(q2Rec.GetValue(),q2Den.GetValue(),prefix+"_acc_q2",
+          disTitle+";Q^{2} [GeV^{2}];Event acceptance");
+      auto accW=ratio1D(wRec.GetValue(),wDen.GetValue(),prefix+"_acc_w",
+          disTitle+";W [GeV];Event acceptance");
+      auto accY=ratio1D(yRec.GetValue(),yDen.GetValue(),prefix+"_acc_y",
+          disTitle+";y;Event acceptance");
+      auto accNu=ratio1D(nuRec.GetValue(),nuDen.GetValue(),prefix+"_acc_nu",
+          disTitle+";#nu [GeV];Event acceptance");
+      auto accXBQ2=ratio2D(xbq2Rec.GetValue(),xbq2Den.GetValue(),
+          prefix+"_acc_xbq2",
+          disTitle+";x_{B};Q^{2} [GeV^{2}];Event acceptance");
+      accXBQ2->GetZaxis()->SetTitle("Event acceptance");
+      TCanvas disCanvas(("c_"+prefix+"_dis").c_str(),
+                        (topology+" DIS event acceptance").c_str(),1800,1350);
+      disCanvas.Divide(3,3);
+      disCanvas.cd(1); accXB->Draw("HIST");
+      disCanvas.cd(2); accQ2->Draw("HIST");
+      disCanvas.cd(3); accW->Draw("HIST");
+      disCanvas.cd(4); accY->Draw("HIST");
+      disCanvas.cd(5); accNu->Draw("HIST");
+      disCanvas.cd(6); accXBQ2->Draw("COLZ");
+      std::vector<std::unique_ptr<TH1D>> spectatorFrames;
+      int pad = 7;
+      for (const auto& s : He3DISSpectatorPlotSpecs()) {
+        const std::string column=topology+"_"+s.variable;
+        const std::string name=prefix+"_"+s.variable;
+        auto denominator=gd.Histo1D(
+            {(name+"_den").c_str(),"",s.bins,s.lo,s.hi},column);
+        auto numerator=rn.Histo1D(
+            {(name+"_rec").c_str(),"",s.bins,s.lo,s.hi},column);
+        auto& den=denominator.GetValue();
+        auto& num=numerator.GetValue();
+        auto frame=ratio1D(num,den,name+"_acc",
+            disTitle+";"+s.axis+";Event acceptance (REC/GEN)");
+        int empty=0;
+        for (int bin=1; bin<=s.bins; ++bin) {
+          if (den.GetBinContent(bin)<=0) ++empty;
+        }
+        disCanvas.cd(pad++);
+        // Match the other acceptance panels: histogram line, no error bars.
+        // Preserve ratio contents/errors; only the display range is limited.
+        frame->SetMinimum(0.0); frame->SetMaximum(1.0);
+        frame->Draw("HIST");
+        TLatex note; note.SetNDC(); note.SetTextSize(0.029);
+        if (empty>0)
+          note.DrawLatex(0.13,0.86,"GEN-empty bins are undefined (shown as 0)");
+        if (num.GetEntries()==0)
+          note.DrawLatex(0.13,0.81,"REC: no accepted entries");
+        std::cout<<"[He3DIS spectator acceptance] "<<column
+                 <<": "<<empty<<" bins without GEN entries\n";
+        spectatorFrames.push_back(std::move(frame));
+      }
+      const std::string disOutput=
+          outputDir+"/He3DIS_acceptance_event_"+topology+"_DIS.pdf";
+      disCanvas.SaveAs(disOutput.c_str());
+      std::cout<<"[PlotHe3DISAcc] wrote "<<disOutput<<'\n';
+    }
+  }
+
+  // He3DIS sample-level projection. Kinematic yields may be scaled to a
+  // projected sample size. GEN stays at 100% polarization; only REC spin
+  // counts model partial polarization and are corrected by 1/(Pb*Pt).
+  void PlotProjection(double projectionToCountRatio=1.0,
+                      double beamPolarization=0.80,
+                      double targetPolarization=0.60,
+                      bool applyPNToLegacyCounts=true) {
+    const double polarizationProduct=beamPolarization*targetPolarization;
+    if (he3DISModels.size()!=2 || !(projectionToCountRatio>0.0) ||
+        !std::isfinite(projectionToCountRatio) ||
+        !(beamPolarization>0.0 && beamPolarization<=1.0) ||
+        !(targetPolarization>0.0 && targetPolarization<=1.0)) {
+      std::cerr << "[PlotProjection] requires GEN, REC and a positive finite "
+                   "projection/count ratio, with Pb and Pt in (0,1].\n";
+      return;
+    }
+    const std::string dir=outputDir+"/projection";
+    fs::create_directories(dir);
+    struct Spec { std::string col,axis; int bins; double lo,hi; };
+    struct Pair { Spec x,y; };
+    using H1=ROOT::RDF::RResultPtr<TH1D>;
+    using H2=ROOT::RDF::RResultPtr<TH2D>;
+    using Profile=ROOT::RDF::RResultPtr<TProfile>;
+    auto nodeFor=[](He3DISModel& m,const std::string& t) -> ROOT::RDF::RNode {
+      if(t=="epp") return *m.epp;
+      if(t=="epn") return *m.epn;
+      return *m.ed;
+    };
+    for(const std::string topo:{"epp","epn","ed"}) {
+      std::vector<Spec> specs={{"xB","x_{B}",50,0,1},
+        {"Q2","Q^{2} [GeV^{2}]",50,0,10},{"W","W [GeV]",50,1,5},
+        {"y","y",50,0,1},{"nu","#nu [GeV]",50,0,11}};
+      for(const auto& s:He3DISSpectatorPlotSpecs())
+        specs.push_back({topo+"_"+s.variable,s.axis,s.bins,s.lo,s.hi});
+      // Yields use twice the configured x_active bin count because the
+      // spin-count projection below deliberately rebins by a factor of two.
+      specs.push_back({topo+"_x_active","x_{N} = Q^{2}/(2p_{active}#upointq)",
+                       2*he3DISXActiveBins,he3DISXActiveMin,
+                       he3DISXActiveMax});
+      std::vector<Pair> pairs={{specs[0],specs[1]},
+                               {specs[6],specs[7]},{specs[0],specs[6]}};
+      // Correlate each detected charged spectator's laboratory polar angle
+      // with the topology's existing spectator momentum sum.  Keep the two
+      // protons separate in epp; for ed the single spectator is the deuteron.
+      // No corresponding epn panel is added while neutron detection is off.
+      if(topo=="epp") {
+        pairs.push_back({specs[5],
+                         {"pro1_theta","#theta_{p1} [deg]",60,0,180}});
+        pairs.push_back({specs[5],
+                         {"pro2_theta","#theta_{p2} [deg]",60,0,180}});
+      }
+      else if(topo=="ed") {
+        pairs.push_back({specs[5],
+                         {"deu_theta","#theta_{d} [deg]",60,0,180}});
+      }
+      std::array<std::vector<H1>,2> yields,anti,parallel;
+      std::array<std::vector<H2>,2> maps;
+      std::array<std::vector<Profile>,2> meanPN;
+      std::vector<ROOT::RDF::RResultPtr<ULong64_t>> totals,invalid,na,np;
+      std::vector<ROOT::RDF::RResultPtr<double>> averagePN;
+      // Book every action for this topology before any GetValue: GEN and REC
+      // each scan once for this page set, not once per histogram/spin state.
+      for(int m=0;m<2;++m) {
+        auto node=nodeFor(he3DISModels[m],topo);
+        auto a=node.Filter("projection_spin == -1");
+        auto p=node.Filter("projection_spin == 1");
+        totals.push_back(node.Count()); na.push_back(a.Count()); np.push_back(p.Count());
+        invalid.push_back(node.Filter("projection_spin == 0").Count());
+        averagePN.push_back(node.Mean(topo+"_PN"));
+        for(const auto& s:specs) {
+          const std::string name="proj_"+topo+"_"+std::to_string(m)+"_"+s.col;
+          ROOT::RDF::TH1DModel model(name.c_str(),(";"+s.axis+";MC events / bin").c_str(),s.bins,s.lo,s.hi);
+          yields[m].push_back(node.Histo1D(model,s.col));
+          // Coarser spin-count bins only; keep yields and coverage unchanged.
+          model.fNbinsX=std::max(1,s.bins/2);
+          model.fName=name+"_anti"; anti[m].push_back(a.Histo1D(model,s.col));
+          model.fName=name+"_parallel"; parallel[m].push_back(p.Histo1D(model,s.col));
+          ROOT::RDF::TProfile1DModel pnModel(
+              (name+"_mean_pn").c_str(),"",model.fNbinsX,s.lo,s.hi);
+          meanPN[m].push_back(node.Profile1D(pnModel,s.col,topo+"_PN"));
+        }
+        for(size_t i=0;i<pairs.size();++i) {
+          const auto& v=pairs[i];
+          const std::string name="proj_map_"+topo+"_"+std::to_string(m)+"_"+std::to_string(i);
+          maps[m].push_back(node.Histo2D({name.c_str(),(";"+v.x.axis+";"+v.y.axis+";MC events / bin").c_str(),
+            v.x.bins,v.x.lo,v.x.hi,v.y.bins,v.y.lo,v.y.hi},v.x.col,v.y.col));
+        }
+      }
+      const double ng=totals[0].GetValue(),nr=totals[1].GetValue();
+      std::ostringstream summary;
+      summary<<topo<<" | GEN "<<ng/1.e6<<" M | REC tagged "<<nr/1.e6<<" M | REC/GEN ";
+      if(ng>0) summary<<nr/ng; else summary<<"N/A";
+      std::cout<<"[PlotProjection] "<<summary.str()<<'\n';
+      for(int m=0;m<2;++m)
+        std::cout<<"  "<<(m==0?"GEN":"REC")<<" anti/parallel/invalid spin: "
+          <<na[m].GetValue()<<" / "<<np[m].GetValue()<<" / "<<invalid[m].GetValue()
+          <<"; <PN>="<<averagePN[m].GetValue()<<'\n';
+      const std::string pdf=dir+"/He3DIS_projection_"+topo+".pdf";
+      auto note=[](const std::string& s) {
+        TLatex text; text.SetNDC(); text.SetTextSize(0.030);
+        text.DrawLatex(0.12,0.92,s.c_str());
+      };
+      TCanvas counts(("proj_counts_"+topo).c_str(),"Sample yields",2000,1800);
+      counts.Divide(4,3);
+      // Scale the displayed kinematic yields to the requested projection.
+      // The existing REC x10 is retained only for visibility. RDF counts,
+      // spin histograms and acceptance inputs remain unmodified.
+      constexpr double recYieldDisplayScale=10.0;
+      std::vector<std::unique_ptr<TH1D>> owned;
+      for(size_t i=0;i<specs.size();++i) {
+        counts.cd(i+1);
+        double maximum=0;
+        for(int m=0;m<2;++m)
+          maximum=std::max(maximum,projectionToCountRatio*
+              (m==0?1.0:recYieldDisplayScale)*
+              yields[m][i].GetValue().GetMaximum());
+        TLegend legend(0.65,0.75,0.89,0.88); legend.SetBorderSize(0);
+        for(int m=0;m<2;++m) {
+          auto h=std::unique_ptr<TH1D>(static_cast<TH1D*>(yields[m][i].GetValue().Clone()));
+          h->SetDirectory(nullptr); h->SetStats(0); h->SetLineWidth(2);
+          h->Scale(projectionToCountRatio*
+                   (m==0?1.0:recYieldDisplayScale));
+          h->GetYaxis()->SetTitle("Projected events / bin");
+          h->SetLineColor(m==0?kBlue+1:kRed+1); h->SetMinimum(0);
+          h->SetMaximum(maximum>0?maximum*1.3:1);
+          h->Draw(m==0?"HIST":"HIST SAME");
+          legend.AddEntry(h.get(),m==0?"R_{N} #times GEN":
+              "10 R_{N} #times REC tagged","l");
+          owned.push_back(std::move(h));
+        }
+        legend.DrawClone();
+      }
+      counts.cd(10); note(summary.str());
+      TLatex text; text.SetNDC(); text.SetTextSize(0.04);
+      std::ostringstream yieldScaleNote;
+      yieldScaleNote<<"Yield projection: R_{N}=N_{projection}/N_{current}="
+                    <<projectionToCountRatio;
+      text.DrawLatex(0.08,0.70,yieldScaleNote.str().c_str());
+      text.DrawLatex(0.08,0.62,"REC yield curves additionally #times 10; counts above raw");
+      if(nr==0) text.DrawLatex(0.08,0.55,"REC: no accepted tagged events");
+      counts.Print((pdf+"(").c_str());
+      constexpr size_t standardCoverageRows=3;
+      TCanvas coverage(("proj_coverage_"+topo).c_str(),"Coverage",1800,1350);
+      coverage.Divide(3,static_cast<int>(standardCoverageRows));
+      std::vector<std::unique_ptr<TH2D>> owned2;
+      std::vector<std::unique_ptr<TGraphErrors>> masks;
+      auto drawCoverageRows=[&](TCanvas& canvas,size_t first,size_t rowCount) {
+        for(size_t row=0;row<rowCount;++row) {
+        const size_t i=first+row;
+        auto& den=maps[0][i].GetValue(); auto& num=maps[1][i].GetValue();
+        const double maximum=projectionToCountRatio*
+            std::max(1.,std::max(den.GetMaximum(),num.GetMaximum()));
+        for(int m=0;m<3;++m) {
+          canvas.cd(3*row+m+1);
+          auto h=std::unique_ptr<TH2D>(static_cast<TH2D*>((m==0?den:num).Clone()));
+          h->SetDirectory(nullptr); h->SetStats(0);
+          h->SetTitle(m==0?"GEN":m==1?"REC tagged":"REC/GEN; ; ");
+          h->GetXaxis()->SetTitle(pairs[i].x.axis.c_str());
+          h->GetYaxis()->SetTitle(pairs[i].y.axis.c_str());
+          if(m<2) {
+            h->Scale(projectionToCountRatio);
+            h->SetMinimum(0.5);h->SetMaximum(maximum);
+            h->GetZaxis()->SetTitle("Projected events / bin");gPad->SetLogz();
+          }
+          else {h->Divide(&den);h->SetMinimum(0);h->SetMaximum(0.5);h->GetZaxis()->SetRangeUser(0.,0.5);h->GetZaxis()->SetTitle("REC/GEN (includes migration)");}
+          h->Draw("COLZ");
+          if(m==2) {
+            auto mask=std::make_unique<TGraphErrors>();
+            for(int x=1;x<=den.GetNbinsX();++x) for(int y=1;y<=den.GetNbinsY();++y)
+              if(den.GetBinContent(x,y)==0) mask->SetPoint(mask->GetN(),den.GetXaxis()->GetBinCenter(x),den.GetYaxis()->GetBinCenter(y));
+            mask->SetMarkerStyle(5);mask->SetMarkerSize(0.35);mask->SetMarkerColor(kGray+1);mask->Draw("P SAME");
+            note("Gray crosses: no GEN statistics"); masks.push_back(std::move(mask));
+          }
+          owned2.push_back(std::move(h));
+        }
+        }
+      };
+      drawCoverageRows(coverage,0,standardCoverageRows);
+      coverage.Print(pdf.c_str());
+      std::unique_ptr<TCanvas> angleCoverage;
+      if(pairs.size()>standardCoverageRows) {
+        const size_t angleRows=pairs.size()-standardCoverageRows;
+        angleCoverage=std::make_unique<TCanvas>(
+            ("proj_theta_sum_p_"+topo).c_str(),"Theta versus momentum sum",
+            1800,600*static_cast<int>(angleRows));
+        angleCoverage->Divide(3,static_cast<int>(angleRows));
+        drawCoverageRows(*angleCoverage,standardCoverageRows,angleRows);
+        angleCoverage->Print(pdf.c_str());
+      }
+      TCanvas asymRaw(("proj_asym_raw_"+topo).c_str(),
+                      "Tagged longitudinal double spin",2000,1800);
+      TCanvas asymOverPN(("proj_asym_over_pn_"+topo).c_str(),
+                         "Nucleon longitudinal double spin",2000,1800);
+      asymRaw.Divide(4,3); asymOverPN.Divide(4,3);
+      std::array<std::vector<std::unique_ptr<TH1D>>,2> frames;
+      std::array<std::vector<std::unique_ptr<TGraphErrors>>,2> graphs;
+      for(size_t i=0;i<specs.size();++i) {
+        const std::string projectionKey=topo+"/"+specs[i].col;
+        auto& savedRawErrors=he3DISProjectionErrors[projectionKey];
+        auto& savedOverPNErrors=he3DISProjectionErrorsOverPN[projectionKey];
+        auto& savedOverPNValues=he3DISProjectionValuesOverPN[projectionKey];
+        for(auto& errors:savedRawErrors)
+          errors.assign(anti[0][i].GetValue().GetNbinsX()+1,
+                        std::numeric_limits<double>::quiet_NaN());
+        for(auto& errors:savedOverPNErrors)
+          errors.assign(anti[0][i].GetValue().GetNbinsX()+1,
+                        std::numeric_limits<double>::quiet_NaN());
+        for(auto& values:savedOverPNValues)
+          values.assign(anti[0][i].GetValue().GetNbinsX()+1,
+                        std::numeric_limits<double>::quiet_NaN());
+        std::array<double,2> extent{{0.02,0.02}};
+        std::array<std::array<TGraphErrors*,2>,2> drawn{};
+        for(int m=0;m<2;++m) {
+          auto rawGraph=std::make_unique<TGraphErrors>();
+          auto overPNGraph=std::make_unique<TGraphErrors>();
+          // Both configurations must exist in this model. Invalid labels are
+          // excluded only here, never silently guessed or removed from yields.
+          if(na[m].GetValue()>0 && np[m].GetValue()>0) {
+            for(int bin=1;bin<=anti[0][i].GetValue().GetNbinsX();++bin) {
+              const double a=anti[m][i].GetValue().GetBinContent(bin);
+              const double p=parallel[m][i].GetValue().GetBinContent(bin);
+              const double n=a+p;if(n<=0) continue;
+              const double exposurePolarization=m==0 ? 1.0 : polarizationProduct;
+              const double countAsymmetry=(a-p)/n;
+              const double baseValue=countAsymmetry/exposurePolarization;
+              const double pn=meanPN[m][i].GetValue().GetBinContent(bin);
+              if(!std::isfinite(pn)) continue;
+              // ON repairs legacy samples generated with PN=1. OFF assumes
+              // the spin counts already contain the physical PN dependence.
+              const double taggedValue=applyPNToLegacyCounts
+                                           ? pn*baseValue : baseValue;
+              const double observedValue=exposurePolarization*taggedValue;
+              const double taggedError=std::sqrt(
+                  std::max(0.,1-observedValue*observedValue)/n)/
+                  exposurePolarization;
+              savedRawErrors[m][bin]=taggedError;
+              rawGraph->SetPoint(rawGraph->GetN(),
+                                 anti[0][i].GetValue().GetBinCenter(bin),
+                                 taggedValue);
+              rawGraph->SetPointError(rawGraph->GetN()-1,0,taggedError);
+              extent[0]=std::max(extent[0],
+                  1.15*std::abs(taggedValue));
+              if(std::abs(pn)>1.e-6) {
+                const double nucleonValue=taggedValue/pn;
+                const double nucleonError=taggedError/std::abs(pn);
+                savedOverPNValues[m][bin]=nucleonValue;
+                savedOverPNErrors[m][bin]=nucleonError;
+                overPNGraph->SetPoint(overPNGraph->GetN(),
+                    anti[0][i].GetValue().GetBinCenter(bin),nucleonValue);
+                overPNGraph->SetPointError(overPNGraph->GetN()-1,0,nucleonError);
+                extent[1]=std::max(extent[1],
+                    1.15*std::abs(nucleonValue));
+              }
+            }
+          }
+          for(auto* graph:{rawGraph.get(),overPNGraph.get()}) {
+            graph->SetMarkerStyle(m==0?20:24);graph->SetMarkerSize(0.6);
+            graph->SetLineColor(m==0?kBlue+1:kRed+1);
+            graph->SetMarkerColor(m==0?kBlue+1:kRed+1);
+          }
+          drawn[0][m]=rawGraph.get();drawn[1][m]=overPNGraph.get();
+          graphs[0].push_back(std::move(rawGraph));
+          graphs[1].push_back(std::move(overPNGraph));
+        }
+        he3DISProjectionYExtents[projectionKey]=extent[0];
+        he3DISProjectionYExtentsOverPN[projectionKey]=extent[1];
+        for(int view=0;view<2;++view) {
+          (view==0?asymRaw:asymOverPN).cd(i+1);
+          auto frame=std::unique_ptr<TH1D>(static_cast<TH1D*>(
+              anti[0][i].GetValue().Clone()));
+          frame->SetDirectory(nullptr);frame->Reset();frame->SetStats(0);
+          frame->GetYaxis()->SetTitle(view==0
+              ? "A_{#parallel}^{raw} (P_{N} retained)"
+              : "A_{#parallel}^{raw}/P_{N}");
+          frame->SetMinimum(-extent[view]);frame->SetMaximum(extent[view]);
+          frame->Draw("AXIS");
+          TLine zero(specs[i].lo,0,specs[i].hi,0);
+          zero.SetLineStyle(2);zero.SetLineColor(kGray+2);zero.DrawClone();
+          TLegend legend(0.64,0.75,0.89,0.88);legend.SetBorderSize(0);
+          for(int m=0;m<2;++m) {
+            if(drawn[view][m]->GetN()>0) drawn[view][m]->Draw("P SAME");
+            std::string label=m==0?"GEN":"REC tagged";
+            if(drawn[view][m]->GetN()==0) label+=" (unavailable)";
+            legend.AddEntry(drawn[view][m],label.c_str(),"lp");
+          }
+          legend.DrawClone();frames[view].push_back(std::move(frame));
+        }
+      }
+      for(int view=0;view<2;++view) {
+        auto& canvas=view==0?asymRaw:asymOverPN;
+        canvas.cd(10);note(summary.str());
+        text.SetTextSize(0.035);
+        std::ostringstream polarizationNote;
+        polarizationNote<<"P_{b}="<<beamPolarization<<", P_{t}="
+                        <<targetPolarization<<", P_{b}P_{t}="
+                        <<polarizationProduct;
+        text.DrawLatex(0.07,0.79,polarizationNote.str().c_str());
+        text.DrawLatex(0.07,0.67,view==0
+            ? "Tagged A_{#parallel}: P_{N} retained"
+            : "Extracted nucleon A_{#parallel}: divided by P_{N}");
+        text.DrawLatex(0.07,0.55,applyPNToLegacyCounts
+            ? "PN projection ON: legacy count centers repaired"
+            : "PN projection OFF: input counts assumed to include PN");
+        text.DrawLatex(0.07,0.43,"GEN: 100% polarization; REC corrected for P_{b}P_{t}");
+        text.DrawLatex(0.07,0.31,"Generator-copy correlations are not included");
+        text.DrawLatex(0.07,0.19,"Near-zero P_{N} bins excluded after PN division");
+      }
+      asymRaw.Print(pdf.c_str());
+      asymOverPN.Print((pdf+")").c_str());
+      std::cout<<"[PlotProjection] wrote "<<pdf<<'\n';
+      // Pads keep non-owning references to our unique_ptr objects. Detach all
+      // primitives before those objects are destroyed at the end of the loop.
+      asymRaw.Clear(); asymOverPN.Clear();
+      if(angleCoverage) angleCoverage->Clear();
+      coverage.Clear(); counts.Clear();
+    }
+  }
+
+  // Smooth generator-model centers evaluated at the mean kinematics of each
+  // GEN or tagged-REC bin. This is intentionally separate from PlotProjection,
+  // whose asymmetry points continue to come from finite spin-state counts.
+  void PlotGeneratorModelProjection(
+      const std::function<double(bool,double,double,double,double,double,double)>&
+          evaluateAparallel,
+      double projectionToCountRatio=1.0,
+      double beamPolarization=0.80,
+      double targetPolarization=0.60,
+      bool applyPNToLegacyCounts=true) {
+    const double polarizationProduct=beamPolarization*targetPolarization;
+    // This flag changes legacy count centers in PlotProjection. The smooth
+    // model always draws both PN*A_N and A_N by construction.
+    (void)applyPNToLegacyCounts;
+    if (he3DISModels.size()!=2 || !evaluateAparallel ||
+        !(projectionToCountRatio>0.0) ||
+        !std::isfinite(projectionToCountRatio) ||
+        !(beamPolarization>0.0 && beamPolarization<=1.0) ||
+        !(targetPolarization>0.0 && targetPolarization<=1.0)) {
+      std::cerr << "[PlotGeneratorModelProjection] requires GEN, REC, a model "
+                   "evaluator, and Pb/Pt in (0,1].\n";
+      return;
+    }
+    const double errorScale=1.0/std::sqrt(projectionToCountRatio);
+    const double modelXMax=he3DISModelXMax;
+    const std::string dir=outputDir+"/projection_model";
+    fs::create_directories(dir);
+    struct Spec {std::string col,axis;int bins;double lo,hi;};
+    using Profile=ROOT::RDF::RResultPtr<TProfile>;
+    auto nodeFor=[](He3DISModel& m,const std::string& t)->ROOT::RDF::RNode {
+      if(t=="epp") return *m.epp;
+      if(t=="epn") return *m.epn;
+      return *m.ed;
+    };
+    for(const std::string topo:{"epp","epn","ed"}) {
+      std::vector<Spec> specs={{"xB","x_{B}",25,0,1},
+        {"Q2","Q^{2} [GeV^{2}]",25,0,10},{"W","W [GeV]",25,1,5},
+        {"y","y",25,0,1},{"nu","#nu [GeV]",25,0,11}};
+      for(const auto& s:He3DISSpectatorPlotSpecs())
+        specs.push_back({topo+"_"+s.variable,s.axis,std::max(1,s.bins/2),s.lo,s.hi});
+      specs.push_back({topo+"_x_active","x_{N} = Q^{2}/(2p_{active}#upointq)",
+                       he3DISXActiveBins,he3DISXActiveMin,
+                       he3DISXActiveMax});
+      std::array<std::vector<Profile>,2> meanXB,meanQ2,meanY,meanAlpha,
+          meanActiveX,meanCosQ,meanPN;
+      std::vector<ROOT::RDF::RResultPtr<ULong64_t>> totals;
+      for(int m=0;m<2;++m) {
+        auto node=nodeFor(he3DISModels[m],topo);
+        totals.push_back(node.Count());
+        for(size_t i=0;i<specs.size();++i) {
+          const auto& s=specs[i];
+          const std::string base="model_center_"+topo+"_"+std::to_string(m)+"_"+std::to_string(i);
+          auto model=[&](const std::string& suffix) {
+            return ROOT::RDF::TProfile1DModel((base+suffix).c_str(),"",s.bins,s.lo,s.hi);
+          };
+          meanXB[m].push_back(node.Profile1D(model("_xb"),s.col,"xB"));
+          meanQ2[m].push_back(node.Profile1D(model("_q2"),s.col,"Q2"));
+          meanY[m].push_back(node.Profile1D(model("_y"),s.col,"y"));
+          meanAlpha[m].push_back(node.Profile1D(model("_alpha"),s.col,topo+"_alpha_active"));
+          meanActiveX[m].push_back(node.Profile1D(
+              model("_xactive"),s.col,topo+"_x_active"));
+          meanCosQ[m].push_back(node.Profile1D(model("_cosq"),s.col,"model_cos_theta_q"));
+          meanPN[m].push_back(node.Profile1D(model("_pn"),s.col,topo+"_PN"));
+        }
+      }
+      const double ngen=totals[0].GetValue(),nrec=totals[1].GetValue();
+      for(int view=0;view<2;++view) {
+      const std::string viewName=view==0?"raw":"raw_over_pn";
+      TCanvas canvas(("c_model_center_"+viewName+"_"+topo).c_str(),
+                     view==0?"Tagged generator model centers":
+                             "Nucleon generator model centers",2000,1800);
+      canvas.Divide(4,3);
+      std::vector<std::unique_ptr<TH1D>> frames;
+      std::vector<std::unique_ptr<TGraphErrors>> graphs;
+      for(size_t i=0;i<specs.size();++i) {
+        canvas.cd(i+1);gPad->SetTicks();
+        auto frame=std::make_unique<TH1D>(
+            ("frame_model_"+viewName+"_"+topo+"_"+std::to_string(i)).c_str(),
+            (";"+specs[i].axis+
+             (view==0?";Generator-model A_{#parallel}^{raw} (P_{N} retained)":
+                      ";Generator-model A_{#parallel}^{raw}/P_{N}")).c_str(),
+            specs[i].bins,specs[i].lo,specs[i].hi);
+        frame->SetDirectory(nullptr);frame->SetStats(0);
+        // Determine the vertical range from the values that are actually
+        // returned by the generator model. A fixed +/-0.05 range made small
+        // asymmetries look indistinguishable from zero.
+        double minValue=std::numeric_limits<double>::infinity();
+        double maxValue=-std::numeric_limits<double>::infinity();
+        double modelExtent=0.02;
+        std::array<int,2> validPoints{{0,0}};
+        const std::string projectionKey=topo+"/"+specs[i].col;
+        const auto& errorMap=view==0 ? he3DISProjectionErrors
+                                    : he3DISProjectionErrorsOverPN;
+        const auto savedErrorIt=errorMap.find(projectionKey);
+        std::array<TGraphErrors*,2> drawn{};
+        TLegend legend(0.52,0.73,0.89,0.89);legend.SetBorderSize(0);legend.SetFillStyle(0);
+        for(int m=0;m<2;++m) {
+          auto graph=std::make_unique<TGraphErrors>();
+          graph->SetName(("g_model_"+viewName+"_"+topo+"_"+
+              std::to_string(i)+"_"+std::to_string(m)).c_str());
+          auto& xb=meanXB[m][i].GetValue();auto& q2=meanQ2[m][i].GetValue();
+          auto& yy=meanY[m][i].GetValue();auto& aa=meanAlpha[m][i].GetValue();
+          auto& xx=meanActiveX[m][i].GetValue();
+          auto& cq=meanCosQ[m][i].GetValue();
+          auto& pnProfile=meanPN[m][i].GetValue();
+          for(int bin=1;bin<=specs[i].bins;++bin) {
+            if(xb.GetBinEntries(bin)<=0) continue;
+            const double alphaMean=aa.GetBinContent(bin);
+            if(!(alphaMean>0.0)) continue;
+            const double modelX=xx.GetBinContent(bin);
+            // JAMpol25 is constrained only through approximately x=0.85.
+            // Do not display its endpoint extrapolation as a prediction.
+            if(!(modelX>0.0 && modelX<modelXMax)) continue;
+            const double cosq=std::clamp(cq.GetBinContent(bin),-1.0,1.0);
+            // The external API forms x_N=xB/alpha internally and also uses
+            // xB itself in finite-Q2 factors.  Preserve the measured xB and
+            // adapt only its alpha argument so the internal quotient is the
+            // exact invariant x_N.
+            const double measuredXB=xb.GetBinContent(bin);
+            const double modelAlpha=measuredXB/modelX;
+            const double nucleonValue=evaluateAparallel(topo=="epp",
+                measuredXB,modelAlpha,q2.GetBinContent(bin),
+                yy.GetBinContent(bin),-cosq,std::sqrt(std::max(0.0,1.0-cosq*cosq)));
+            const double pn=pnProfile.GetBinContent(bin);
+            const double value=view==0 ? pn*nucleonValue : nucleonValue;
+            if(!std::isfinite(value)) continue;
+            if(savedErrorIt==errorMap.end() ||
+               bin>=static_cast<int>(savedErrorIt->second[m].size())) continue;
+            const double countError=savedErrorIt->second[m][bin];
+            if(!std::isfinite(countError)) continue;
+            graph->SetPoint(graph->GetN(),xb.GetBinCenter(bin),value);
+            graph->SetPointError(graph->GetN()-1,0.0,countError*errorScale);
+            modelExtent=std::max(modelExtent,
+                1.15*std::abs(value));
+            ++validPoints[m];
+            minValue=std::min(minValue,value);
+            maxValue=std::max(maxValue,value);
+          }
+          graph->SetLineColor(m==0?kBlue+1:kRed+1);
+          graph->SetMarkerColor(m==0?kBlue+1:kRed+1);
+          graph->SetMarkerStyle(m==0?20:24);graph->SetMarkerSize(0.6);
+          std::string label=m==0?"Model at GEN-bin means":"Model at REC-tagged-bin means";
+          if(graph->GetN()==0) label+=" (unavailable)";
+          legend.AddEntry(graph.get(),label.c_str(),"p");
+          drawn[m]=graph.get();graphs.push_back(std::move(graph));
+        }
+        // Reuse the corresponding count-projection range so the two PDF sets
+        // remain directly comparable. Fall back to the model points if the
+        // count plot has not been called first.
+        const auto& rangeMap=view==0 ? he3DISProjectionYExtents
+                                    : he3DISProjectionYExtentsOverPN;
+        const auto savedRange=rangeMap.find(projectionKey);
+        const double extent=savedRange!=rangeMap.end()
+                                ? savedRange->second : modelExtent;
+        frame->SetMinimum(-extent);frame->SetMaximum(extent);frame->Draw("AXIS");
+        TLine zero(specs[i].lo,0,specs[i].hi,0);
+        zero.SetLineStyle(2);zero.SetLineColor(kGray+2);zero.DrawClone();
+        for(auto* graph:drawn) if(graph && graph->GetN()>0) graph->Draw("P SAME");
+        if(validPoints[0]+validPoints[1]==0) {
+          TLatex unavailable;unavailable.SetNDC();unavailable.SetTextColor(kRed+1);
+          unavailable.SetTextSize(0.055);
+          unavailable.DrawLatex(0.20,0.52,"No valid model points");
+        }
+        legend.DrawClone();frames.push_back(std::move(frame));
+        std::cout<<"[PlotGeneratorModelProjection] "<<topo<<" "<<specs[i].col
+                 <<": valid GEN/REC points = "<<validPoints[0]<<"/"
+                 <<validPoints[1];
+        if(validPoints[0]+validPoints[1]>0)
+          std::cout<<", A_parallel range = ["<<minValue<<", "<<maxValue<<"]";
+        std::cout<<'\n';
+      }
+      canvas.cd(10);
+      TLatex text;text.SetNDC();text.SetTextSize(0.036);
+      text.DrawLatex(0.07,0.82,(topo+(view==0
+          ? " tagged generator-model centers"
+          : " extracted nucleon generator-model centers")).c_str());
+      std::ostringstream counts;counts<<"GEN "<<ngen/1.e6<<" M, REC tagged "<<nrec/1.e6<<" M";
+      text.DrawLatex(0.07,0.70,counts.str().c_str());
+      text.DrawLatex(0.07,0.57,"Evaluated at bin-mean reconstructed kinematics");
+      std::ostringstream errorNote;
+      errorNote<<"Count-projection errors / sqrt(R_{N}), R_{N}="
+               <<projectionToCountRatio;
+      text.DrawLatex(0.07,0.44,errorNote.str().c_str());
+      std::ostringstream polarizationNote;
+      polarizationNote<<"REC correction: P_{b}="<<beamPolarization
+                      <<", P_{t}="<<targetPolarization
+                      <<", P_{b}P_{t}="<<polarizationProduct;
+      text.DrawLatex(0.07,0.31,polarizationNote.str().c_str());
+      text.DrawLatex(0.07,0.19,view==0
+          ? "Tagged result: generator-model A_{#parallel} #times P_{N}"
+          : "Nucleon result: tagged A_{#parallel} divided by P_{N}");
+      const std::string output=dir+"/He3DIS_generator_model_asymmetry_"+
+          viewName+"_"+topo+".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout<<"[PlotGeneratorModelProjection] wrote "<<output<<'\n';
+      canvas.Clear();
+      }
+    }
+  }
+
+  // Extract nucleon A1 from the exact finite-count A_parallel/PN values saved
+  // by PlotProjection.  The plotted center always uses A_perp=0.  The absolute
+  // shift obtained when JAM25 supplies A_perp/d=A2-xi*A1 is drawn as a
+  // symmetric, semi-transparent systematic-error box around that center.
+  // Each topology PDF contains a current-GEMC page with finite-count centers
+  // and a projected-statistics page with smooth JAM25 A_parallel centers.
+  // The latter scales count-derived errors by
+  // 1/sqrt(projectionToCountRatio).
+  void PlotA1ProjectionHe3DIS(
+      const std::function<double(bool,double,double,double,double,double,double)>&
+          evaluateAparallel,
+      const std::function<std::array<double,7>(bool,double,double,double)>&
+          evaluateNucleon,
+      double projectionToCountRatio=1.0) {
+    if(he3DISModels.size()!=2 || !evaluateAparallel || !evaluateNucleon ||
+       !(projectionToCountRatio>0.0) ||
+       !std::isfinite(projectionToCountRatio)) {
+      std::cerr<<"[PlotA1ProjectionHe3DIS] requires GEN, REC, the nucleon "
+                   "model, and a positive projection/count ratio.\n";
+      return;
+    }
+    if(he3DISProjectionValuesOverPN.empty() ||
+       he3DISProjectionErrorsOverPN.empty()) {
+      std::cerr<<"[PlotA1ProjectionHe3DIS] call PlotProjection first so the "
+                   "same finite-count A_parallel values can be reused.\n";
+      return;
+    }
+    const std::string dir=outputDir+"/A1_projection";
+    fs::create_directories(dir);
+    const double projectedErrorScale=1.0/std::sqrt(projectionToCountRatio);
+    const double modelXMax=he3DISModelXMax;
+    constexpr double nucleonMass=0.93892;
+    struct Spec {std::string col,axis;int bins;double lo,hi;};
+    using Profile=ROOT::RDF::RResultPtr<TProfile>;
+    auto nodeFor=[](He3DISModel& m,const std::string& t)->ROOT::RDF::RNode {
+      return t=="epp" ? *m.epp : *m.ed;
+    };
+    auto finite=[](const std::array<double,7>& v) {
+      return std::all_of(v.begin(),v.end(),[](double x){return std::isfinite(x);});
+    };
+    // Return D, eta and xi in the convention of Sec. 8 of arXiv:2106.08805.
+    auto factors=[&](double xb,double q2,double y,double r) {
+      std::array<double,3> out{{NAN,NAN,NAN}};
+      if(!(xb>0.0) || !(q2>0.0) || !(y>0.0 && y<1.0) ||
+         !std::isfinite(r)) return out;
+      const double gamma=2.0*nucleonMass*xb/std::sqrt(q2);
+      const double gamma2=gamma*gamma;
+      const double common=4.0*(1.0-y)-gamma2*y*y;
+      const double twoPlus=2.0+gamma2*y;
+      const double dDen=2.0*(1.0+gamma2)*y*y+common*(1.0+r);
+      if(!(dDen>0.0) || !(twoPlus>0.0) || !(2.0-y>0.0)) return out;
+      out[0]=y*(2.0-y)*twoPlus/dDen;
+      out[1]=gamma*common/((2.0-y)*twoPlus);
+      out[2]=gamma*(2.0-y)/twoPlus;
+      return out;
+    };
+    for(const std::string topo:{"epp","ed"}) {
+      std::vector<Spec> specs={{"xB","x_{B}",25,0,1},
+        {"Q2","Q^{2} [GeV^{2}]",25,0,10},{"W","W [GeV]",25,1,5},
+        {"y","y",25,0,1},{"nu","#nu [GeV]",25,0,11}};
+      for(const auto& s:He3DISSpectatorPlotSpecs())
+        specs.push_back({topo+"_"+s.variable,s.axis,std::max(1,s.bins/2),s.lo,s.hi});
+      specs.push_back({topo+"_x_active","x_{N} = Q^{2}/(2p_{active}#upointq)",
+                       he3DISXActiveBins,he3DISXActiveMin,
+                       he3DISXActiveMax});
+      std::array<std::vector<Profile>,2> meanXB,meanQ2,meanY,meanAlpha,
+          meanActiveX,meanCosQ;
+      for(int m=0;m<2;++m) {
+        auto node=nodeFor(he3DISModels[m],topo);
+        for(size_t i=0;i<specs.size();++i) {
+          const auto& s=specs[i];
+          const std::string base="a1_mean_"+topo+"_"+std::to_string(m)+"_"+
+                                 std::to_string(i);
+          auto model=[&](const std::string& suffix) {
+            return ROOT::RDF::TProfile1DModel((base+suffix).c_str(),"",
+                                              s.bins,s.lo,s.hi);
+          };
+          meanXB[m].push_back(node.Profile1D(model("_xb"),s.col,"xB"));
+          meanQ2[m].push_back(node.Profile1D(model("_q2"),s.col,"Q2"));
+          meanY[m].push_back(node.Profile1D(model("_y"),s.col,"y"));
+          meanAlpha[m].push_back(node.Profile1D(
+              model("_alpha"),s.col,topo+"_alpha_active"));
+          meanActiveX[m].push_back(node.Profile1D(
+              model("_xactive"),s.col,topo+"_x_active"));
+          meanCosQ[m].push_back(node.Profile1D(
+              model("_cosq"),s.col,"model_cos_theta_q"));
+        }
+      }
+      TCanvas current(("a1_current_"+topo).c_str(),
+                      "Current GEMC A1",2200,1800);
+      TCanvas projected(("a1_projected_"+topo).c_str(),
+                        "Projected A1",2200,1800);
+      current.Divide(4,3); projected.Divide(4,3);
+      std::vector<std::unique_ptr<TH1D>> frames;
+      std::vector<std::unique_ptr<TGraphErrors>> points;
+      std::vector<std::unique_ptr<TGraph>> curves;
+      int skippedProjectedLargeError=0;
+      for(size_t i=0;i<specs.size();++i) {
+        const std::string key=topo+"/"+specs[i].col;
+        const auto valueIt=he3DISProjectionValuesOverPN.find(key);
+        const auto errorIt=he3DISProjectionErrorsOverPN.find(key);
+        if(valueIt==he3DISProjectionValuesOverPN.end() ||
+           errorIt==he3DISProjectionErrorsOverPN.end()) continue;
+        auto genCurrent=std::make_unique<TGraphErrors>();
+        auto recCurrent=std::make_unique<TGraphErrors>();
+        auto recProjected=std::make_unique<TGraphErrors>();
+        auto jamCurrent=std::make_unique<TGraph>();
+        auto jamProjected=std::make_unique<TGraph>();
+        struct BoxSpec {double x1,y1,x2,y2;int color;};
+        std::vector<BoxSpec> currentBoxes,projectedBoxes;
+        double extent=0.02;
+        const double boxHalfWidth=0.35*(specs[i].hi-specs[i].lo)/specs[i].bins;
+        for(int m=0;m<2;++m) {
+          auto& xb=meanXB[m][i].GetValue();
+          auto& q2=meanQ2[m][i].GetValue();
+          auto& yy=meanY[m][i].GetValue();
+          auto& aa=meanAlpha[m][i].GetValue();
+          auto& xx=meanActiveX[m][i].GetValue();
+          auto& cq=meanCosQ[m][i].GetValue();
+          const auto& values=valueIt->second[m];
+          const auto& errors=errorIt->second[m];
+          for(int bin=1;bin<=specs[i].bins;++bin) {
+            if(xb.GetBinEntries(bin)<=0 ||
+               bin>=static_cast<int>(values.size()) ||
+               bin>=static_cast<int>(errors.size()) ||
+               !std::isfinite(values[bin]) ||
+               !std::isfinite(errors[bin])) continue;
+            const double xbMean=xb.GetBinContent(bin);
+            const double alphaMean=aa.GetBinContent(bin);
+            if(!(alphaMean>0.0)) continue;
+            const double modelX=xx.GetBinContent(bin);
+            if(!(modelX>0.0 && modelX<modelXMax)) continue;
+            const double modelAlpha=xbMean/modelX;
+            const auto model=evaluateNucleon(topo=="epp",
+                xbMean,modelAlpha,
+                q2.GetBinContent(bin));
+            if(!finite(model)) continue;
+            const auto k=factors(xb.GetBinContent(bin),q2.GetBinContent(bin),
+                                 yy.GetBinContent(bin),model[4]);
+            if(!std::isfinite(k[0]) || !std::isfinite(k[1]) ||
+               !std::isfinite(k[2])) continue;
+            const double mixing=1.0+k[1]*k[2];
+            if(std::abs(k[0]*mixing)<1.e-12) continue;
+
+            // Central value: set A_T (A_perp) to zero.  The full difference
+            // to the JAM25 A_T correction is treated as a symmetric systematic
+            // uncertainty; it is not divided by two because the central value
+            // deliberately remains the A_T=0 result.
+            const double a1Zero=values[bin]/(k[0]*mixing);
+            const double transverseShift=
+                -k[1]*(model[6]-k[2]*model[5])/mixing;
+            const double systematic=std::abs(transverseShift);
+            const double error=errors[bin]/std::abs(k[0]*mixing);
+            const double x=xb.GetBinCenter(bin);
+            auto* graph=m==0 ? genCurrent.get() : recCurrent.get();
+            graph->SetPoint(graph->GetN(),x,a1Zero);
+            graph->SetPointError(graph->GetN()-1,0,error);
+            currentBoxes.push_back({x-boxHalfWidth,a1Zero-systematic,
+                                    x+boxHalfWidth,a1Zero+systematic,
+                                    m==0 ? kBlue+1 : kRed+1});
+
+            if(m==1) {
+              // Target-exposure center uses the same smooth generator-model
+              // A_parallel as PlotGeneratorModelProjection, evaluated at the
+              // REC-bin mean kinematics.  Its displayed center still assumes
+              // A_T=0; the possible JAM25 correction is the shaded box.
+              const double cosq=std::clamp(cq.GetBinContent(bin),-1.0,1.0);
+              const double modelAparallel=evaluateAparallel(topo=="epp",
+                  xbMean,modelAlpha,
+                  q2.GetBinContent(bin),yy.GetBinContent(bin),-cosq,
+                  std::sqrt(std::max(0.0,1.0-cosq*cosq)));
+              if(std::isfinite(modelAparallel)) {
+                const double projectedA1Zero=modelAparallel/(k[0]*mixing);
+                const double projectedError=error*projectedErrorScale;
+                // Very large A1 uncertainties are non-informative and obscure
+                // the projection.  Omit those points and their boxes together.
+                if(std::isfinite(projectedError) && projectedError<=1.0) {
+                  recProjected->SetPoint(recProjected->GetN(),x,projectedA1Zero);
+                  recProjected->SetPointError(recProjected->GetN()-1,0,
+                                               projectedError);
+                  projectedBoxes.push_back({x-boxHalfWidth,
+                      projectedA1Zero-systematic,x+boxHalfWidth,
+                      projectedA1Zero+systematic,kRed+1});
+                  if(std::abs(projectedA1Zero)<=1.0)
+                    extent=std::max(extent,1.15*std::abs(projectedA1Zero));
+                } else {
+                  ++skippedProjectedLargeError;
+                }
+              }
+              jamProjected->SetPoint(jamProjected->GetN(),x,model[5]);
+            } else {
+              jamCurrent->SetPoint(jamCurrent->GetN(),x,model[5]);
+            }
+            // Statistical errors, systematic boxes, the JAM25 curve, and
+            // fluctuation-driven |A1|>1 points do not set the display zoom.
+            if(std::abs(a1Zero)<=1.0)
+              extent=std::max(extent,1.15*std::abs(a1Zero));
+          }
+        }
+        for(auto* graph:{genCurrent.get(),recCurrent.get(),recProjected.get()}) {
+          graph->SetLineStyle(1);graph->SetLineWidth(1);
+        }
+        genCurrent->SetMarkerStyle(20);genCurrent->SetMarkerSize(0.55);
+        genCurrent->SetMarkerColor(kBlue+1);genCurrent->SetLineColor(kBlue+1);
+        recCurrent->SetMarkerStyle(24);recCurrent->SetMarkerSize(0.55);
+        recCurrent->SetMarkerColor(kRed+1);recCurrent->SetLineColor(kRed+1);
+        recProjected->SetMarkerStyle(20);recProjected->SetMarkerSize(0.60);
+        recProjected->SetMarkerColor(kRed+1);recProjected->SetLineColor(kRed+1);
+        for(auto* curve:{jamCurrent.get(),jamProjected.get()}) {
+          curve->SetLineColor(kBlack);curve->SetLineWidth(2);
+        }
+        // Keep every finite A1 point in the display graph, including
+        // fluctuation-driven |A1|>1 values, without allowing an overflow
+        // point or its statistical error bar to paint outside the frame.
+        // The un-clipped centers above still determine all physics results;
+        // this is only a display transform applied after the y range has been
+        // fixed from the |A1|<=1 centers.  Leave a small inset so an overflow
+        // marker remains visible rather than being cut in half at the frame.
+        const double markerLimit=0.985*extent;
+        auto clipPointsToFrame=[&](TGraphErrors& graph) {
+          for(int point=0;point<graph.GetN();++point) {
+            double x=0.0,y=0.0;
+            graph.GetPoint(point,x,y);
+            const double displayY=std::clamp(y,-markerLimit,markerLimit);
+            const double room=std::max(0.0,extent-std::abs(displayY));
+            const double displayEY=std::min(graph.GetErrorY(point),room);
+            graph.SetPoint(point,x,displayY);
+            graph.SetPointError(point,graph.GetErrorX(point),displayEY);
+          }
+        };
+        clipPointsToFrame(*genCurrent);
+        clipPointsToFrame(*recCurrent);
+        clipPointsToFrame(*recProjected);
+        for(int page=0;page<2;++page) {
+          (page==0?current:projected).cd(static_cast<int>(i)+1);
+          gPad->SetTicks();
+          auto frame=std::make_unique<TH1D>(
+              ("frame_a1_"+topo+"_"+std::to_string(i)+"_"+
+               std::to_string(page)).c_str(),
+              (";"+specs[i].axis+";A_{1}^{"+
+               std::string(topo=="epp"?"n":"p")+"}").c_str(),
+              specs[i].bins,specs[i].lo,specs[i].hi);
+          frame->SetDirectory(nullptr);frame->SetStats(0);
+          frame->SetMinimum(-extent);frame->SetMaximum(extent);frame->Draw("AXIS");
+          TLine zero(specs[i].lo,0,specs[i].hi,0);
+          zero.SetLineStyle(2);zero.SetLineColor(kGray+2);zero.DrawClone();
+          const auto& boxes=page==0 ? currentBoxes : projectedBoxes;
+          for(const auto& b:boxes) {
+            // TBox itself is not reliably clipped by every ROOT PDF backend.
+            // Center it on the same display-clipped point and symmetrically
+            // shorten its half-height when the full systematic interval would
+            // cross the frame.  The point therefore remains at the visible
+            // box center even for an overflow value.
+            const double boxCenter=0.5*(b.y1+b.y2);
+            const double displayCenter=
+                std::clamp(boxCenter,-markerLimit,markerLimit);
+            const double originalHalfHeight=0.5*std::abs(b.y2-b.y1);
+            const double displayHalfHeight=std::min(
+                originalHalfHeight,std::max(0.0,extent-std::abs(displayCenter)));
+            if(!(displayHalfHeight>0.0)) continue;
+            TBox box(b.x1,displayCenter-displayHalfHeight,
+                     b.x2,displayCenter+displayHalfHeight);
+            box.SetFillColorAlpha(b.color,0.22);
+            box.SetLineColor(b.color);box.SetLineWidth(1);box.DrawClone("F SAME");
+          }
+          if(page==0) {
+            if(jamCurrent->GetN()>1) jamCurrent->Draw("L SAME");
+            if(genCurrent->GetN()>0) genCurrent->Draw("P SAME");
+            if(recCurrent->GetN()>0) recCurrent->Draw("P SAME");
+          } else {
+            if(jamProjected->GetN()>1) jamProjected->Draw("L SAME");
+            if(recProjected->GetN()>0) recProjected->Draw("P SAME");
+          }
+          frames.push_back(std::move(frame));
+        }
+        points.push_back(std::move(genCurrent));
+        points.push_back(std::move(recCurrent));
+        points.push_back(std::move(recProjected));
+        curves.push_back(std::move(jamCurrent));
+        curves.push_back(std::move(jamProjected));
+      }
+
+      // Put one shared legend after the nine distributions.  A_T avoids
+      // ROOT's unreliable #perp PDF glyph.
+      TGraphErrors dummyGen,dummyRec,dummyProjected;
+      dummyGen.SetMarkerStyle(20);dummyGen.SetMarkerColor(kBlue+1);
+      dummyRec.SetMarkerStyle(24);dummyRec.SetMarkerColor(kRed+1);
+      dummyProjected.SetMarkerStyle(20);dummyProjected.SetMarkerColor(kRed+1);
+      TGraph dummyJam;dummyJam.SetLineColor(kBlack);dummyJam.SetLineWidth(2);
+      TBox dummyGenBox,dummyRecBox;
+      dummyGenBox.SetFillColorAlpha(kBlue+1,0.22);dummyGenBox.SetLineColor(kBlue+1);
+      dummyRecBox.SetFillColorAlpha(kRed+1,0.22);dummyRecBox.SetLineColor(kRed+1);
+      current.cd(10);
+      {
+        TLegend legend(0.08,0.48,0.92,0.90);legend.SetBorderSize(0);
+        legend.SetFillStyle(0);legend.SetTextSize(0.042);
+        legend.AddEntry(&dummyGen,"GEMC GEN count; center: A_{T}=0","p");
+        legend.AddEntry(&dummyGenBox,"GEN |#Delta A_{1}(JAM25 A_{T})| syst.","f");
+        legend.AddEntry(&dummyRec,"GEMC REC count; center: A_{T}=0","p");
+        legend.AddEntry(&dummyRecBox,"REC |#Delta A_{1}(JAM25 A_{T})| syst.","f");
+        legend.AddEntry(&dummyJam,"JAM25 A_{1}","l");
+        legend.DrawClone();
+        TLatex note;note.SetNDC();note.SetTextSize(0.040);
+        note.DrawLatex(0.08,0.34,(topo+" current GEMC statistics").c_str());
+        note.DrawLatex(0.08,0.25,"Boxes show #pm full A_{T}-model shift");
+        note.DrawLatex(0.08,0.16,"Overflow points/boxes are clipped at frame edge");
+      }
+      projected.cd(10);
+      {
+        TLegend legend(0.08,0.59,0.92,0.90);legend.SetBorderSize(0);
+        legend.SetFillStyle(0);legend.SetTextSize(0.044);
+        std::ostringstream projectedLabel;
+        projectedLabel<<"Projected REC (R_{N}="<<std::setprecision(4)
+                      <<projectionToCountRatio<<"); center: A_{T}=0";
+        legend.AddEntry(&dummyProjected,projectedLabel.str().c_str(),"p");
+        legend.AddEntry(&dummyRecBox,"|#Delta A_{1}(JAM25 A_{T})| syst.","f");
+        legend.AddEntry(&dummyJam,"JAM25 A_{1}","l");
+        legend.DrawClone();
+        TLatex note;note.SetNDC();note.SetTextSize(0.040);
+        note.DrawLatex(0.08,0.43,(topo+" target-statistics projection").c_str());
+        note.DrawLatex(0.08,0.34,"Boxes show #pm full A_{T}-model shift");
+        note.DrawLatex(0.08,0.25,"Points with #deltaA_{1}^{stat}>1 omitted");
+        note.DrawLatex(0.08,0.16,"Overflow points/boxes are clipped at frame edge");
+      }
+      const std::string pdf=dir+"/He3DIS_A1_"+topo+".pdf";
+      current.Print((pdf+"(").c_str());
+      projected.Print((pdf+")").c_str());
+      std::cout<<"[PlotA1ProjectionHe3DIS] wrote "<<pdf
+               <<" (current GEMC + projected REC; R_N="
+               <<projectionToCountRatio<<"; omitted projected points with "
+               <<"deltaA1>1: "<<skippedProjectedLargeError<<")\n";
+      current.Clear();projected.Clear();
+    }
+  }
+
+  // Extract g1 directly from the measured longitudinal asymmetry with three
+  // explicitly separated treatments of the unmeasured transverse response:
+  //   1) SMC: A2=0;
+  //   2) CLAS: use the JAM25 g2/g1 correction in the central value;
+  //   3) current: A_perp=0, with the JAM25 transverse shift shown as a box.
+  // All methods reuse the exact same finite-count A_parallel values, bin-mean
+  // kinematics and projected statistical errors.  Thus differences between
+  // the PDFs are caused only by the g1 extraction prescription.
+  void PlotG1ProjectionHe3DIS(
+      const std::function<double(bool,double,double,double,double,double,double)>&
+          evaluateAparallel,
+      const std::function<std::array<double,7>(bool,double,double,double)>&
+          evaluateNucleon,
+      double projectionToCountRatio=1.0) {
+    if(he3DISModels.size()!=2 || !evaluateAparallel || !evaluateNucleon ||
+       !(projectionToCountRatio>0.0) ||
+       !std::isfinite(projectionToCountRatio)) {
+      std::cerr<<"[PlotG1ProjectionHe3DIS] requires GEN, REC, the nucleon "
+                   "model, and a positive projection/count ratio.\n";
+      return;
+    }
+    if(he3DISProjectionValuesOverPN.empty() ||
+       he3DISProjectionErrorsOverPN.empty()) {
+      std::cerr<<"[PlotG1ProjectionHe3DIS] call PlotProjection first so the "
+                   "same finite-count A_parallel values can be reused.\n";
+      return;
+    }
+    const std::string dir=outputDir+"/g1_projection";
+    fs::create_directories(dir);
+    const std::string xDir=outputDir+"/xg1_projection";
+    fs::create_directories(xDir);
+    const double projectedErrorScale=1.0/std::sqrt(projectionToCountRatio);
+    const double modelXMax=he3DISModelXMax;
+    constexpr double nucleonMass=0.93892;
+    struct Spec {std::string col,axis;int bins;double lo,hi;};
+    using Profile=ROOT::RDF::RResultPtr<TProfile>;
+    auto nodeFor=[](He3DISModel& m,const std::string& t)->ROOT::RDF::RNode {
+      return t=="epp" ? *m.epp : *m.ed;
+    };
+    auto finite=[](const std::array<double,7>& v) {
+      return std::all_of(v.begin(),v.end(),[](double x){return std::isfinite(x);});
+    };
+    // Return D, eta and xi in the convention of Sec. 8 of arXiv:2106.08805.
+    auto factors=[&](double xb,double q2,double y,double r) {
+      std::array<double,3> out{{NAN,NAN,NAN}};
+      if(!(xb>0.0) || !(q2>0.0) || !(y>0.0 && y<1.0) ||
+         !std::isfinite(r)) return out;
+      const double gamma=2.0*nucleonMass*xb/std::sqrt(q2);
+      const double gamma2=gamma*gamma;
+      const double common=4.0*(1.0-y)-gamma2*y*y;
+      const double twoPlus=2.0+gamma2*y;
+      const double dDen=2.0*(1.0+gamma2)*y*y+common*(1.0+r);
+      if(!(dDen>0.0) || !(twoPlus>0.0) || !(2.0-y>0.0)) return out;
+      out[0]=y*(2.0-y)*twoPlus/dDen;
+      out[1]=gamma*common/((2.0-y)*twoPlus);
+      out[2]=gamma*(2.0-y)/twoPlus;
+      return out;
+    };
+    struct MethodSpec {
+      int number;
+      std::string tag;
+      std::string title;
+      std::string centerLabel;
+      bool drawModelShift;
+    };
+    const std::array<MethodSpec,3> methods{{
+      {1,"SMC_A2_zero","SMC: A_{2}=0","A_{2}=0",true},
+      {2,"CLAS_g2_model","CLAS: JAM25 g_{2}/g_{1}",
+       "JAM25 g_{2}/g_{1} correction",false},
+      {3,"Aperp_zero","Current: A_{#perp}=0","A_{#perp}=0",true}
+    }};
+    for(const std::string topo:{"epp","ed"}) {
+      std::vector<Spec> specs={{"xB","x_{B}",25,0,1},
+        {"Q2","Q^{2} [GeV^{2}]",25,0,10},{"W","W [GeV]",25,1,5},
+        {"y","y",25,0,1},{"nu","#nu [GeV]",25,0,11}};
+      for(const auto& s:He3DISSpectatorPlotSpecs())
+        specs.push_back({topo+"_"+s.variable,s.axis,std::max(1,s.bins/2),s.lo,s.hi});
+      specs.push_back({topo+"_x_active","x_{N} = Q^{2}/(2p_{active}#upointq)",
+                       he3DISXActiveBins,he3DISXActiveMin,
+                       he3DISXActiveMax});
+      std::array<std::vector<Profile>,2> meanXB,meanQ2,meanY,meanAlpha,
+          meanActiveX,meanCosQ;
+      for(int m=0;m<2;++m) {
+        auto node=nodeFor(he3DISModels[m],topo);
+        for(size_t i=0;i<specs.size();++i) {
+          const auto& s=specs[i];
+          const std::string base="g1_mean_"+topo+"_"+std::to_string(m)+"_"+
+                                 std::to_string(i);
+          auto profileModel=[&](const std::string& suffix) {
+            return ROOT::RDF::TProfile1DModel((base+suffix).c_str(),"",
+                                              s.bins,s.lo,s.hi);
+          };
+          meanXB[m].push_back(node.Profile1D(profileModel("_xb"),s.col,"xB"));
+          meanQ2[m].push_back(node.Profile1D(profileModel("_q2"),s.col,"Q2"));
+          meanY[m].push_back(node.Profile1D(profileModel("_y"),s.col,"y"));
+          meanAlpha[m].push_back(node.Profile1D(
+              profileModel("_alpha"),s.col,topo+"_alpha_active"));
+          meanActiveX[m].push_back(node.Profile1D(
+              profileModel("_xactive"),s.col,topo+"_x_active"));
+          meanCosQ[m].push_back(node.Profile1D(
+              profileModel("_cosq"),s.col,"model_cos_theta_q"));
+        }
+      }
+      // The same cached bin-mean profiles produce both g1 and x*g1.  This
+      // avoids a second RDataFrame event scan for the x-weighted PDF.
+      for(int quantity=0;quantity<2;++quantity) {
+      const bool plotXG1=quantity==1;
+      const std::string quantityName=plotXG1 ? "xg1" : "g1";
+      for(const auto& method:methods) {
+      const std::string objectPrefix=quantityName+"_method"+
+          std::to_string(method.number)+"_"+topo;
+      TCanvas current((objectPrefix+"_current").c_str(),
+                      ((plotXG1?"Current GEMC xg1 - ":"Current GEMC g1 - ")+
+                       method.title).c_str(),
+                      2200,1800);
+      TCanvas projected((objectPrefix+"_projected").c_str(),
+                        ((plotXG1?"Projected xg1 - ":"Projected g1 - ")+
+                         method.title).c_str(),
+                        2200,1800);
+      current.Divide(4,3);projected.Divide(4,3);
+      std::vector<std::unique_ptr<TH1D>> frames;
+      std::vector<std::unique_ptr<TGraphErrors>> points;
+      std::vector<std::unique_ptr<TGraph>> curves;
+      int skippedProjectedLargeA1Error=0;
+      for(size_t i=0;i<specs.size();++i) {
+        const std::string key=topo+"/"+specs[i].col;
+        const auto valueIt=he3DISProjectionValuesOverPN.find(key);
+        const auto errorIt=he3DISProjectionErrorsOverPN.find(key);
+        if(valueIt==he3DISProjectionValuesOverPN.end() ||
+           errorIt==he3DISProjectionErrorsOverPN.end()) continue;
+        auto genCurrent=std::make_unique<TGraphErrors>();
+        auto recCurrent=std::make_unique<TGraphErrors>();
+        auto recProjected=std::make_unique<TGraphErrors>();
+        auto jamCurrent=std::make_unique<TGraph>();
+        auto jamProjected=std::make_unique<TGraph>();
+        struct BoxSpec {double x1,y1,x2,y2;int color;};
+        std::vector<BoxSpec> currentBoxes,projectedBoxes;
+        double extent=0.02;
+        const double boxHalfWidth=0.35*(specs[i].hi-specs[i].lo)/specs[i].bins;
+        for(int m=0;m<2;++m) {
+          auto& xb=meanXB[m][i].GetValue();
+          auto& q2=meanQ2[m][i].GetValue();
+          auto& yy=meanY[m][i].GetValue();
+          auto& aa=meanAlpha[m][i].GetValue();
+          auto& xx=meanActiveX[m][i].GetValue();
+          auto& cq=meanCosQ[m][i].GetValue();
+          const auto& values=valueIt->second[m];
+          const auto& errors=errorIt->second[m];
+          for(int bin=1;bin<=specs[i].bins;++bin) {
+            if(xb.GetBinEntries(bin)<=0 ||
+               bin>=static_cast<int>(values.size()) ||
+               bin>=static_cast<int>(errors.size()) ||
+               !std::isfinite(values[bin]) ||
+               !std::isfinite(errors[bin])) continue;
+            const double xbMean=xb.GetBinContent(bin);
+            const double q2Mean=q2.GetBinContent(bin);
+            const double alphaMean=aa.GetBinContent(bin);
+            if(!(alphaMean>0.0)) continue;
+            const double activeX=xx.GetBinContent(bin);
+            if(!(activeX>0.0 && activeX<modelXMax)) continue;
+            const double modelAlpha=xbMean/activeX;
+            const auto nucleon=evaluateNucleon(topo=="epp",xbMean,
+                                               modelAlpha,q2Mean);
+            if(!finite(nucleon)) continue;
+            const auto k=factors(xbMean,q2Mean,yy.GetBinContent(bin),nucleon[4]);
+            if(!std::isfinite(k[0]) || !std::isfinite(k[1]) ||
+               !std::isfinite(k[2])) continue;
+            const double mixing=1.0+k[1]*k[2];
+            if(std::abs(k[0]*mixing)<1.e-12) continue;
+            const double gamma=2.0*nucleonMass*xbMean/std::sqrt(q2Mean);
+            const double gamma2=gamma*gamma;
+            const double f1Factor=nucleon[0]/(1.0+gamma*gamma);
+            const double quantityScale=plotXG1 ? activeX : 1.0;
+
+            // Coefficient converting the measured nucleon A_parallel into g1.
+            // Method 1 (SMC): set A2=0.
+            // Method 2 (CLAS): retain a model g2/g1 in
+            //   A_parallel = D/F1 * [(1+eta*gamma)g1
+            //               +(eta*gamma-gamma^2)g2].
+            // Method 3 (current): set A_perp=d(A2-xi*A1)=0.
+            double longitudinalCoefficient=NAN;
+            if(method.number==1) {
+              longitudinalCoefficient=f1Factor/k[0];
+            } else if(method.number==2) {
+              // Algebraically this is F1/{D[(1+eta*gamma)+
+              // (eta*gamma-gamma^2)g2/g1]}.  Multiplying numerator and
+              // denominator by g1 avoids a numerical singularity where the
+              // JAM25 g1 curve crosses zero.
+              const double modelResponse=
+                  (1.0+k[1]*gamma)*nucleon[2]+
+                  (k[1]*gamma-gamma2)*nucleon[3];
+              const double denominator=k[0]*modelResponse;
+              if(!std::isfinite(denominator) ||
+                 std::abs(denominator)<1.e-14) continue;
+              longitudinalCoefficient=nucleon[0]*nucleon[2]/denominator;
+            } else {
+              longitudinalCoefficient=
+                  f1Factor*(1.0+gamma*k[2])/(k[0]*mixing);
+            }
+            if(!std::isfinite(longitudinalCoefficient)) continue;
+
+            // values[] already contains the nucleon A_parallel after the P_N
+            // correction made in PlotProjection.  Do not divide by P_N again.
+            const double g1Zero=
+                quantityScale*longitudinalCoefficient*values[bin];
+            const double g1Error=quantityScale*
+                std::abs(longitudinalCoefficient)*errors[bin];
+            // For the two zero-transverse-input methods, show the full JAM25
+            // correction as a symmetric model-dependence box.  The CLAS
+            // method already puts the JAM25 g2/g1 correction in its center.
+            double modelShift=0.0;
+            if(method.number==1) {
+              modelShift=quantityScale*f1Factor*(gamma-k[1])*nucleon[6];
+            } else if(method.number==3) {
+              modelShift=quantityScale*f1Factor*(gamma-k[1])*
+                  (nucleon[6]-k[2]*nucleon[5])/mixing;
+            }
+            const double systematic=std::abs(modelShift);
+            const double x=xb.GetBinCenter(bin);
+            auto* graph=m==0 ? genCurrent.get() : recCurrent.get();
+            graph->SetPoint(graph->GetN(),x,g1Zero);
+            graph->SetPointError(graph->GetN()-1,0,g1Error);
+            if(method.drawModelShift)
+              currentBoxes.push_back({x-boxHalfWidth,g1Zero-systematic,
+                                      x+boxHalfWidth,g1Zero+systematic,
+                                      m==0 ? kBlue+1 : kRed+1});
+
+            if(m==1) {
+              const double cosq=std::clamp(cq.GetBinContent(bin),-1.0,1.0);
+              const double modelAparallel=evaluateAparallel(topo=="epp",
+                  xbMean,modelAlpha,q2Mean,yy.GetBinContent(bin),
+                  -cosq,std::sqrt(std::max(0.0,1.0-cosq*cosq)));
+              if(std::isfinite(modelAparallel)) {
+                const double projectedG1Zero=
+                    quantityScale*longitudinalCoefficient*modelAparallel;
+                const double projectedG1Error=g1Error*projectedErrorScale;
+                // Use exactly the A1 plot's validity criterion so the two
+                // projections contain the same bins.
+                const double projectedA1Error=errors[bin]/
+                    std::abs(k[0]*mixing)*projectedErrorScale;
+                if(std::isfinite(projectedA1Error) &&
+                   projectedA1Error<=1.0) {
+                  recProjected->SetPoint(recProjected->GetN(),x,projectedG1Zero);
+                  recProjected->SetPointError(recProjected->GetN()-1,0,
+                                               projectedG1Error);
+                  if(method.drawModelShift)
+                    projectedBoxes.push_back({x-boxHalfWidth,
+                        projectedG1Zero-systematic,x+boxHalfWidth,
+                        projectedG1Zero+systematic,kRed+1});
+                  if(std::abs(projectedG1Zero)<=1.0)
+                    extent=std::max(extent,1.15*std::abs(projectedG1Zero));
+                } else {
+                  ++skippedProjectedLargeA1Error;
+                }
+              }
+              jamProjected->SetPoint(jamProjected->GetN(),x,
+                                     quantityScale*nucleon[2]);
+            } else {
+              jamCurrent->SetPoint(jamCurrent->GetN(),x,
+                                   quantityScale*nucleon[2]);
+            }
+            if(std::abs(g1Zero)<=1.0)
+              extent=std::max(extent,1.15*std::abs(g1Zero));
+          }
+        }
+        for(auto* graph:{genCurrent.get(),recCurrent.get(),recProjected.get()}) {
+          graph->SetLineStyle(1);graph->SetLineWidth(1);
+        }
+        genCurrent->SetMarkerStyle(20);genCurrent->SetMarkerSize(0.55);
+        genCurrent->SetMarkerColor(kBlue+1);genCurrent->SetLineColor(kBlue+1);
+        recCurrent->SetMarkerStyle(24);recCurrent->SetMarkerSize(0.55);
+        recCurrent->SetMarkerColor(kRed+1);recCurrent->SetLineColor(kRed+1);
+        recProjected->SetMarkerStyle(20);recProjected->SetMarkerSize(0.60);
+        recProjected->SetMarkerColor(kRed+1);recProjected->SetLineColor(kRed+1);
+        for(auto* curve:{jamCurrent.get(),jamProjected.get()}) {
+          curve->SetLineColor(kBlack);curve->SetLineWidth(2);
+        }
+        for(int page=0;page<2;++page) {
+          (page==0?current:projected).cd(static_cast<int>(i)+1);
+          gPad->SetTicks();
+          auto frame=std::make_unique<TH1D>(
+              ("frame_"+objectPrefix+"_"+std::to_string(i)+"_"+
+               std::to_string(page)).c_str(),
+              (";"+specs[i].axis+";"+
+               std::string(plotXG1?"x g_{1}^{":"g_{1}^{")+
+               std::string(topo=="epp"?"n":"p")+"}").c_str(),
+              specs[i].bins,specs[i].lo,specs[i].hi);
+          frame->SetDirectory(nullptr);frame->SetStats(0);
+          frame->SetMinimum(-extent);frame->SetMaximum(extent);frame->Draw("AXIS");
+          TLine zero(specs[i].lo,0,specs[i].hi,0);
+          zero.SetLineStyle(2);zero.SetLineColor(kGray+2);zero.DrawClone();
+          const auto& boxes=page==0 ? currentBoxes : projectedBoxes;
+          for(const auto& b:boxes) {
+            TBox box(b.x1,b.y1,b.x2,b.y2);
+            box.SetFillColorAlpha(b.color,0.22);
+            box.SetLineColor(b.color);box.SetLineWidth(1);box.DrawClone("F SAME");
+          }
+          if(page==0) {
+            if(jamCurrent->GetN()>1) jamCurrent->Draw("L SAME");
+            if(genCurrent->GetN()>0) genCurrent->Draw("P SAME");
+            if(recCurrent->GetN()>0) recCurrent->Draw("P SAME");
+          } else {
+            if(jamProjected->GetN()>1) jamProjected->Draw("L SAME");
+            if(recProjected->GetN()>0) recProjected->Draw("P SAME");
+          }
+          frames.push_back(std::move(frame));
+        }
+        points.push_back(std::move(genCurrent));
+        points.push_back(std::move(recCurrent));
+        points.push_back(std::move(recProjected));
+        curves.push_back(std::move(jamCurrent));
+        curves.push_back(std::move(jamProjected));
+      }
+
+      TGraphErrors dummyGen,dummyRec,dummyProjected;
+      dummyGen.SetMarkerStyle(20);dummyGen.SetMarkerColor(kBlue+1);
+      dummyRec.SetMarkerStyle(24);dummyRec.SetMarkerColor(kRed+1);
+      dummyProjected.SetMarkerStyle(20);dummyProjected.SetMarkerColor(kRed+1);
+      TGraph dummyJam;dummyJam.SetLineColor(kBlack);dummyJam.SetLineWidth(2);
+      TBox dummyGenBox,dummyRecBox;
+      dummyGenBox.SetFillColorAlpha(kBlue+1,0.22);dummyGenBox.SetLineColor(kBlue+1);
+      dummyRecBox.SetFillColorAlpha(kRed+1,0.22);dummyRecBox.SetLineColor(kRed+1);
+      const std::string shiftSource=method.number==1 ? "JAM25 A_{2}" :
+                                                    "JAM25 A_{#perp}";
+      current.cd(10);
+      {
+        TLegend legend(0.08,0.48,0.92,0.90);legend.SetBorderSize(0);
+        legend.SetFillStyle(0);legend.SetTextSize(0.042);
+        legend.AddEntry(&dummyGen,("GEMC GEN count; "+
+            method.centerLabel).c_str(),"p");
+        if(method.drawModelShift)
+          legend.AddEntry(&dummyGenBox,("GEN |#Delta "+
+              std::string(plotXG1?"xg_{1}":"g_{1}")+"("+shiftSource+")|").c_str(),"f");
+        legend.AddEntry(&dummyRec,("GEMC REC count; "+
+            method.centerLabel).c_str(),"p");
+        if(method.drawModelShift)
+          legend.AddEntry(&dummyRecBox,("REC |#Delta "+
+              std::string(plotXG1?"xg_{1}":"g_{1}")+"("+shiftSource+")|").c_str(),"f");
+        legend.AddEntry(&dummyJam,plotXG1?"JAM25 xg_{1}":"JAM25 g_{1}","l");
+        legend.DrawClone();
+        TLatex note;note.SetNDC();note.SetTextSize(0.040);
+        note.DrawLatex(0.08,0.34,(topo+" current GEMC statistics").c_str());
+        note.DrawLatex(0.08,0.25,method.title.c_str());
+      }
+      projected.cd(10);
+      {
+        TLegend legend(0.08,0.59,0.92,0.90);legend.SetBorderSize(0);
+        legend.SetFillStyle(0);legend.SetTextSize(0.044);
+        std::ostringstream projectedLabel;
+        projectedLabel<<"Projected REC (R_{N}="<<std::setprecision(4)
+                      <<projectionToCountRatio<<"); "<<method.centerLabel;
+        legend.AddEntry(&dummyProjected,projectedLabel.str().c_str(),"p");
+        if(method.drawModelShift)
+          legend.AddEntry(&dummyRecBox,("|#Delta "+
+              std::string(plotXG1?"xg_{1}":"g_{1}")+"("+shiftSource+")|").c_str(),"f");
+        legend.AddEntry(&dummyJam,plotXG1?"JAM25 xg_{1}":"JAM25 g_{1}","l");
+        legend.DrawClone();
+        TLatex note;note.SetNDC();note.SetTextSize(0.040);
+        note.DrawLatex(0.08,0.43,(topo+" target-statistics projection").c_str());
+        note.DrawLatex(0.08,0.34,method.title.c_str());
+        note.DrawLatex(0.08,0.25,"Bins with #deltaA_{1}^{stat}>1 omitted");
+      }
+      const std::string pdf=(plotXG1?xDir:dir)+"/He3DIS_"+
+          quantityName+"_method"+std::to_string(method.number)+"_"+
+          method.tag+"_"+topo+".pdf";
+      current.Print((pdf+"(").c_str());
+      projected.Print((pdf+")").c_str());
+      std::cout<<"[PlotG1ProjectionHe3DIS] wrote "<<pdf
+               <<" using method "<<method.number<<" ("<<method.tag<<")"
+               <<" (current GEMC + projected REC; R_N="
+               <<projectionToCountRatio<<"; omitted projected bins with "
+               <<"deltaA1>1: "<<skippedProjectedLargeA1Error<<")\n";
+      current.Clear();projected.Clear();
+      }
+      }
+    }
+  }
+
+  // Polarized-EMC projection for the ed two-body-breakup tag.  The active
+  // nucleon is a proton.  JAMpol25 supplies the trusted free-proton g1 and its
+  // replica uncertainty, while the external table supplies only the bound /
+  // free modification ratio.  Statistical inputs are reused from the exact
+  // REC ed A_parallel/PN count projection; Pb, Pt and PN must not be applied a
+  // second time here.
+  void PlotPolarizedEMCEd(
+      const std::function<std::array<double,7>(bool,double,double,double)>&
+          evaluateNucleon,
+      const std::function<std::array<double,4>(bool,double,double,double)>&
+          evaluateG1Uncertainty,
+      const std::string& ratioTablePath,
+      double projectionToCountRatio=1.0) {
+    if(he3DISModels.size()!=2 || !evaluateNucleon || !evaluateG1Uncertainty ||
+       !(projectionToCountRatio>0.0) ||
+       !std::isfinite(projectionToCountRatio)) {
+      std::cerr<<"[PlotPolarizedEMCEd] requires GEN/REC, JAM25 central and "
+                   "replica evaluators, and a positive projection/count ratio.\n";
+      return;
+    }
+    const std::string key="ed/ed_x_active";
+    const auto errorIt=he3DISProjectionErrorsOverPN.find(key);
+    if(errorIt==he3DISProjectionErrorsOverPN.end()) {
+      std::cerr<<"[PlotPolarizedEMCEd] call PlotProjection first so the REC "
+                   "ed A_parallel/PN statistical errors are available.\n";
+      return;
+    }
+
+    struct RatioPoint {double x,ratio;};
+    std::vector<RatioPoint> ratioTable;
+    {
+      std::ifstream input(ratioTablePath);
+      if(!input) {
+        std::cerr<<"[PlotPolarizedEMCEd] cannot open ratio table: "
+                 <<ratioTablePath<<'\n';
+        return;
+      }
+      std::string line;
+      while(std::getline(input,line)) {
+        const auto first=line.find_first_not_of(" \t");
+        if(first==std::string::npos || line[first]=='#') continue;
+        std::istringstream values(line);
+        double x=0.,g1pFree=0.,g1pBound=0.,protonRatio=0.;
+        double g1nFree=0.,g1nBound=0.,neutronRatio=0.;
+        if(!(values>>x>>g1pFree>>g1pBound>>protonRatio
+                   >>g1nFree>>g1nBound>>neutronRatio)) continue;
+        if(std::isfinite(x) && std::isfinite(protonRatio) && x>0.0)
+          ratioTable.push_back({x,protonRatio});
+      }
+    }
+    std::sort(ratioTable.begin(),ratioTable.end(),
+              [](const RatioPoint& a,const RatioPoint& b){return a.x<b.x;});
+    ratioTable.erase(std::unique(ratioTable.begin(),ratioTable.end(),
+        [](const RatioPoint& a,const RatioPoint& b){return a.x==b.x;}),
+        ratioTable.end());
+    if(ratioTable.size()<2) {
+      std::cerr<<"[PlotPolarizedEMCEd] ratio table has fewer than two valid "
+                   "proton points: "<<ratioTablePath<<'\n';
+      return;
+    }
+    auto interpolateRatio=[&](double x) {
+      if(!std::isfinite(x) || x<ratioTable.front().x ||
+         x>ratioTable.back().x)
+        return std::numeric_limits<double>::quiet_NaN();
+      const auto upper=std::lower_bound(ratioTable.begin(),ratioTable.end(),x,
+          [](const RatioPoint& point,double value){return point.x<value;});
+      if(upper==ratioTable.begin()) return upper->ratio;
+      if(upper==ratioTable.end()) return ratioTable.back().ratio;
+      if(upper->x==x) return upper->ratio;
+      const auto lower=std::prev(upper);
+      const double fraction=(x-lower->x)/(upper->x-lower->x);
+      return lower->ratio+fraction*(upper->ratio-lower->ratio);
+    };
+
+    const int bins=he3DISXActiveBins;
+    const double xMin=he3DISXActiveMin;
+    const double xMax=he3DISXActiveMax;
+    const double modelXMax=he3DISModelXMax;
+    constexpr double nucleonMass=0.93892;
+    const double projectedErrorScale=1.0/std::sqrt(projectionToCountRatio);
+    auto rec=*he3DISModels[1].ed;
+    auto profileModel=[=](const char* name) {
+      return ROOT::RDF::TProfile1DModel(name,"",bins,xMin,xMax);
+    };
+    // Book before GetValue so this is one additional REC ed event loop.
+    auto meanXB=rec.Profile1D(profileModel("emc_ed_mean_xb"),
+                              "ed_x_active","xB");
+    auto meanQ2=rec.Profile1D(profileModel("emc_ed_mean_q2"),
+                              "ed_x_active","Q2");
+    auto meanY=rec.Profile1D(profileModel("emc_ed_mean_y"),
+                             "ed_x_active","y");
+    auto meanAlpha=rec.Profile1D(profileModel("emc_ed_mean_alpha"),
+                                 "ed_x_active","ed_alpha_active");
+    auto meanXN=rec.Profile1D(profileModel("emc_ed_mean_xn"),
+                              "ed_x_active","ed_x_active");
+
+    auto& xbProfile=meanXB.GetValue();
+    auto& q2Profile=meanQ2.GetValue();
+    auto& yProfile=meanY.GetValue();
+    auto& alphaProfile=meanAlpha.GetValue();
+    auto& xNProfile=meanXN.GetValue();
+    const auto& recAparallelErrors=errorIt->second[1];
+    auto finite7=[](const std::array<double,7>& values) {
+      return std::all_of(values.begin(),values.end(),
+                         [](double value){return std::isfinite(value);});
+    };
+    auto finite4=[](const std::array<double,4>& values) {
+      return std::all_of(values.begin(),values.end(),
+                         [](double value){return std::isfinite(value);});
+    };
+    auto factors=[=](double xb,double q2,double y,double r) {
+      std::array<double,3> out{{NAN,NAN,NAN}};
+      if(!(xb>0.0) || !(q2>0.0) || !(y>0.0 && y<1.0) ||
+         !std::isfinite(r)) return out;
+      const double gamma=2.0*nucleonMass*xb/std::sqrt(q2);
+      const double gamma2=gamma*gamma;
+      const double common=4.0*(1.0-y)-gamma2*y*y;
+      const double twoPlus=2.0+gamma2*y;
+      const double denominator=2.0*(1.0+gamma2)*y*y+common*(1.0+r);
+      if(!(denominator>0.0) || !(twoPlus>0.0) || !(2.0-y>0.0))
+        return out;
+      out[0]=y*(2.0-y)*twoPlus/denominator;       // D
+      out[1]=gamma*common/((2.0-y)*twoPlus);      // eta
+      out[2]=gamma*(2.0-y)/twoPlus;               // xi
+      return out;
+    };
+
+    struct BoxSpec {double x1,y1,x2,y2;int color;double alpha;};
+    TGraph freeCurve,boundCurve,ratioCurve;
+    TGraph alphaControl,xbControl,q2Control;
+    TGraphAsymmErrors freeJamBand;
+    std::array<TGraphErrors,3> boundProjection,totalBoundProjection;
+    std::array<TGraphErrors,3> ratioProjection,totalRatioProjection;
+    TGraphErrors statSensitivity,totalSensitivity;
+    std::vector<BoxSpec> ratioJamBoxes;
+    std::array<std::vector<BoxSpec>,3> boundMethodBoxes;
+    std::array<std::vector<BoxSpec>,3> ratioMethodBoxes;
+    std::array<double,3> g1Min{{0.0,0.0,0.0}},g1Max{{0.0,0.0,0.0}};
+    double sensitivityMax=0.0,chi2Stat=0.0,chi2Total=0.0;
+    int validBins=0;
+    std::cout<<"[PlotPolarizedEMCEd] xN Q2 R_EMC stat Aperp JAM "
+                 "S_stat S_total\n";
+    for(int bin=1;bin<=bins;++bin) {
+      if(xbProfile.GetBinEntries(bin)<=0 ||
+         bin>=static_cast<int>(recAparallelErrors.size()) ||
+         !std::isfinite(recAparallelErrors[bin])) continue;
+      const double xb=xbProfile.GetBinContent(bin);
+      const double q2=q2Profile.GetBinContent(bin);
+      const double y=yProfile.GetBinContent(bin);
+      const double alpha=alphaProfile.GetBinContent(bin);
+      const double binLow=xbProfile.GetXaxis()->GetBinLowEdge(bin);
+      const double binHigh=xbProfile.GetXaxis()->GetBinUpEdge(bin);
+      if(!(alpha>0.0)) continue;
+      const double xN=xNProfile.GetBinContent(bin);
+      if(!(xN>0.0 && xN<modelXMax)) continue;
+      const double ratio=interpolateRatio(xN);
+      if(!std::isfinite(ratio)) continue;
+      // The external model API forms x_N=xB/alpha internally but also uses xB
+      // separately in finite-Q2 factors.  Keep the measured electron xB and
+      // adapt only the API alpha argument so xB/modelAlpha=xN_exact.
+      const double modelAlpha=xb/xN;
+      const auto nucleon=evaluateNucleon(false,xb,modelAlpha,q2);
+      const auto jam=evaluateG1Uncertainty(false,xb,modelAlpha,q2);
+      if(!finite7(nucleon) || !finite4(jam)) continue;
+      const double g1Free=jam[0];
+      if(!std::isfinite(g1Free) || std::abs(g1Free)<1.e-12) continue;
+      const auto k=factors(xb,q2,y,nucleon[4]);
+      if(!std::isfinite(k[0]) || !std::isfinite(k[1]) ||
+         !std::isfinite(k[2])) continue;
+      const double mixing=1.0+k[1]*k[2];
+      if(std::abs(k[0]*mixing)<1.e-12) continue;
+      const double gamma=2.0*nucleonMass*xb/std::sqrt(q2);
+      const double gamma2=gamma*gamma;
+      const double f1Factor=nucleon[0]/(1.0+gamma*gamma);
+      const double modelResponse=(1.0+k[1]*gamma)*nucleon[2]+
+          (k[1]*gamma-gamma2)*nucleon[3];
+      const double clasDenominator=k[0]*modelResponse;
+      if(!std::isfinite(clasDenominator) ||
+         std::abs(clasDenominator)<1.e-14) continue;
+      // The three g1 extraction prescriptions used by
+      // PlotG1ProjectionHe3DIS: SMC A2=0, CLAS JAM25 g2/g1, and
+      // the current A_perp=0 method.
+      const std::array<double,3> coefficients{{
+          f1Factor/k[0],
+          nucleon[0]*nucleon[2]/clasDenominator,
+          f1Factor*(1.0+gamma*k[2])/(k[0]*mixing)}};
+      if(!std::all_of(coefficients.begin(),coefficients.end(),
+                      [](double value){return std::isfinite(value);})) continue;
+      const double g1Bound=ratio*g1Free;
+      std::array<double,3> statG1,transverseG1{{
+          std::abs(f1Factor*(gamma-k[1])*nucleon[6]),
+          0.0,
+          std::abs(f1Factor*(gamma-k[1])*
+              (nucleon[6]-k[2]*nucleon[5])/mixing)}};
+      for(size_t method=0;method<coefficients.size();++method)
+        statG1[method]=std::abs(coefficients[method])*
+            recAparallelErrors[bin]*projectedErrorScale;
+      // Keep the ratio/sensitivity summary on the current A_perp=0 method.
+      const double currentStatG1=statG1[2];
+      const double aperpG1=transverseG1[2];
+      const double statRatio=currentStatG1/std::abs(g1Free);
+      const double aperpRatio=aperpG1/std::abs(g1Free);
+      const double jamRatioPlus=std::abs(ratio)*jam[1]/std::abs(g1Free);
+      const double jamRatioMinus=std::abs(ratio)*jam[2]/std::abs(g1Free);
+      const double jamRatioSymm=std::abs(ratio)*jam[3]/std::abs(g1Free);
+      if(!std::isfinite(statRatio) || !std::isfinite(aperpRatio) ||
+         !std::isfinite(jamRatioSymm)) continue;
+
+      freeCurve.SetPoint(freeCurve.GetN(),xN,xN*g1Free);
+      boundCurve.SetPoint(boundCurve.GetN(),xN,xN*g1Bound);
+      ratioCurve.SetPoint(ratioCurve.GetN(),xN,ratio);
+      alphaControl.SetPoint(alphaControl.GetN(),xN,alpha);
+      xbControl.SetPoint(xbControl.GetN(),xN,xb);
+      q2Control.SetPoint(q2Control.GetN(),xN,q2);
+      for(size_t method=0;method<boundProjection.size();++method) {
+        auto& graph=boundProjection[method];
+        graph.SetPoint(graph.GetN(),xN,xN*g1Bound);
+        graph.SetPointError(graph.GetN()-1,0.0,xN*statG1[method]);
+        const double boundJamG1=std::abs(ratio)*jam[3];
+        const double totalG1=std::sqrt(statG1[method]*statG1[method]+
+            transverseG1[method]*transverseG1[method]+
+            boundJamG1*boundJamG1);
+        auto& totalGraph=totalBoundProjection[method];
+        totalGraph.SetPoint(totalGraph.GetN(),xN,xN*g1Bound);
+        totalGraph.SetPointError(totalGraph.GetN()-1,0.0,xN*totalG1);
+        const double methodStatRatio=statG1[method]/std::abs(g1Free);
+        const double methodTransverseRatio=
+            transverseG1[method]/std::abs(g1Free);
+        const double totalRatioError=std::sqrt(
+            methodStatRatio*methodStatRatio+
+            methodTransverseRatio*methodTransverseRatio+
+            jamRatioSymm*jamRatioSymm);
+        auto& ratioGraph=ratioProjection[method];
+        ratioGraph.SetPoint(ratioGraph.GetN(),xN,ratio);
+        ratioGraph.SetPointError(ratioGraph.GetN()-1,0.0,methodStatRatio);
+        auto& totalRatioGraph=totalRatioProjection[method];
+        totalRatioGraph.SetPoint(totalRatioGraph.GetN(),xN,ratio);
+        totalRatioGraph.SetPointError(
+            totalRatioGraph.GetN()-1,0.0,totalRatioError);
+        if(method!=1)
+          boundMethodBoxes[method].push_back({
+              binLow,xN*(g1Bound-transverseG1[method]),
+              binHigh,xN*(g1Bound+transverseG1[method]),
+              kAzure+1,0.24});
+        if(method!=1)
+          ratioMethodBoxes[method].push_back({
+              binLow,ratio-methodTransverseRatio,
+              binHigh,ratio+methodTransverseRatio,
+              kAzure+1,0.24});
+        g1Min[method]=std::min({g1Min[method],xN*(g1Free-jam[2]),
+                               xN*(g1Bound-totalG1)});
+        g1Max[method]=std::max({g1Max[method],xN*(g1Free+jam[1]),
+                               xN*(g1Bound+totalG1)});
+      }
+      freeJamBand.SetPoint(freeJamBand.GetN(),xN,xN*g1Free);
+      freeJamBand.SetPointError(freeJamBand.GetN()-1,0.0,0.0,
+                                xN*jam[2],xN*jam[1]);
+      // The ratio JAM25 baseline uncertainty belongs to each projected bin;
+      // keep it as a per-bin box rather than a continuous model band.
+      ratioJamBoxes.push_back({binLow,ratio-jamRatioPlus,
+                               binHigh,ratio+jamRatioMinus,
+                               kGray+1,0.28});
+      const double difference=std::abs(ratio-1.0);
+      const double totalError=std::sqrt(statRatio*statRatio+
+          aperpRatio*aperpRatio+jamRatioSymm*jamRatioSymm);
+      const double statS=statRatio>0.0 ? difference/statRatio : 0.0;
+      const double totalS=totalError>0.0 ? difference/totalError : 0.0;
+      statSensitivity.SetPoint(statSensitivity.GetN(),xN,statS);
+      totalSensitivity.SetPoint(totalSensitivity.GetN(),xN,totalS);
+      sensitivityMax=std::max({sensitivityMax,statS,totalS});
+      chi2Stat+=statS*statS;chi2Total+=totalS*totalS;
+      ++validBins;
+      std::cout<<std::setprecision(6)<<"  "<<xN<<' '<<q2<<' '<<ratio<<' '
+               <<statRatio<<' '<<aperpRatio<<' '<<jamRatioSymm<<' '
+               <<statS<<' '<<totalS<<'\n';
+    }
+    if(validBins==0) {
+      std::cerr<<"[PlotPolarizedEMCEd] no valid REC ed bins.\n";
+      return;
+    }
+
+    // The projected data retain their coarse statistical bins, but the
+    // JAM25 and bound/free model objects are evaluated on an independent
+    // dense x_N grid.  Interpolate only the bin-mean alpha and Q2 needed to
+    // map x_N back to the model inputs; g1 and its replica uncertainty are
+    // reevaluated at every dense point.
+    if(alphaControl.GetN()>=2 && xbControl.GetN()>=2 &&
+       q2Control.GetN()>=2) {
+      alphaControl.Sort();xbControl.Sort();q2Control.Sort();
+      double denseXMin=0.0,denseXMax=0.0,unused=0.0;
+      alphaControl.GetPoint(0,denseXMin,unused);
+      alphaControl.GetPoint(alphaControl.GetN()-1,denseXMax,unused);
+      constexpr int denseModelPoints=201;
+      TGraph denseFreeCurve,denseBoundCurve,denseRatioCurve;
+      TGraphAsymmErrors denseFreeJamBand;
+      for(int point=0;point<denseModelPoints;++point) {
+        const double fraction=static_cast<double>(point)/
+                              static_cast<double>(denseModelPoints-1);
+        const double xN=denseXMin+fraction*(denseXMax-denseXMin);
+        const double alpha=alphaControl.Eval(xN);
+        const double xb=xbControl.Eval(xN);
+        const double q2=q2Control.Eval(xN);
+        if(!(alpha>0.0) || !(xb>0.0) || !(q2>0.0)) continue;
+        const double ratio=interpolateRatio(xN);
+        const double modelAlpha=xb/xN;
+        const auto jam=evaluateG1Uncertainty(false,xb,modelAlpha,q2);
+        if(!std::isfinite(ratio) || !finite4(jam) ||
+           std::abs(jam[0])<1.e-12) continue;
+        const double g1Free=jam[0];
+        const double g1Bound=ratio*g1Free;
+        denseFreeCurve.SetPoint(denseFreeCurve.GetN(),xN,xN*g1Free);
+        denseBoundCurve.SetPoint(denseBoundCurve.GetN(),xN,xN*g1Bound);
+        denseRatioCurve.SetPoint(denseRatioCurve.GetN(),xN,ratio);
+        denseFreeJamBand.SetPoint(
+            denseFreeJamBand.GetN(),xN,xN*g1Free);
+        denseFreeJamBand.SetPointError(
+            denseFreeJamBand.GetN()-1,0.0,0.0,xN*jam[2],xN*jam[1]);
+      }
+      if(denseFreeCurve.GetN()>=2) {
+        freeCurve=denseFreeCurve;
+        boundCurve=denseBoundCurve;
+        ratioCurve=denseRatioCurve;
+        freeJamBand=denseFreeJamBand;
+      }
+    }
+
+    auto style=[](TGraph& graph,int color,int style,int width) {
+      graph.SetLineColor(color);graph.SetLineStyle(style);graph.SetLineWidth(width);
+    };
+    // Filled TGraph bands require monotonically ordered x coordinates.
+    freeJamBand.Sort();
+    style(freeCurve,kBlack,1,3);style(boundCurve,kBlue+1,2,3);
+    style(ratioCurve,kBlue+1,2,3);
+    freeJamBand.SetFillColorAlpha(kGray+1,0.28);
+    freeJamBand.SetLineColor(kGray+1);
+    for(auto& graph:boundProjection) {
+      graph.SetMarkerStyle(20);graph.SetMarkerSize(0.8);
+      graph.SetMarkerColor(kRed+1);graph.SetLineColor(kRed+1);
+    }
+    for(auto& graph:totalBoundProjection) {
+      graph.SetMarkerStyle(20);graph.SetMarkerSize(0.8);
+      graph.SetMarkerColor(kMagenta+2);graph.SetLineColor(kMagenta+2);
+      graph.SetLineWidth(2);
+    }
+    for(auto& graph:ratioProjection) {
+      graph.SetMarkerStyle(20);graph.SetMarkerSize(0.8);
+      graph.SetMarkerColor(kRed+1);graph.SetLineColor(kRed+1);
+    }
+    for(auto& graph:totalRatioProjection) {
+      graph.SetMarkerStyle(20);graph.SetMarkerSize(0.8);
+      graph.SetMarkerColor(kMagenta+2);graph.SetLineColor(kMagenta+2);
+      graph.SetLineWidth(2);
+    }
+    statSensitivity.SetMarkerStyle(20);statSensitivity.SetMarkerColor(kBlue+1);
+    statSensitivity.SetLineColor(kBlue+1);
+    totalSensitivity.SetMarkerStyle(24);totalSensitivity.SetMarkerColor(kRed+1);
+    totalSensitivity.SetLineColor(kRed+1);
+    const std::string dir=outputDir+"/polarized_EMC";
+    fs::create_directories(dir);
+    const std::string pdf=dir+"/He3DIS_polarized_EMC_ed.pdf";
+    auto drawBoxes=[](const std::vector<BoxSpec>& boxes) {
+      for(const auto& b:boxes) {
+        TBox box(b.x1,b.y1,b.x2,b.y2);
+        box.SetFillColorAlpha(b.color,b.alpha);box.SetLineColor(b.color);
+        box.DrawClone("F SAME");
+      }
+    };
+
+    TBox dummyGray,dummyBlue;
+    dummyGray.SetFillColorAlpha(kGray+1,0.28);
+    dummyGray.SetLineColor(kGray+1);
+    dummyBlue.SetFillColorAlpha(kAzure+1,0.24);
+    const std::array<std::string,3> methodTitles{{
+        "Method 1: SMC, A_{2}=0",
+        "Method 2: CLAS, JAM25 g_{2}/g_{1}",
+        "Method 3: Current, A_{#perp}=0"}};
+    const std::array<std::string,3> systematicLabels{{
+        "JAM25 A_{2} extraction systematic","",
+        "JAM25 A_{#perp} extraction systematic"}};
+    for(size_t method=0;method<boundProjection.size();++method) {
+      const std::string suffix=std::to_string(method+1);
+      TCanvas g1Canvas(("c_polarized_emc_ed_xg1_method"+suffix).c_str(),
+                       ("ed polarized EMC xg1 "+methodTitles[method]).c_str(),
+                       1100,850);
+      const double padding=0.12*std::max(1.e-6,g1Max[method]-g1Min[method]);
+      TH1D g1Frame(("h_polarized_emc_ed_xg1_method"+suffix).c_str(),
+          (methodTitles[method]+";x_{N}=x_{B}/#alpha_{active};x_{N}g_{1}^{p}").c_str(),
+          bins,xMin,modelXMax);
+      g1Frame.SetStats(0);g1Frame.SetMinimum(g1Min[method]-padding);
+      g1Frame.SetMaximum(g1Max[method]+padding);g1Frame.Draw("AXIS");
+      TLine zeroG1(xMin,0.0,modelXMax,0.0);zeroG1.SetLineStyle(2);
+      zeroG1.SetLineColor(kGray+2);zeroG1.DrawClone();
+      freeJamBand.Draw("3 SAME");drawBoxes(boundMethodBoxes[method]);
+      freeCurve.Draw("L SAME");boundCurve.Draw("L SAME");
+      boundProjection[method].Draw("P SAME");
+      TLegend g1Legend(0.13,0.13,0.56,0.40);g1Legend.SetBorderSize(0);
+      g1Legend.SetFillStyle(0);g1Legend.AddEntry(&freeCurve,"JAM25 free p","l");
+      g1Legend.AddEntry(&freeJamBand,"JAM25 replica uncertainty","f");
+      g1Legend.AddEntry(&boundCurve,"^{3}He bound/free ratio #times JAM25","l");
+      g1Legend.AddEntry(&boundProjection[method],"Projected REC ed (stat.)","p");
+      if(method!=1)
+        g1Legend.AddEntry(&dummyBlue,systematicLabels[method].c_str(),"f");
+      g1Legend.DrawClone();
+      g1Canvas.Print((pdf+(method==0?"(":"")).c_str());
+
+      TCanvas totalCanvas(
+          ("c_polarized_emc_ed_xg1_method"+suffix+"_total").c_str(),
+          ("ed polarized EMC xg1 total uncertainty "+methodTitles[method]).c_str(),
+          1100,850);
+      TH1D totalFrame(
+          ("h_polarized_emc_ed_xg1_method"+suffix+"_total").c_str(),
+          (methodTitles[method]+" (combined uncertainty);x_{N}=x_{B}/#alpha_{active};x_{N}g_{1}^{p}").c_str(),
+          bins,xMin,modelXMax);
+      totalFrame.SetStats(0);totalFrame.SetMinimum(g1Min[method]-padding);
+      totalFrame.SetMaximum(g1Max[method]+padding);totalFrame.Draw("AXIS");
+      zeroG1.DrawClone();
+      freeJamBand.Draw("3 SAME");
+      freeCurve.Draw("L SAME");boundCurve.Draw("L SAME");
+      totalBoundProjection[method].Draw("P SAME");
+      TLegend totalLegend(0.13,0.13,0.56,0.34);
+      totalLegend.SetBorderSize(0);totalLegend.SetFillStyle(0);
+      totalLegend.AddEntry(&freeCurve,"JAM25 free p","l");
+      totalLegend.AddEntry(&freeJamBand,"JAM25 replica uncertainty","f");
+      totalLegend.AddEntry(&boundCurve,"^{3}He bound/free ratio #times JAM25","l");
+      totalLegend.AddEntry(&totalBoundProjection[method],
+          "Projected REC ed (total uncertainty)","p");
+      totalLegend.DrawClone();
+      TLatex totalNote;totalNote.SetNDC();totalNote.SetTextSize(0.034);
+      totalNote.DrawLatex(0.14,0.92,
+          "Single bar: stat. #oplus transverse extraction #oplus JAM25");
+      totalCanvas.Print(pdf.c_str());
+    }
+
+    for(size_t method=0;method<ratioProjection.size();++method) {
+      const std::string suffix=std::to_string(method+1);
+      TCanvas ratioCanvas(
+          ("c_polarized_emc_ed_ratio_method"+suffix).c_str(),
+          ("ed polarized EMC ratio "+methodTitles[method]).c_str(),1100,850);
+      TH1D ratioFrame(
+          ("h_polarized_emc_ed_ratio_method"+suffix).c_str(),
+          (methodTitles[method]+";x_{N}=x_{B}/#alpha_{active};R_{EMC}^{pol,p}=g_{1}^{p,*}/g_{1,JAM25}^{p}").c_str(),
+          bins,xMin,modelXMax);
+      ratioFrame.SetStats(0);ratioFrame.SetMinimum(0.8);
+      ratioFrame.SetMaximum(1.2);ratioFrame.Draw("AXIS");
+      TLine unity(xMin,1.0,modelXMax,1.0);unity.SetLineStyle(2);
+      unity.SetLineColor(kBlack);unity.DrawClone();
+      drawBoxes(ratioJamBoxes);drawBoxes(ratioMethodBoxes[method]);
+      ratioCurve.Draw("L SAME");ratioProjection[method].Draw("P SAME");
+      TLegend ratioLegend(0.13,0.13,0.56,0.40);
+      ratioLegend.SetBorderSize(0);ratioLegend.SetFillStyle(0);
+      ratioLegend.AddEntry(&unity,"No polarized EMC: R=1","l");
+      ratioLegend.AddEntry(&ratioCurve,"^{3}He bound/free model","l");
+      ratioLegend.AddEntry(&ratioProjection[method],"Projected REC ed (stat.)","p");
+      if(method!=1)
+        ratioLegend.AddEntry(&dummyBlue,systematicLabels[method].c_str(),"f");
+      ratioLegend.AddEntry(&dummyGray,"JAM25 free-baseline uncertainty (per bin)","f");
+      ratioLegend.DrawClone();
+      ratioCanvas.Print(pdf.c_str());
+
+      TCanvas totalRatioCanvas(
+          ("c_polarized_emc_ed_ratio_method"+suffix+"_total").c_str(),
+          ("ed polarized EMC ratio total uncertainty "+methodTitles[method]).c_str(),
+          1100,850);
+      TH1D totalRatioFrame(
+          ("h_polarized_emc_ed_ratio_method"+suffix+"_total").c_str(),
+          (methodTitles[method]+" (combined uncertainty);x_{N}=x_{B}/#alpha_{active};R_{EMC}^{pol,p}").c_str(),
+          bins,xMin,modelXMax);
+      totalRatioFrame.SetStats(0);
+      totalRatioFrame.SetMinimum(0.8);
+      totalRatioFrame.SetMaximum(1.2);
+      totalRatioFrame.Draw("AXIS");unity.DrawClone();
+      ratioCurve.Draw("L SAME");totalRatioProjection[method].Draw("P SAME");
+      TLegend totalRatioLegend(0.13,0.13,0.56,0.34);
+      totalRatioLegend.SetBorderSize(0);totalRatioLegend.SetFillStyle(0);
+      totalRatioLegend.AddEntry(&unity,"No polarized EMC: R=1","l");
+      totalRatioLegend.AddEntry(&ratioCurve,"^{3}He bound/free model","l");
+      totalRatioLegend.AddEntry(&totalRatioProjection[method],
+          "Projected REC ed (total uncertainty)","p");
+      totalRatioLegend.DrawClone();
+      TLatex totalRatioNote;totalRatioNote.SetNDC();
+      totalRatioNote.SetTextSize(0.034);
+      totalRatioNote.DrawLatex(0.14,0.92,
+          "Single bar: stat. #oplus transverse extraction #oplus JAM25");
+      totalRatioNote.DrawLatex(0.14,0.87,
+          ("g_{1} extraction: "+methodTitles[method]).c_str());
+      totalRatioCanvas.Print(pdf.c_str());
+    }
+
+    TCanvas sensitivityCanvas("c_polarized_emc_ed_sensitivity",
+                              "ed polarized EMC sensitivity",1100,850);
+    TH1D sensitivityFrame("h_polarized_emc_ed_sensitivity",
+        ";x_{N}=x_{B}/#alpha_{active};Expected |R_{EMC}^{pol,p}-1|/#delta R",
+        bins,xMin,modelXMax);
+    sensitivityFrame.SetStats(0);sensitivityFrame.SetMinimum(0.0);
+    sensitivityFrame.SetMaximum(std::max(1.0,1.18*sensitivityMax));
+    sensitivityFrame.Draw("AXIS");
+    statSensitivity.Draw("PL SAME");totalSensitivity.Draw("PL SAME");
+    TLegend sensitivityLegend(0.49,0.73,0.89,0.89);
+    sensitivityLegend.SetBorderSize(0);sensitivityLegend.SetFillStyle(0);
+    sensitivityLegend.AddEntry(&statSensitivity,"Statistical only","lp");
+    sensitivityLegend.AddEntry(&totalSensitivity,
+        "Stat. #oplus A_{T} syst. #oplus JAM25","lp");
+    sensitivityLegend.DrawClone();
+    TLatex sensitivityNote;sensitivityNote.SetNDC();sensitivityNote.SetTextSize(0.035);
+    std::ostringstream note;
+    note<<"Independent-bin estimate: Z_{stat}="<<std::setprecision(3)
+        <<std::sqrt(chi2Stat)<<", Z_{total}="<<std::sqrt(chi2Total);
+    sensitivityNote.DrawLatex(0.14,0.92,note.str().c_str());
+    sensitivityCanvas.Print((pdf+")").c_str());
+    std::cout<<"[PlotPolarizedEMCEd] wrote "<<pdf<<" with "<<validBins
+             <<" valid bins; independent-bin Z_stat="<<std::sqrt(chi2Stat)
+             <<", Z_total="<<std::sqrt(chi2Total)<<'\n';
+  }
+
+  void PlotTopologyMigrationHe3DIS(ROOT::RDF::RNode rec) {
+    fs::create_directories(outputDir);
+    const std::array<std::string,3> gen = {
+        "GEN_pass_epp", "GEN_pass_epn", "GEN_pass_ed"};
+    const std::array<std::string,3> reco = {
+        "REC_Event_pass_epp", "REC_Event_pass_epn", "REC_Event_pass_ed"};
+    const std::array<const char*,3> labels = {"epp", "epn", "ed"};
+    TH2D matrix("h_he3dis_topology_migration",
+                "He3DIS topology flags;GEN topology;REC topology;Events",
+                3, 0, 3, 3, 0, 3);
+    matrix.SetDirectory(nullptr); matrix.SetStats(0);
+    for (int i = 0; i < 3; ++i) {
+      matrix.GetXaxis()->SetBinLabel(i+1, labels[i]);
+      matrix.GetYaxis()->SetBinLabel(i+1, labels[i]);
+      for (int j = 0; j < 3; ++j) {
+        auto count = rec.Filter(gen[i] + " && " + reco[j]).Count();
+        matrix.SetBinContent(i+1, j+1, count.GetValue());
+      }
+    }
+    TCanvas canvas("c_he3dis_topology_migration",
+                   "He3DIS topology migration", 800, 700);
+    matrix.Draw("COLZ TEXT");
+    const std::string output =
+        outputDir + "/He3DIS_topology_migration.pdf";
+    canvas.SaveAs(output.c_str());
+    std::cout << "[PlotTopologyMigrationHe3DIS] wrote " << output << '\n';
+  }
+
+  void PlotParticleKinematicHe3DVCS() {
+    if (he3DVCSModels.empty()) {
+      std::cerr << "[PlotParticleKinematicHe3DVCS] no He3DVCS model was added.\n";
+      return;
+    }
+
+    struct ParticleSpec {
+      std::string key;
+      std::string title;
+      std::string p;
+      std::string theta;
+      std::string phi;
+      double pMin;
+      double pMax;
+      double thetaMax;
+    };
+    const std::array<ParticleSpec, 3> particles = {{
+        {"electron", "e'", "recel_p", "recel_theta", "recel_phi",
+         0.0, 6.0, 180.0},
+        {"photon", "#gamma", "recpho_p", "recpho_theta", "recpho_phi",
+         4.0, 11.0, 10.0},
+        {"he3", "^{3}He'", "reche3_p", "reche3_theta", "reche3_phi",
+         0.0, 0.6, 100.0}
+    }};
+
+    fs::create_directories(outputDir);
+    for (size_t model = 0; model < he3DVCSModels.size(); ++model) {
+      struct HistSet {
+        ROOT::RDF::RResultPtr<TH1D> p;
+        ROOT::RDF::RResultPtr<TH1D> theta;
+        ROOT::RDF::RResultPtr<TH1D> phi;
+        ROOT::RDF::RResultPtr<TH2D> pVsTheta;
+      };
+      std::vector<HistSet> histograms;
+      for (const auto& particle : particles) {
+        const std::string prefix = "h_he3dvcs_m" + std::to_string(model) +
+                                   "_" + particle.key;
+        histograms.push_back({
+            he3DVCSModels[model]->Histo1D(
+                {(prefix + "_p").c_str(),
+                 (particle.title + ";p [GeV];Events").c_str(),
+                 120, particle.pMin, particle.pMax}, particle.p),
+            he3DVCSModels[model]->Histo1D(
+                {(prefix + "_theta").c_str(),
+                 (particle.title + ";#theta [deg];Events").c_str(),
+                 120, 0.0, particle.thetaMax}, particle.theta),
+            he3DVCSModels[model]->Histo1D(
+                {(prefix + "_phi").c_str(),
+                 (particle.title + ";#phi [deg];Events").c_str(),
+                 120, 0.0, 360.0}, particle.phi),
+            he3DVCSModels[model]->Histo2D(
+                {(prefix + "_p_vs_theta").c_str(),
+                 (particle.title +
+                  ";#theta [deg];p [GeV]").c_str(),
+                 100, 0.0, particle.thetaMax,
+                 100, particle.pMin, particle.pMax},
+                particle.theta, particle.p)});
+      }
+
+      TCanvas canvas(("c_he3dvcs_particles_m" + std::to_string(model)).c_str(),
+                     "He3 DVCS particle kinematics", 2000, 1200);
+      canvas.Divide(4, 3);
+      for (size_t row = 0; row < histograms.size(); ++row) {
+        canvas.cd(static_cast<int>(4 * row + 1));
+        histograms[row].p->Draw("hist");
+        canvas.cd(static_cast<int>(4 * row + 2));
+        histograms[row].theta->Draw("hist");
+        canvas.cd(static_cast<int>(4 * row + 3));
+        histograms[row].phi->Draw("hist");
+        canvas.cd(static_cast<int>(4 * row + 4));
+        gPad->SetLogz();
+        histograms[row].pVsTheta->Draw("COLZ");
+      }
+      std::string output = outputDir + "/He3DVCS_particle_kinematics";
+      if (he3DVCSModels.size() > 1) output += "_model" + std::to_string(model);
+      output += ".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout << "[PlotParticleKinematicHe3DVCS] wrote " << output << std::endl;
+    }
+  }
+
+  void PlotDVCSKinematicHe3DVCS() {
+    if (he3DVCSModels.empty()) {
+      std::cerr << "[PlotDVCSKinematicHe3DVCS] no He3DVCS model was added.\n";
+      return;
+    }
+    fs::create_directories(outputDir);
+    for (size_t model = 0; model < he3DVCSModels.size(); ++model) {
+      const std::string prefix = "h_he3dvcs_kin_m" + std::to_string(model);
+      auto h_xb = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_xb").c_str(), ";x_{B};Events", 120, 0.0, 0.6}, "xB");
+      auto h_q2 = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_q2").c_str(), ";Q^{2} [GeV^{2}];Events", 120, 0.0, 8.0}, "Q2");
+      auto h_w = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_w").c_str(), ";W [GeV];Events", 120, 0.0, 5.0}, "W");
+      auto h_y = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_y").c_str(), ";y;Events", 120, 0.0, 1.0}, "y");
+      auto h_nu = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_nu").c_str(), ";#nu [GeV];Events", 120, 0.0, 11.0}, "nu");
+      auto h_t = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_t").c_str(), ";-t [GeV^{2}];Events", 120, 0.0, 1.0}, "minus_t");
+      auto h_phi = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_phi").c_str(), ";#phi [deg];Events", 120, 0.0, 360.0}, "phi");
+      auto h_xbq2 = he3DVCSModels[model]->Histo2D(
+          {(prefix + "_xbq2").c_str(), ";x_{B};Q^{2} [GeV^{2}]",
+           100, 0.0, 0.6, 100, 0.0, 8.0}, "xB", "Q2");
+
+      TCanvas canvas(("c_he3dvcs_kin_m" + std::to_string(model)).c_str(),
+                     "He3 DVCS kinematics", 1600, 900);
+      canvas.Divide(4, 2);
+      canvas.cd(1); gPad->SetLogy(); h_xb->Draw("hist");
+      canvas.cd(2); gPad->SetLogy(); h_q2->Draw("hist");
+      canvas.cd(3); gPad->SetLogy(); h_w->Draw("hist");
+      canvas.cd(4); gPad->SetLogy(); h_y->Draw("hist");
+      canvas.cd(5); gPad->SetLogy(); h_nu->Draw("hist");
+      canvas.cd(6); gPad->SetLogy(); h_t->Draw("hist");
+      canvas.cd(7); h_phi->Draw("hist");
+      canvas.cd(8); gPad->SetLogz(); h_xbq2->Draw("colz");
+      std::string output = outputDir + "/He3DVCS_DVCS_kinematics";
+      if (he3DVCSModels.size() > 1) output += "_model" + std::to_string(model);
+      output += ".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout << "[PlotDVCSKinematicHe3DVCS] wrote " << output << std::endl;
+    }
+  }
+
+  void PlotExclusivityHe3DVCS() {
+    if (he3DVCSModels.empty()) {
+      std::cerr << "[PlotExclusivityHe3DVCS] no He3DVCS model was added.\n";
+      return;
+    }
+    fs::create_directories(outputDir);
+    for (size_t model = 0; model < he3DVCSModels.size(); ++model) {
+      const std::string prefix = "h_he3dvcs_excl_m" + std::to_string(model);
+      auto h_mm2_ehe3 = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_mm2_ehe3").c_str(),
+           ";MM^{2}_{e^{3}He} [GeV^{2}];Events",
+           200, -0.2, 0.2}, "mm2_ehe3");
+      auto h_mm2_ehe3gamma = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_mm2_ehe3gamma").c_str(),
+           ";MM^{2}_{e^{3}He#gamma} [GeV^{2}];Events",
+           200, -0.1, 0.1}, "mm2_ehe3gamma");
+      auto h_mm2_egamma = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_mm2_egamma").c_str(),
+           ";MM^{2}_{e#gamma} [GeV^{2}];Events",
+           200, 7.0, 9.0}, "mm2_egamma");
+      auto h_emiss = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_emiss").c_str(),
+           ";E_{miss}(e^{3}He#gamma) [GeV];Events",
+           200, -0.2, 0.2}, "missing_energy");
+      auto h_ptmiss = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_ptmiss").c_str(),
+           ";P^{miss}_{T}(e^{3}He#gamma) [GeV];Events",
+           200, 0.0, 0.2}, "missing_pt");
+      auto h_theta_gg = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_theta_gg").c_str(),
+           ";#theta_{#gamma#gamma'} [deg];Events",
+           200, 0.0, 10.0}, "theta_gamma_gamma_pred");
+      auto h_theta_eg = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_theta_eg").c_str(),
+           ";#theta_{e#gamma} [deg];Events",
+           180, 0.0, 180.0}, "theta_e_gamma");
+      auto h_dphi = he3DVCSModels[model]->Histo1D(
+          {(prefix + "_dphi").c_str(),
+           ";#Delta#phi [deg];Events",
+           180, 0.0, 30.0}, "coplanarity");
+
+      TCanvas canvas(("c_he3dvcs_excl_m" + std::to_string(model)).c_str(),
+                     "He3 DVCS exclusivity", 1800, 900);
+      canvas.Divide(4, 2);
+      canvas.cd(1); h_mm2_ehe3->Draw("hist");
+      canvas.cd(2); h_mm2_ehe3gamma->Draw("hist");
+      canvas.cd(3); h_mm2_egamma->Draw("hist");
+      canvas.cd(4); h_emiss->Draw("hist");
+      canvas.cd(5); h_ptmiss->Draw("hist");
+      canvas.cd(6); h_theta_gg->Draw("hist");
+      canvas.cd(7); h_theta_eg->Draw("hist");
+      canvas.cd(8); h_dphi->Draw("hist");
+      std::string output = outputDir + "/He3DVCS_exclusivity";
+      if (he3DVCSModels.size() > 1) output += "_model" + std::to_string(model);
+      output += ".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout << "[PlotExclusivityHe3DVCS] wrote " << output << std::endl;
+    }
+  }
+
+  void PlotPolarizationHe3DVCS(
+      const std::vector<double>& xBbins = {},
+      const std::vector<double>& Q2bins = {},
+      const std::vector<double>& minusTbins = {}) {
+    if (he3DVCSModels.empty()) {
+      std::cerr << "[PlotPolarizationHe3DVCS] no He3DVCS model was added.\n";
+      return;
+    }
+    const bool makeBinnedPlots =
+        !xBbins.empty() || !Q2bins.empty() || !minusTbins.empty();
+    auto validEdges = [](const std::vector<double>& edges) {
+      return edges.size() >= 2 &&
+             std::adjacent_find(edges.begin(), edges.end(),
+                                std::greater_equal<double>()) == edges.end();
+    };
+    if (makeBinnedPlots &&
+        (!validEdges(xBbins) || !validEdges(Q2bins) ||
+         !validEdges(minusTbins))) {
+      throw std::invalid_argument(
+          "PlotPolarizationHe3DVCS requires strictly increasing xB, Q2, "
+          "and -t bin-edge vectors, each with at least two entries");
+    }
+    fs::create_directories(outputDir);
+    for (size_t model = 0; model < he3DVCSModels.size(); ++model) {
+      auto& df = *he3DVCSModels[model];
+      const std::string prefix = "h_he3dvcs_pol_m" + std::to_string(model);
+      auto h_beam = df.Histo1D({(prefix + "_beam").c_str(),
+          ";Beam helicity;Events", 3, -1.5, 1.5}, "MC_Event_helicity");
+      auto h_target = df.Histo1D({(prefix + "_target").c_str(),
+          ";Target polarization;Events", 3, -1.5, 1.5}, "MC_Event_targetPolarization");
+      auto h_spin = df.Histo1D({(prefix + "_spin").c_str(),
+          ";Beam #times target spin;Events", 3, -1.5, 1.5}, "beam_target_spin");
+      auto h_beam_pos = df.Filter("MC_Event_helicity == 1").Histo1D(
+          {(prefix + "_phi_beam_pos").c_str(), ";#phi [deg];Events", 24, 0.0, 360.0}, "phi");
+      auto h_beam_neg = df.Filter("MC_Event_helicity == -1").Histo1D(
+          {(prefix + "_phi_beam_neg").c_str(), ";#phi [deg];Events", 24, 0.0, 360.0}, "phi");
+      auto h_target_pos = df.Filter("MC_Event_targetPolarization == 1").Histo1D(
+          {(prefix + "_phi_target_pos").c_str(), ";#phi [deg];Events", 24, 0.0, 360.0}, "phi");
+      auto h_target_neg = df.Filter("MC_Event_targetPolarization == -1").Histo1D(
+          {(prefix + "_phi_target_neg").c_str(), ";#phi [deg];Events", 24, 0.0, 360.0}, "phi");
+      auto h_parallel = df.Filter("beam_target_spin == 1").Histo1D(
+          {(prefix + "_phi_parallel").c_str(), ";#phi [deg];Events", 24, 0.0, 360.0}, "phi");
+      auto h_antiparallel = df.Filter("beam_target_spin == -1").Histo1D(
+          {(prefix + "_phi_antiparallel").c_str(), ";#phi [deg];Events", 24, 0.0, 360.0}, "phi");
+
+      // For A=(N_1-N_2)/(N_1+N_2), N_1 and N_2 are disjoint Poisson
+      // counts.  The correlated numerator/denominator propagation gives
+      // sigma_A=sqrt((1-A^2)/(N_1+N_2)); TH1::Divide is not appropriate.
+      auto makeAsymmetry = [](const TH1D& first, const TH1D& second,
+                              const std::string& name,
+                              const std::string& yTitle,
+                              const std::string& label) {
+        auto result = std::unique_ptr<TH1D>(
+            static_cast<TH1D*>(first.Clone(name.c_str())));
+        result->Reset("ICES");
+        result->SetDirectory(nullptr);
+        result->SetTitle((";#phi [deg];" + yTitle).c_str());
+        result->SetMinimum(-1.0);
+        result->SetMaximum(1.0);
+
+        std::cout << "[He3DVCS " << label
+                  << "] bin  phi_center  N1  N2  asymmetry  stat_error\n";
+        for (int bin = 1; bin <= result->GetNbinsX(); ++bin) {
+          const double n1 = first.GetBinContent(bin);
+          const double n2 = second.GetBinContent(bin);
+          const double total = n1 + n2;
+          double asymmetry = 0.0;
+          double error = 0.0;
+          if (total > 0.0) {
+            asymmetry = (n1 - n2) / total;
+            error = std::sqrt(std::max(0.0, 1.0 - asymmetry * asymmetry) /
+                              total);
+          }
+          result->SetBinContent(bin, asymmetry);
+          result->SetBinError(bin, error);
+          std::cout << "  " << bin << "  " << result->GetBinCenter(bin)
+                    << "  " << n1 << "  " << n2 << "  " << asymmetry
+                    << "  " << error << '\n';
+        }
+        return result;
+      };
+
+      struct BinnedActions {
+        size_t ix;
+        size_t iq;
+        size_t it;
+        ROOT::RDF::RResultPtr<TH1D> beamPos;
+        ROOT::RDF::RResultPtr<TH1D> beamNeg;
+        ROOT::RDF::RResultPtr<TH1D> targetPos;
+        ROOT::RDF::RResultPtr<TH1D> targetNeg;
+        ROOT::RDF::RResultPtr<TH1D> parallel;
+        ROOT::RDF::RResultPtr<TH1D> antiparallel;
+      };
+      std::vector<BinnedActions> binnedActions;
+
+      // Book the inclusive and every binned action before the first
+      // GetValue().  ROOT then fills everything in one event loop.
+      if (makeBinnedPlots) {
+        for (size_t ix = 0; ix + 1 < xBbins.size(); ++ix) {
+          for (size_t iq = 0; iq + 1 < Q2bins.size(); ++iq) {
+            for (size_t it = 0; it + 1 < minusTbins.size(); ++it) {
+              const double xLo = xBbins[ix], xHi = xBbins[ix + 1];
+              const double qLo = Q2bins[iq], qHi = Q2bins[iq + 1];
+              const double tLo = minusTbins[it], tHi = minusTbins[it + 1];
+              const bool lastX = ix + 2 == xBbins.size();
+              const bool lastQ = iq + 2 == Q2bins.size();
+              const bool lastT = it + 2 == minusTbins.size();
+              const std::string binLabel =
+                  "He3DVCS xB[" + std::to_string(xLo) + "," +
+                  std::to_string(xHi) + "] Q2[" + std::to_string(qLo) +
+                  "," + std::to_string(qHi) + "] -t[" +
+                  std::to_string(tLo) + "," + std::to_string(tHi) + "]";
+              auto binDf = df.Filter(
+                  [=](double xb, double q2, double minusT) {
+                    const bool passX =
+                        xb >= xLo && (xb < xHi || (lastX && xb <= xHi));
+                    const bool passQ =
+                        q2 >= qLo && (q2 < qHi || (lastQ && q2 <= qHi));
+                    const bool passT =
+                        minusT >= tLo &&
+                        (minusT < tHi || (lastT && minusT <= tHi));
+                    return passX && passQ && passT;
+                  },
+                  {"xB", "Q2", "minus_t"}, binLabel);
+              const std::string binPrefix =
+                  prefix + "_xb" + std::to_string(ix) + "_q2" +
+                  std::to_string(iq) + "_t" + std::to_string(it);
+              auto phiModel = [&](const std::string& suffix) {
+                return ROOT::RDF::TH1DModel(
+                    (binPrefix + suffix).c_str(), ";#phi [deg];Events",
+                    24, 0.0, 360.0);
+              };
+              binnedActions.push_back({
+                  ix, iq, it,
+                  binDf.Filter("MC_Event_helicity == 1").Histo1D(
+                      phiModel("_beam_pos"), "phi"),
+                  binDf.Filter("MC_Event_helicity == -1").Histo1D(
+                      phiModel("_beam_neg"), "phi"),
+                  binDf.Filter("MC_Event_targetPolarization == 1").Histo1D(
+                      phiModel("_target_pos"), "phi"),
+                  binDf.Filter("MC_Event_targetPolarization == -1").Histo1D(
+                      phiModel("_target_neg"), "phi"),
+                  binDf.Filter("beam_target_spin == 1").Histo1D(
+                      phiModel("_parallel"), "phi"),
+                  binDf.Filter("beam_target_spin == -1").Histo1D(
+                      phiModel("_antiparallel"), "phi")});
+            }
+          }
+        }
+      }
+
+      // This first dereference triggers the single common RDataFrame loop.
+      const TH1D& beam_pos = h_beam_pos.GetValue();
+      const TH1D& beam_neg = h_beam_neg.GetValue();
+      const TH1D& target_pos = h_target_pos.GetValue();
+      const TH1D& target_neg = h_target_neg.GetValue();
+      const TH1D& parallel = h_parallel.GetValue();
+      const TH1D& antiparallel = h_antiparallel.GetValue();
+
+      auto alu = makeAsymmetry(beam_pos, beam_neg, prefix + "_alu",
+                               "A_{LU}", "A_LU: beam + versus beam -");
+      auto aul = makeAsymmetry(target_pos, target_neg, prefix + "_aul",
+                               "A_{UL}", "A_UL: target + versus target -");
+      auto all = makeAsymmetry(parallel, antiparallel, prefix + "_all",
+                               "A_{LL}", "A_LL: parallel versus antiparallel");
+
+      TCanvas canvas(("c_he3dvcs_pol_m" + std::to_string(model)).c_str(),
+                     "He3 DVCS polarization", 1800, 900);
+      canvas.Divide(3, 2);
+      canvas.cd(1); h_beam->Draw("hist");
+      canvas.cd(2); h_target->Draw("hist");
+      canvas.cd(3); h_spin->Draw("hist");
+      canvas.cd(4); alu->Draw("E1");
+      canvas.cd(5); aul->Draw("E1");
+      canvas.cd(6); all->Draw("E1");
+      std::string output = outputDir + "/He3DVCS_polarization";
+      if (he3DVCSModels.size() > 1) output += "_model" + std::to_string(model);
+      output += ".pdf";
+      canvas.SaveAs(output.c_str());
+      std::cout << "[PlotPolarizationHe3DVCS] wrote " << output << std::endl;
+
+      if (!makeBinnedPlots) continue;
+
+      for (auto& actions : binnedActions) {
+        const std::string binKey =
+            "xb" + std::to_string(actions.ix) + "_q2" +
+            std::to_string(actions.iq) + "_t" +
+            std::to_string(actions.it);
+        const std::string ranges =
+            "x_{B} #in [" + std::to_string(xBbins[actions.ix]) + ", " +
+            std::to_string(xBbins[actions.ix + 1]) + "], Q^{2} #in [" +
+            std::to_string(Q2bins[actions.iq]) + ", " +
+            std::to_string(Q2bins[actions.iq + 1]) + "], -t #in [" +
+            std::to_string(minusTbins[actions.it]) + ", " +
+            std::to_string(minusTbins[actions.it + 1]) + "]";
+        auto binAlu = makeAsymmetry(
+            actions.beamPos.GetValue(), actions.beamNeg.GetValue(),
+            prefix + "_" + binKey + "_alu", "A_{LU}",
+            binKey + " A_LU");
+        auto binAul = makeAsymmetry(
+            actions.targetPos.GetValue(), actions.targetNeg.GetValue(),
+            prefix + "_" + binKey + "_aul", "A_{UL}",
+            binKey + " A_UL");
+        auto binAll = makeAsymmetry(
+            actions.parallel.GetValue(), actions.antiparallel.GetValue(),
+            prefix + "_" + binKey + "_all", "A_{LL}",
+            binKey + " A_LL");
+        binAlu->SetTitle((ranges + ";#phi [deg];A_{LU}").c_str());
+        binAul->SetTitle((ranges + ";#phi [deg];A_{UL}").c_str());
+        binAll->SetTitle((ranges + ";#phi [deg];A_{LL}").c_str());
+
+        TCanvas binCanvas(("c_he3dvcs_pol_" + binKey + "_m" +
+                           std::to_string(model)).c_str(),
+                          "Binned He3 DVCS polarization", 1800, 550);
+        binCanvas.Divide(3, 1);
+        binCanvas.cd(1); binAlu->Draw("E1");
+        binCanvas.cd(2); binAul->Draw("E1");
+        binCanvas.cd(3); binAll->Draw("E1");
+        std::string binOutput = outputDir + "/He3DVCS_polarization_" + binKey;
+        if (he3DVCSModels.size() > 1)
+          binOutput += "_model" + std::to_string(model);
+        binOutput += ".pdf";
+        binCanvas.SaveAs(binOutput.c_str());
+        std::cout << "[PlotPolarizationHe3DVCS] wrote " << binOutput
+                  << std::endl;
+      }
+    }
+  }
+
+  // Draw p, theta, phi, and p-vs-theta for every final-state particle in each of the
   // three He3DIS topologies. With one registered He3 model this produces
   // exactly three PDF files: epp, ed, and epn.
   void PlotParticleKinematicHe3() {
@@ -206,6 +3394,7 @@ class DISANAcomparer {
           ROOT::RDF::RResultPtr<TH1D> momentum;
           ROOT::RDF::RResultPtr<TH1D> theta;
           ROOT::RDF::RResultPtr<TH1D> phi;
+          ROOT::RDF::RResultPtr<TH2D> pVsTheta;
         };
         std::vector<ParticleHistograms> histograms;
         histograms.reserve(topology.particles.size());
@@ -241,6 +3430,11 @@ class DISANAcomparer {
                                          particle.title + ") [deg];Events";
           const std::string phiTitle = topology.title + ";#phi(" +
                                        particle.title + ") [deg];Events";
+          const std::string pVsThetaName =
+              "h_" + prefix + "_p_vs_theta";
+          const std::string pVsThetaTitle =
+              topology.title + ";#theta(" + particle.title +
+              ") [deg];p(" + particle.title + ") [GeV]";
 
           histograms.push_back({
               df.Histo1D({pName.c_str(), pTitle.c_str(), 120, 0.0,
@@ -251,23 +3445,30 @@ class DISANAcomparer {
                          thetaColumn),
               df.Histo1D({phiName.c_str(), phiTitle.c_str(), 120, 0.0,
                           360.0},
-                         phiColumn)});
+                         phiColumn),
+              df.Histo2D({pVsThetaName.c_str(), pVsThetaTitle.c_str(),
+                          100, 0.0, particle.thetaMax,
+                          100, 0.0, particle.momentumMax},
+                         thetaColumn, pColumn)});
         }
 
         const int rows = static_cast<int>(topology.particles.size());
         const std::string canvasName =
             "c_he3_m" + std::to_string(modelIndex) + "_" + topology.key;
-        TCanvas canvas(canvasName.c_str(), topology.title.c_str(), 1500,
+        TCanvas canvas(canvasName.c_str(), topology.title.c_str(), 2000,
                        400 * rows);
-        canvas.Divide(3, rows);
+        canvas.Divide(4, rows);
 
         for (size_t row = 0; row < histograms.size(); ++row) {
-          canvas.cd(static_cast<int>(3 * row + 1));
+          canvas.cd(static_cast<int>(4 * row + 1));
           histograms[row].momentum->Draw("hist");
-          canvas.cd(static_cast<int>(3 * row + 2));
+          canvas.cd(static_cast<int>(4 * row + 2));
           histograms[row].theta->Draw("hist");
-          canvas.cd(static_cast<int>(3 * row + 3));
+          canvas.cd(static_cast<int>(4 * row + 3));
           histograms[row].phi->Draw("hist");
+          canvas.cd(static_cast<int>(4 * row + 4));
+          gPad->SetLogz();
+          histograms[row].pVsTheta->Draw("COLZ");
         }
 
         std::string pdfName = outputDir + "/He3_" + topology.key +
@@ -787,28 +3988,37 @@ class DISANAcomparer {
       std::map<std::string, std::unique_ptr<TGraphErrors>> a1VsMomentumGraphs;
       std::map<std::string, std::string> paramGraphTitles;
       std::map<std::string, std::string> paramGraphXTitles;
+      std::array<std::array<double, 2>, 3> cdPhiA0MomentumCoefficients{};
+      std::array<std::array<double, 2>, 3> cdPhiA1MomentumCoefficients{};
+      bool cdPhiCorrectionModelValid = false;
 
-      auto shouldCollectThetaParam = [](const std::string& ratioTag, int detector, const std::string& xTag, const std::string& rangeName) {
-        if (xTag != "theta" || rangeName == "_all") return false;
-        if (ratioTag == "photonE") return detector == 0 || detector == 1;  // photon FT/FD
-        if (ratioTag == "protonP") return detector == 1 || detector == 2;   // proton FD/CD
-        return false;
+      auto shouldCollectParam = [](const std::string& ratioTag, int detector,
+                                   const std::string& xTag, const std::string& rangeName) {
+        if (rangeName == "_all") return false;
+        if (xTag == "theta") {
+          if (ratioTag == "photonE") return detector == 0 || detector == 1;  // photon FT/FD
+          if (ratioTag == "protonP") return detector == 1 || detector == 2;   // proton FD/CD
+        }
+        return xTag == "phi" && ratioTag == "protonP" && detector == 2;
       };
 
-      auto fillThetaParamGraphs = [&](const std::string& ratioTag, const std::string& detectorName,
-                                      const std::string& particleLabel, const std::string& rangeAxisTitle,
-                                      double rangeCenter, double rangeError, TF1* fit) {
+      auto fillParamGraphs = [&](const std::string& ratioTag, const std::string& detectorName,
+                                 const std::string& keySuffix,
+                                 const std::string& particleLabel, const std::string& rangeAxisTitle,
+                                 double rangeCenter, double rangeError, TF1* fit) {
         if (!fit || !std::isfinite(rangeCenter) || !std::isfinite(rangeError) || rangeError <= 0.0) return;
         const double a0Err = fit->GetParError(0);
         if (!std::isfinite(a0Err) || a0Err > 0.1) return;
 
-        const std::string key = ratioTag + "_" + detectorName;
+        const std::string key = ratioTag + "_" + detectorName + keySuffix;
         if (!a0VsMomentumGraphs.count(key)) {
           a0VsMomentumGraphs[key] = std::make_unique<TGraphErrors>();
           a1VsMomentumGraphs[key] = std::make_unique<TGraphErrors>();
           a0VsMomentumGraphs[key]->SetName(Form("g_%s_%s_a0_vs_momentum", tag.c_str(), key.c_str()));
           a1VsMomentumGraphs[key]->SetName(Form("g_%s_%s_a1_vs_momentum", tag.c_str(), key.c_str()));
-          paramGraphTitles[key] = Form("%s %s %s", label.c_str(), particleLabel.c_str(), detectorName.c_str());
+          const std::string segmentTitle = keySuffix.empty() ? "" : " " + keySuffix.substr(1);
+          paramGraphTitles[key] = Form("%s %s %s%s", label.c_str(), particleLabel.c_str(),
+                                       detectorName.c_str(), segmentTitle.c_str());
           paramGraphXTitles[key] = rangeAxisTitle + " [GeV]";
         }
 
@@ -890,20 +4100,28 @@ class DISANAcomparer {
                                double rangeCenter, double rangeError,
                                const std::string& xColumn, const std::string& xTag,
                                const std::string& xTitle, int histXBins, int fitXBins,
-                               double xMin, double xMax) {
+                               double xMin, double xMax, const std::string& ratioColumn,
+                               const std::string& stageTag, const std::string& ratioTitle,
+                               bool collectFitParams) {
             const int minFitEntries = minFitEntriesFor(ratioSpec.tag, detCase.first, xTag);
+            const std::string outputRatioTag = stageTag.empty()
+                                                   ? "trueOverExp"
+                                                   : "trueOverPhiCorrectedExp";
+            const std::string outputPeakRatioTag = stageTag.empty()
+                                                       ? "TrueOverExp"
+                                                       : "TrueOverPhiCorrectedExp";
             auto dfGood = dfRange.Filter([](double x, double ratio) {
               return std::isfinite(x) && std::isfinite(ratio);
-            }, {xColumn, ratioSpec.ratio});
+            }, {xColumn, ratioColumn});
 
-            auto h = dfGood.Histo2D({Form("h_momcorr_%s_%s_%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()),
-                                     Form("%s %s %s %s;%s;%s true/exp;Events",
-                                          label.c_str(), ratioSpec.particle.c_str(), detCase.second.c_str(), rangeTitle.c_str(), xTitle.c_str(), ratioSpec.particle.c_str()),
+            auto h = dfGood.Histo2D({Form("h_momcorr_%s_%s_%s%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), stageTag.c_str(), rangeName.c_str(), xTag.c_str()),
+                                     Form("%s %s %s %s;%s;%s %s;Events",
+                                          label.c_str(), ratioSpec.particle.c_str(), detCase.second.c_str(), rangeTitle.c_str(), xTitle.c_str(), ratioSpec.particle.c_str(), ratioTitle.c_str()),
                                      histXBins, xMin, xMax,
                                      160, 0.5, 1.5},
-                                    xColumn, ratioSpec.ratio);
+                                    xColumn, ratioColumn);
 
-            TCanvas c(Form("c_momcorr_%s_%s_%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()), "", 950, 850);
+            TCanvas c(Form("c_momcorr_%s_%s_%s%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), stageTag.c_str(), rangeName.c_str(), xTag.c_str()), "", 950, 850);
             c.SetRightMargin(0.16);
             c.SetLeftMargin(0.13);
             c.SetBottomMargin(0.13);
@@ -914,26 +4132,27 @@ class DISANAcomparer {
             unity.SetLineStyle(2);
             unity.SetLineWidth(2);
             unity.Draw("SAME");
-            c.SaveAs(Form("%s/%s_%s_%s%s_trueOverExp_vs_%s_momentumCorrection2D.png",
-                          ratioHistDir.c_str(), tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()));
+            c.SaveAs(Form("%s/%s_%s_%s%s%s_%s_vs_%s_momentumCorrection2D.png",
+                          ratioHistDir.c_str(), tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
+                          stageTag.c_str(), rangeName.c_str(), outputRatioTag.c_str(), xTag.c_str()));
 
-            auto hFit = dfGood.Histo2D({Form("hfit_momcorr_%s_%s_%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()),
-                                        Form("%s %s %s %s;%s;%s true/exp;Events",
-                                             label.c_str(), ratioSpec.particle.c_str(), detCase.second.c_str(), rangeTitle.c_str(), xTitle.c_str(), ratioSpec.particle.c_str()),
+            auto hFit = dfGood.Histo2D({Form("hfit_momcorr_%s_%s_%s%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), stageTag.c_str(), rangeName.c_str(), xTag.c_str()),
+                                        Form("%s %s %s %s;%s;%s %s;Events",
+                                             label.c_str(), ratioSpec.particle.c_str(), detCase.second.c_str(), rangeTitle.c_str(), xTitle.c_str(), ratioSpec.particle.c_str(), ratioTitle.c_str()),
                                         fitXBins, xMin, xMax,
                                         160, 0.5, 1.5},
-                                       xColumn, ratioSpec.ratio);
+                                       xColumn, ratioColumn);
             TH2D* h2 = hFit.GetPtr();
             TGraphErrors graph;
-            graph.SetName(Form("g_peak_%s_%s_%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()));
-            graph.SetTitle(Form("%s %s %s %s;%s;%s peak true/exp",
-                                label.c_str(), ratioSpec.particle.c_str(), detCase.second.c_str(), rangeTitle.c_str(), xTitle.c_str(), ratioSpec.particle.c_str()));
+            graph.SetName(Form("g_peak_%s_%s_%s%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), stageTag.c_str(), rangeName.c_str(), xTag.c_str()));
+            graph.SetTitle(Form("%s %s %s %s;%s;%s peak %s",
+                                label.c_str(), ratioSpec.particle.c_str(), detCase.second.c_str(), rangeTitle.c_str(), xTitle.c_str(), ratioSpec.particle.c_str(), ratioTitle.c_str()));
 
             int point = 0;
             for (int ibin = 1; ibin <= h2->GetNbinsX(); ++ibin) {
-              std::unique_ptr<TH1D> proj(h2->ProjectionY(Form("py_%s_%s_%s%s_%s_%d",
+              std::unique_ptr<TH1D> proj(h2->ProjectionY(Form("py_%s_%s_%s%s%s_%s_%d",
                                                               tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
-                                                              rangeName.c_str(), xTag.c_str(), ibin),
+                                                              stageTag.c_str(), rangeName.c_str(), xTag.c_str(), ibin),
                                                         ibin, ibin));
               if (!proj || proj->GetEntries() < minFitEntries || proj->Integral() <= 0.0) continue;
 
@@ -941,9 +4160,9 @@ class DISANAcomparer {
               const double rms = proj->GetRMS();
               if (!std::isfinite(mean) || !std::isfinite(rms) || rms <= 0.0) continue;
 
-              TF1 gaus(Form("fit_%s_%s_%s%s_%s_%d",
+              TF1 gaus(Form("fit_%s_%s_%s%s%s_%s_%d",
                             tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
-                            rangeName.c_str(), xTag.c_str(), ibin),
+                            stageTag.c_str(), rangeName.c_str(), xTag.c_str(), ibin),
                        "gaus", 0.5, 1.5);
               gaus.SetParameters(proj->GetMaximum(), mean, rms);
               const int fitStatus = proj->Fit(&gaus, "QNR");
@@ -959,27 +4178,109 @@ class DISANAcomparer {
               ++point;
             }
 
-            TCanvas cFit(Form("c_peak_%s_%s_%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()), "", 950, 850);
+            TCanvas cFit(Form("c_peak_%s_%s_%s%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), stageTag.c_str(), rangeName.c_str(), xTag.c_str()), "", 950, 850);
             cFit.SetRightMargin(0.05);
             cFit.SetLeftMargin(0.13);
             cFit.SetBottomMargin(0.13);
-            TH1D frame(Form("frame_peak_%s_%s_%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()),
+            TH1D frame(Form("frame_peak_%s_%s_%s%s%s_vs_%s", tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), stageTag.c_str(), rangeName.c_str(), xTag.c_str()),
                        graph.GetTitle(), fitXBins, xMin, xMax);
             frame.SetMinimum(0.5);
             frame.SetMaximum(1.5);
             frame.SetStats(0);
             frame.Draw();
-            if (graph.GetN() > 3) {
-              auto* linearFit = new TF1(Form("linfit_%s_%s_%s%s_vs_%s",
+            const bool splitProtonCDPhi =
+                ratioSpec.tag == "protonP" && detCase.first == 2 && xTag == "phi";
+            if (splitProtonCDPhi) {
+              struct PhiSegment {
+                const char* name;
+                double phiMin;
+                double phiMax;
+                double phiOrigin;
+                bool wrapsZero;
+              };
+              const std::array<PhiSegment, 3> phiSegments = {{
+                  {"phiSeg1", 20.0, 140.0, 20.0, false},
+                  {"phiSeg2", 150.0, 250.0, 150.0, false},
+                  {"phiSeg3", 260.0, 370.0, 260.0, true},
+              }};
+              const std::array<int, 3> segmentColors = {kRed + 1, kBlue + 1, kGreen + 2};
+
+              for (size_t iseg = 0; iseg < phiSegments.size(); ++iseg) {
+                const auto& segment = phiSegments[iseg];
+                TGraphErrors segmentGraph;
+                segmentGraph.SetName(Form("gfit_%s_%s_%s%s%s_%s",
+                                          tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
+                                          stageTag.c_str(), rangeName.c_str(), segment.name));
+                for (int ip = 0; ip < graph.GetN(); ++ip) {
+                  double phiDeg = 0.0;
+                  double peak = 0.0;
+                  graph.GetPoint(ip, phiDeg, peak);
+                  double phiUnwrapped = phiDeg;
+                  if (segment.wrapsZero && phiDeg < 20.0) phiUnwrapped += 360.0;
+                  const bool inSegment = segment.wrapsZero
+                                             ? phiUnwrapped >= segment.phiMin && phiUnwrapped <= segment.phiMax
+                                             : phiUnwrapped >= segment.phiMin && phiUnwrapped < segment.phiMax;
+                  if (!inSegment) continue;
+                  const int jp = segmentGraph.GetN();
+                  segmentGraph.SetPoint(jp, phiUnwrapped - segment.phiOrigin, peak);
+                  segmentGraph.SetPointError(jp, graph.GetErrorX(ip), graph.GetErrorY(ip));
+                }
+                if (segmentGraph.GetN() <= 3) continue;
+
+                auto* segmentFit = new TF1(
+                    Form("linfit_%s_%s_%s%s%s_%s",
+                         tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
+                         stageTag.c_str(), rangeName.c_str(), segment.name),
+                    "[0]+[1]*x", 0.0, segment.phiMax - segment.phiOrigin);
+                const int fitStatus = segmentGraph.Fit(segmentFit, "QNEX0");
+                if (fitStatus != 0) {
+                  delete segmentFit;
+                  continue;
+                }
+
+                if (collectFitParams && shouldCollectParam(ratioSpec.tag, detCase.first, xTag, rangeName)) {
+                  fillParamGraphs(ratioSpec.tag, detCase.second,
+                                  std::string("_") + segment.name,
+                                  ratioSpec.particle, ratioSpec.rangeTitle,
+                                  rangeCenter, rangeError, segmentFit);
+                }
+
+                auto drawSegmentLine = [&](const char* suffix, const char* formula,
+                                           double drawMin, double drawMax, double offset) {
+                  auto* line = new TF1(
+                      Form("displayfit_%s_%s_%s%s%s_%s_%s",
+                           tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
+                           stageTag.c_str(), rangeName.c_str(), segment.name, suffix),
+                      formula, drawMin, drawMax);
+                  line->SetParameter(0, segmentFit->GetParameter(0));
+                  line->SetParameter(1, segmentFit->GetParameter(1));
+                  line->SetParameter(2, offset);
+                  line->SetLineColor(segmentColors[iseg]);
+                  line->SetLineWidth(3);
+                  line->SetBit(TObject::kCanDelete);
+                  line->Draw("SAME");
+                };
+
+                if (!segment.wrapsZero) {
+                  drawSegmentLine("main", "[0]+[1]*(x-[2])",
+                                  segment.phiMin, segment.phiMax, segment.phiOrigin);
+                } else {
+                  drawSegmentLine("high", "[0]+[1]*(x-[2])", 260.0, 360.0, 260.0);
+                  drawSegmentLine("low", "[0]+[1]*(x+[2])", 0.0, 10.0, 100.0);
+                }
+                delete segmentFit;
+              }
+            } else if (graph.GetN() > 3) {
+              auto* linearFit = new TF1(Form("linfit_%s_%s_%s%s%s_vs_%s",
                                              tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
-                                             rangeName.c_str(), xTag.c_str()),
+                                             stageTag.c_str(), rangeName.c_str(), xTag.c_str()),
                                         "[0]+[1]*x", xMin, xMax);
               const int linearFitStatus = graph.Fit(linearFit, "QEX0");
               if (linearFitStatus == 0) {
                 auto* fitBand = new TGraphErrors(200);
-                fitBand->SetName(Form("band_%s_%s_%s%s_vs_%s",
+                fitBand->SetName(Form("band_%s_%s_%s%s%s_vs_%s",
                                       tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
-                                      rangeName.c_str(), xTag.c_str()));
+                                      stageTag.c_str(), rangeName.c_str(), xTag.c_str()));
                 for (int ip = 0; ip < 200; ++ip) {
                   const double x = xMin + (xMax - xMin) * static_cast<double>(ip) / 199.0;
                   fitBand->SetPoint(ip, x, linearFit->Eval(x));
@@ -997,9 +4298,12 @@ class DISANAcomparer {
                 linearFit->SetLineWidth(3);
                 linearFit->SetBit(TObject::kCanDelete);
                 linearFit->Draw("SAME");
-                if (shouldCollectThetaParam(ratioSpec.tag, detCase.first, xTag, rangeName)) {
-                  fillThetaParamGraphs(ratioSpec.tag, detCase.second, ratioSpec.particle, ratioSpec.rangeTitle,
-                                       rangeCenter, rangeError, linearFit);
+                if (collectFitParams && shouldCollectParam(ratioSpec.tag, detCase.first, xTag, rangeName)) {
+                  const std::string particleLabel = stageTag.empty()
+                                                        ? ratioSpec.particle
+                                                        : ratioSpec.particle + " after #phi correction";
+                  fillParamGraphs(ratioSpec.tag, detCase.second, "", particleLabel, ratioSpec.rangeTitle,
+                                  rangeCenter, rangeError, linearFit);
                 }
               }
             }
@@ -1015,22 +4319,28 @@ class DISANAcomparer {
             unityPeak.SetLineStyle(2);
             unityPeak.SetLineWidth(2);
             unityPeak.Draw("SAME");
-            cFit.SaveAs(Form("%s/%s_%s_%s%s_peakTrueOverExp_vs_%s_momentumCorrection.png",
-                             outdir.c_str(), tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(), rangeName.c_str(), xTag.c_str()));
+            cFit.SaveAs(Form("%s/%s_%s_%s%s%s_peak%s_vs_%s_momentumCorrection.png",
+                             outdir.c_str(), tag.c_str(), ratioSpec.tag.c_str(), detCase.second.c_str(),
+                             stageTag.c_str(), rangeName.c_str(), outputPeakRatioTag.c_str(), xTag.c_str()));
 
           };
 
           const auto thetaRange = thetaRangeFor(ratioSpec.tag, detCase.first);
-          drawRatio(dfDet, "_all", "all", std::numeric_limits<double>::quiet_NaN(), 0.0,
-                    ratioSpec.thetaColumn, "theta", "#theta [deg]",
-                    ratioHistXBinsFor(ratioSpec.tag, detCase.first, "theta"),
-                    ratioXBinsFor(ratioSpec.tag, detCase.first, "theta"),
-                    thetaRange.first, thetaRange.second);
+          const bool sequentialProtonCD = ratioSpec.tag == "protonP" && detCase.first == 2;
+          if (!sequentialProtonCD) {
+            drawRatio(dfDet, "_all", "all", std::numeric_limits<double>::quiet_NaN(), 0.0,
+                      ratioSpec.thetaColumn, "theta", "#theta [deg]",
+                      ratioHistXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                      ratioXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                      thetaRange.first, thetaRange.second,
+                      ratioSpec.ratio, "", "true/exp", true);
+          }
           drawRatio(dfDet, "_all", "all", std::numeric_limits<double>::quiet_NaN(), 0.0,
                     ratioSpec.phiColumn, "phi", "#phi [deg]",
                     ratioHistXBinsFor(ratioSpec.tag, detCase.first, "phi"),
                     ratioXBinsFor(ratioSpec.tag, detCase.first, "phi"),
-                    0.0, 360.0);
+                    0.0, 360.0,
+                    ratioSpec.ratio, "", "true/exp", true);
           for (size_t irange = 0; irange < ratioSpec.ranges.size(); ++irange) {
             const auto& range = ratioSpec.ranges[irange];
             const bool lastRange = irange + 1 == ratioSpec.ranges.size();
@@ -1042,20 +4352,166 @@ class DISANAcomparer {
                                                     ratioSpec.rangeTitle.c_str(), range.first, range.second, lastRange ? "]" : ")");
             const double rangeCenter = 0.5 * (range.first + range.second);
             const double rangeError = 0.5 * (range.second - range.first);
-            drawRatio(dfRange, thisRangeTag, thisRangeTitle, rangeCenter, rangeError,
-                      ratioSpec.thetaColumn, "theta", "#theta [deg]",
-                      ratioHistXBinsFor(ratioSpec.tag, detCase.first, "theta"),
-                      ratioXBinsFor(ratioSpec.tag, detCase.first, "theta"),
-                      thetaRange.first, thetaRange.second);
+            if (!sequentialProtonCD) {
+              drawRatio(dfRange, thisRangeTag, thisRangeTitle, rangeCenter, rangeError,
+                        ratioSpec.thetaColumn, "theta", "#theta [deg]",
+                        ratioHistXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                        ratioXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                        thetaRange.first, thetaRange.second,
+                        ratioSpec.ratio, "", "true/exp", true);
+            }
             drawRatio(dfRange, thisRangeTag, thisRangeTitle, rangeCenter, rangeError,
                       ratioSpec.phiColumn, "phi", "#phi [deg]",
                       ratioHistXBinsFor(ratioSpec.tag, detCase.first, "phi"),
                       ratioXBinsFor(ratioSpec.tag, detCase.first, "phi"),
-                      0.0, 360.0);
+                      0.0, 360.0,
+                      ratioSpec.ratio, "", "true/exp", true);
+          }
+
+          if (sequentialProtonCD) {
+            auto fitMomentumDependence = [&](TGraphErrors* source, const std::string& fitName,
+                                             double errorFloor, std::array<double, 2>& coefficients) {
+              if (!source || source->GetN() < 2) return false;
+              TGraphErrors fitGraph;
+              double pMin = std::numeric_limits<double>::infinity();
+              double pMax = -std::numeric_limits<double>::infinity();
+              for (int ip = 0; ip < source->GetN(); ++ip) {
+                double p = 0.0;
+                double value = 0.0;
+                source->GetPoint(ip, p, value);
+                const int jp = fitGraph.GetN();
+                fitGraph.SetPoint(jp, p, value);
+                fitGraph.SetPointError(jp, source->GetErrorX(ip),
+                                       std::max(source->GetErrorY(ip), errorFloor));
+                pMin = std::min(pMin, p);
+                pMax = std::max(pMax, p);
+              }
+              if (!std::isfinite(pMin) || !std::isfinite(pMax) || pMax <= pMin) return false;
+              TF1 fit(fitName.c_str(), "[0]+[1]*x", pMin, pMax);
+              if (fitGraph.Fit(&fit, "QNEX0") != 0) return false;
+              coefficients = {fit.GetParameter(0), fit.GetParameter(1)};
+              return std::isfinite(coefficients[0]) && std::isfinite(coefficients[1]);
+            };
+
+            bool allPhiFitsValid = true;
+            for (size_t iseg = 0; iseg < 3; ++iseg) {
+              const std::string segmentKey = "protonP_CD_phiSeg" + std::to_string(iseg + 1);
+              const auto a0It = a0VsMomentumGraphs.find(segmentKey);
+              const auto a1It = a1VsMomentumGraphs.find(segmentKey);
+              const bool a0Valid = a0It != a0VsMomentumGraphs.end() &&
+                                   fitMomentumDependence(a0It->second.get(),
+                                       Form("fit_%s_%s_a0_forSequentialCorrection", tag.c_str(), segmentKey.c_str()),
+                                       0.006, cdPhiA0MomentumCoefficients[iseg]);
+              const bool a1Valid = a1It != a1VsMomentumGraphs.end() &&
+                                   fitMomentumDependence(a1It->second.get(),
+                                       Form("fit_%s_%s_a1_forSequentialCorrection", tag.c_str(), segmentKey.c_str()),
+                                       0.00035, cdPhiA1MomentumCoefficients[iseg]);
+              allPhiFitsValid = allPhiFitsValid && a0Valid && a1Valid;
+            }
+            cdPhiCorrectionModelValid = allPhiFitsValid;
+
+            if (!cdPhiCorrectionModelValid) {
+              std::cerr << "[PlotMomentumCorrection] Could not build all three CD proton phi models for "
+                        << label << "; skipping the phi-corrected residual fits.\n";
+            } else {
+              auto phiCorrectionScale = [a0Coefficients = cdPhiA0MomentumCoefficients,
+                                         a1Coefficients = cdPhiA1MomentumCoefficients]
+                                        (double p, double phiDeg) {
+                if (!std::isfinite(p) || !std::isfinite(phiDeg) || p <= 0.0)
+                  return std::numeric_limits<double>::quiet_NaN();
+                while (phiDeg < 0.0) phiDeg += 360.0;
+                while (phiDeg >= 360.0) phiDeg -= 360.0;
+
+                size_t segment = 0;
+                double phiLocal = 0.0;
+                if (phiDeg >= 20.0 && phiDeg < 140.0) {
+                  segment = 0;
+                  phiLocal = phiDeg - 20.0;
+                } else if (phiDeg >= 150.0 && phiDeg < 250.0) {
+                  segment = 1;
+                  phiLocal = phiDeg - 150.0;
+                } else if (phiDeg >= 260.0 || phiDeg < 10.0) {
+                  segment = 2;
+                  const double phiUnwrapped = phiDeg < 10.0 ? phiDeg + 360.0 : phiDeg;
+                  phiLocal = phiUnwrapped - 260.0;
+                } else {
+                  return std::numeric_limits<double>::quiet_NaN();
+                }
+
+                const double a0 = a0Coefficients[segment][0] + a0Coefficients[segment][1] * p;
+                const double a1 = a1Coefficients[segment][0] + a1Coefficients[segment][1] * p;
+                const double scale = a0 + a1 * phiLocal;
+                return std::isfinite(scale) && scale > 0.0
+                           ? scale
+                           : std::numeric_limits<double>::quiet_NaN();
+              };
+
+              auto dfAfterPhi = dfDet
+                  .Define("momcorr_pro_phi_scale", phiCorrectionScale,
+                          {"recpro_p", "recpro_phi_deg"})
+                  .Define("momcorr_pro_p_after_phi",
+                          [](double p, double scale) {
+                            return std::isfinite(p) && std::isfinite(scale)
+                                       ? p * scale
+                                       : std::numeric_limits<double>::quiet_NaN();
+                          },
+                          {"recpro_p", "momcorr_pro_phi_scale"})
+                  .Define("momcorr_pro_ratio_after_phi",
+                          [](double expected, double corrected) {
+                            return std::isfinite(expected) && std::isfinite(corrected) && corrected > 0.0
+                                       ? expected / corrected
+                                       : std::numeric_limits<double>::quiet_NaN();
+                          },
+                          {"momcorr_pro_p", "momcorr_pro_p_after_phi"});
+
+              drawRatio(dfAfterPhi, "_all", "all after #phi correction",
+                        std::numeric_limits<double>::quiet_NaN(), 0.0,
+                        ratioSpec.phiColumn, "phi", "#phi [deg]",
+                        ratioHistXBinsFor(ratioSpec.tag, detCase.first, "phi"),
+                        ratioXBinsFor(ratioSpec.tag, detCase.first, "phi"),
+                        0.0, 360.0, "momcorr_pro_ratio_after_phi",
+                        "_afterPhiCorrection", "true/(#phi-corrected exp)", false);
+              drawRatio(dfAfterPhi, "_all", "all after #phi correction",
+                        std::numeric_limits<double>::quiet_NaN(), 0.0,
+                        ratioSpec.thetaColumn, "theta", "#theta [deg]",
+                        ratioHistXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                        ratioXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                        thetaRange.first, thetaRange.second, "momcorr_pro_ratio_after_phi",
+                        "_afterPhiCorrection", "true/(#phi-corrected exp)", false);
+
+              for (size_t irange = 0; irange < ratioSpec.ranges.size(); ++irange) {
+                const auto& range = ratioSpec.ranges[irange];
+                const bool lastRange = irange + 1 == ratioSpec.ranges.size();
+                auto dfRangeAfterPhi = dfAfterPhi.Filter(
+                    [min = range.first, max = range.second, lastRange](double value) {
+                      return std::isfinite(value) && value >= min &&
+                             (lastRange ? value <= max : value < max);
+                    },
+                    {"momcorr_pro_p_after_phi"});
+                const std::string thisRangeTag = rangeTag(range.first, range.second);
+                const std::string thisRangeTitle = Form("p_{p}^{#phi corr} [%.2f, %.2f%s GeV",
+                                                        range.first, range.second, lastRange ? "]" : ")");
+                const double rangeCenter = 0.5 * (range.first + range.second);
+                const double rangeError = 0.5 * (range.second - range.first);
+                drawRatio(dfRangeAfterPhi, thisRangeTag, thisRangeTitle, rangeCenter, rangeError,
+                          ratioSpec.phiColumn, "phi", "#phi [deg]",
+                          ratioHistXBinsFor(ratioSpec.tag, detCase.first, "phi"),
+                          ratioXBinsFor(ratioSpec.tag, detCase.first, "phi"),
+                          0.0, 360.0, "momcorr_pro_ratio_after_phi",
+                          "_afterPhiCorrection", "true/(#phi-corrected exp)", false);
+                drawRatio(dfRangeAfterPhi, thisRangeTag, thisRangeTitle, rangeCenter, rangeError,
+                          ratioSpec.thetaColumn, "theta", "#theta [deg]",
+                          ratioHistXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                          ratioXBinsFor(ratioSpec.tag, detCase.first, "theta"),
+                          thetaRange.first, thetaRange.second, "momcorr_pro_ratio_after_phi",
+                          "_afterPhiCorrection", "true/(#phi-corrected exp)", true);
+              }
+            }
           }
         }
       }
 
+      std::map<std::string, std::array<double, 2>> momentumParameterFitCoefficients;
       auto drawParamGraph = [&](TGraphErrors* graph, const std::string& key,
                                 const std::string& paramName, const std::string& yTitle) {
         if (!graph || graph->GetN() <= 0) return;
@@ -1076,17 +4532,14 @@ class DISANAcomparer {
           yMax = std::max(yMax, y + ey);
         }
         if (!std::isfinite(xMin) || !std::isfinite(xMax) || xMax <= xMin) return;
-        if (paramName == "a0") {
-          yMin = 0.9;
-          yMax = 1.1;
-        } else if (paramName == "a1") {
-          yMin = -0.007;
-          yMax = 0.007;
-        } else if (!std::isfinite(yMin) || !std::isfinite(yMax) || yMax <= yMin) {
-          yMin -= 0.01;
-          yMax += 0.01;
+        if (!std::isfinite(yMin) || !std::isfinite(yMax)) return;
+        if (yMax <= yMin) {
+          const double center = 0.5 * (yMin + yMax);
+          const double halfRange = std::max(1e-6, 0.05 * std::abs(center));
+          yMin = center - halfRange;
+          yMax = center + halfRange;
         }
-        const double yPad = (paramName == "a0" || paramName == "a1") ? 0.0 : std::max(1e-6, 0.18 * (yMax - yMin));
+        const double yPad = std::max(1e-6, 0.18 * (yMax - yMin));
 
         TCanvas cParam(Form("c_%s_%s_%s_vs_momentum", tag.c_str(), key.c_str(), paramName.c_str()), "", 950, 850);
         cParam.SetRightMargin(0.05);
@@ -1122,6 +4575,8 @@ class DISANAcomparer {
                         "[0]+[1]*x", xMin, xMax);
           const int fitStatus = fitGraph->Fit(fit, "QEX0");
           if (fitStatus == 0) {
+            momentumParameterFitCoefficients[key + "_" + paramName] = {
+                fit->GetParameter(0), fit->GetParameter(1)};
             auto* fitBand = new TGraphErrors(200);
             fitBand->SetName(Form("band_%s_%s_%s_vs_momentum", tag.c_str(), key.c_str(), paramName.c_str()));
             for (int ip = 0; ip < 200; ++ip) {
@@ -1176,6 +4631,36 @@ class DISANAcomparer {
         if (a1VsMomentumGraphs.count(key)) {
           drawParamGraph(a1VsMomentumGraphs[key].get(), key, "a1", "a_{1} [1/deg]");
         }
+      }
+
+      const auto thetaA0It = momentumParameterFitCoefficients.find("protonP_CD_a0");
+      const auto thetaA1It = momentumParameterFitCoefficients.find("protonP_CD_a1");
+      if (cdPhiCorrectionModelValid &&
+          thetaA0It != momentumParameterFitCoefficients.end() &&
+          thetaA1It != momentumParameterFitCoefficients.end()) {
+        std::ofstream totalFitOut(
+            Form("%s/%s_protonP_CD_totalCorrection_fit.txt", outdir.c_str(), tag.c_str()));
+        totalFitOut << std::setprecision(12);
+        totalFitOut << "# Sequential CD proton momentum correction\n";
+        totalFitOut << "# Step 1: Cphi = a0_phi(p) + a1_phi(p) * phiLocal\n";
+        totalFitOut << "# Step 2: pPhi = p * Cphi\n";
+        totalFitOut << "# Step 3: Ctheta = a0_theta(pPhi) + a1_theta(pPhi) * thetaDeg\n";
+        totalFitOut << "# Final: pCorrected = pPhi * Ctheta = p * Cphi * Ctheta\n\n";
+        const std::array<std::string, 3> segmentRanges = {
+            "20 <= phiDeg < 140; phiLocal = phiDeg - 20",
+            "150 <= phiDeg < 250; phiLocal = phiDeg - 150",
+            "260 <= phiDeg < 360 or 0 <= phiDeg < 10; phiLocal = (phiDeg < 10 ? phiDeg + 360 : phiDeg) - 260"};
+        for (size_t iseg = 0; iseg < 3; ++iseg) {
+          totalFitOut << "phiSeg" << iseg + 1 << ": " << segmentRanges[iseg] << "\n";
+          totalFitOut << "  a0_phi(p) = " << cdPhiA0MomentumCoefficients[iseg][0]
+                      << " + (" << cdPhiA0MomentumCoefficients[iseg][1] << ") * p\n";
+          totalFitOut << "  a1_phi(p) = " << cdPhiA1MomentumCoefficients[iseg][0]
+                      << " + (" << cdPhiA1MomentumCoefficients[iseg][1] << ") * p\n";
+        }
+        totalFitOut << "\na0_theta(pPhi) = " << thetaA0It->second[0]
+                    << " + (" << thetaA0It->second[1] << ") * pPhi\n";
+        totalFitOut << "a1_theta(pPhi) = " << thetaA1It->second[0]
+                    << " + (" << thetaA1It->second[1] << ") * pPhi\n";
       }
     }
   }
@@ -5637,6 +9122,13 @@ class DISANAcomparer {
   }
 
  private:
+  static std::string FormatMillions(ULong64_t count) {
+    std::ostringstream text;
+    text << std::fixed << std::setprecision(3)
+         << static_cast<double>(count)/1.0e6 << " M";
+    return text.str();
+  }
+
   BinManager fXbins;
   bool plotIndividual = false;
   bool useFittedYields_ = true;
@@ -5661,6 +9153,32 @@ class DISANAcomparer {
   // Kept separate from the exclusive-DVCS and Phi plotters because the
   // current He3 model has only one generator-level MC dataframe.
   std::vector<std::unique_ptr<ROOT::RDF::RNode>> he3Models;
+
+  // Coherent e' gamma He3' generator-level models. These deliberately avoid
+  // the proton-mass assumptions in the standard exclusive-DVCS plotter.
+  std::vector<std::unique_ptr<ROOT::RDF::RNode>> he3DVCSModels;
+  std::vector<ULong64_t> he3DVCSModelEventCounts;
+
+  // Independent He3DIS GEN/REC topology models.
+  std::vector<He3DISModel> he3DISModels;
+  int he3DISXActiveBins=6;
+  double he3DISXActiveMin=0.0;
+  double he3DISXActiveMax=0.96;
+  double he3DISModelXMax=0.85;
+  // Adaptive symmetric y half-ranges from the count projection, reused by
+  // the corresponding generator-model raw and raw/PN panels.
+  std::map<std::string,double> he3DISProjectionYExtents;
+  std::map<std::string,double> he3DISProjectionYExtentsOverPN;
+  // Per-bin GEN/REC statistical errors from the finite-count projection.
+  std::map<std::string,std::array<std::vector<double>,2>>
+      he3DISProjectionErrors;
+  std::map<std::string,std::array<std::vector<double>,2>>
+      he3DISProjectionErrorsOverPN;
+  // Per-bin nucleon A_parallel centers extracted from the finite GEN/REC
+  // spin counts.  PlotA1ProjectionHe3DIS reuses these exact values rather
+  // than rebuilding a second asymmetry pipeline.
+  std::map<std::string,std::array<std::vector<double>,2>>
+      he3DISProjectionValuesOverPN;
 
   std::vector<std::string> particleName = {"e", "p", "#gamma"};
   std::map<std::string, std::string> typeToParticle = {{"el", "electron"},     {"pro", "proton"},   {"pho", "#gamma_{1}"},

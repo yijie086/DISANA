@@ -9,11 +9,27 @@
 #include <TLatex.h>
 #include <TStopwatch.h>
 #include <iostream>
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <tuple>
 
 using namespace ROOT::VecOps;
+
+bool AcceptRandomEvent(ULong64_t entry, double fraction, ULong64_t seed) {
+    if (fraction >= 1.0) return true;
+
+    std::uint64_t z = static_cast<std::uint64_t>(entry) +
+                      static_cast<std::uint64_t>(seed) +
+                      0x9e3779b97f4a7c15ULL;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    z ^= z >> 31;
+
+    const double randomValue = static_cast<double>(z >> 11) *
+                               (1.0 / 9007199254740992.0);
+    return randomValue < fraction;
+}
 
 int thetaRegionIndex(float thetaRad, const std::vector<float> &thetaCuts) {
     float deg = thetaRad * 180.0 / TMath::Pi();
@@ -30,11 +46,17 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
                                              //const std::vector<int> &layers,
                                              const std::vector<int> &sectors,
                                              const std::string &filename, const std::string &treename,
-                                             const bool doFid, double nSigma, double fitpMin, double fitpMax) {
+                                             const bool doFid, double nSigma, double fitpMin, double fitpMax,
+                                             double fraction, ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
     gStyle->SetOptStat(0);
 
     std::map<int, TH2F*> hist_SF, hist_Triangle;
@@ -46,7 +68,7 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
         hist_Triangle[sector]->SetDirectory(nullptr);
     }
 
-    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    sampledDf.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                    const RVec<short> &sector, const RVec<int16_t> &pindex,
                    const RVec<int> &pid, const RVec<int> &passFid,
                    const RVec<float> &lv, const RVec<float> &lw,
@@ -240,16 +262,24 @@ void DrawECALSF(const int &selectedPid, const int &selecteddetector,
 
 
 
-void analysisECALSF() {
+void analysisECALSF(double fraction = 0.1, ULong64_t randomSeed = 12345) {
+    if (fraction <= 0.0 || fraction > 1.0) {
+        std::cerr << "Error: fraction must satisfy 0 < fraction <= 1; got "
+                  << fraction << std::endl;
+        gApplication->Terminate(1);
+        return;
+    }
+
     ROOT::EnableImplicitMT();
 
-    std::string path = "../build/File8477/"; 
+    std::string path = "../build/"; 
     //std::string path = "../../../analysis1101/DISANA/build/data/";
     
     //==================// DVCS analysis paths==========================
     std::vector<int> layers = {1, 4, 7};
     std::vector<int> sectors = {1, 2, 3, 4, 5, 6};
-    DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 7.8);
-    //DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false, 3, 2, 7.8);
+    //DrawECALSF(11, 7, sectors, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, 3, 2, 7.8);
+    DrawECALSF(11, 7, sectors, path + "dfSelected.root", "dfSelected", false,
+               3, 2, 8.0, fraction, randomSeed);
     gApplication->Terminate(0);
 }

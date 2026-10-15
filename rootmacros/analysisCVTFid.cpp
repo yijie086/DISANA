@@ -9,11 +9,27 @@
 #include <TLatex.h>
 #include <TStopwatch.h>
 #include <iostream>
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <tuple>
 
 using namespace ROOT::VecOps;
+
+bool AcceptRandomEvent(ULong64_t entry, double fraction, ULong64_t seed) {
+    if (fraction >= 1.0) return true;
+
+    std::uint64_t z = static_cast<std::uint64_t>(entry) +
+                      static_cast<std::uint64_t>(seed) +
+                      0x9e3779b97f4a7c15ULL;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    z ^= z >> 31;
+
+    const double randomValue = static_cast<double>(z >> 11) *
+                               (1.0 / 9007199254740992.0);
+    return randomValue < fraction;
+}
 
 int thetaRegionIndex(float thetaRad, const std::vector<float> &thetaCuts) {
     float deg = thetaRad * 180.0 / TMath::Pi();
@@ -29,11 +45,17 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
                                const std::vector<float> &xmins,
                                const std::vector<float> &xmaxs,
                                const std::vector<float> &thetaCuts,
-                               const std::string &filename, const std::string &treename, const bool doFid) {
+                               const std::string &filename, const std::string &treename, const bool doFid,
+                               double fraction, ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
     gStyle->SetOptStat(0);
 
     std::map<std::string, TH2F*> histos;
@@ -46,7 +68,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
         }
     }
 
-    df.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
+    sampledDf.Foreach([&](const RVec<short> &det, const RVec<short> &layer,
                 const RVec<float> &edge, const RVec<float> &theta,
                 const RVec<float> &chi2, const RVec<int16_t> &ndf,
                 const RVec<int16_t> &trackpindex,
@@ -55,14 +77,13 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
 
     for (size_t i = 0; i < layer.size(); ++i) {
 
-        if (i >= det.size() || i >= edge.size() ||
-            i >= theta.size() || i >= pindex.size()) {
+        if (i >= det.size() || i >= edge.size() || i >= pindex.size()) {
             continue;
         }
 
         int idx = pindex[i];
 
-        if (idx < 0 || idx >= (int)pid.size()) {
+        if (idx < 0 || idx >= (int)pid.size() || idx >= (int)theta.size()) {
             continue;
         }
 
@@ -118,7 +139,7 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
             continue;
         }
 
-        int ti = thetaRegionIndex(theta[i], thetaCuts);
+        int ti = thetaRegionIndex(theta[idx], thetaCuts);
 
         std::string key = "L" + std::to_string(lay)
                         + "_T" + std::to_string(ti);
@@ -215,14 +236,19 @@ void DrawCVTChi2ndf_Optimized(const int &selectedPid, const int &selecteddetecto
 void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
                         const std::vector<int> &layers,
                         const std::string &filename, const std::string &treename,
-                        const bool doFid) {
+                        const bool doFid, double fraction, ULong64_t randomSeed) {
     TStopwatch timer;
     timer.Start();
     ROOT::EnableImplicitMT();  // Enable multi-threading for RDataFrame
     ROOT::RDataFrame df(treename, filename);
+    auto sampledDf = df.Filter(
+        [fraction, randomSeed](ULong64_t entry) {
+            return AcceptRandomEvent(entry, fraction, randomSeed);
+        },
+        {"rdfentry_"}, "random event fraction");
     gStyle->SetOptStat(0);
 
-    auto dfWithAngles = df.Define("theta_deg", [](const RVec<float> &x, const RVec<float> &y, const RVec<float> &z) {
+    auto dfWithAngles = sampledDf.Define("theta_deg", [](const RVec<float> &x, const RVec<float> &y, const RVec<float> &z) {
                 RVec<float> theta;
                 for (size_t i = 0; i < x.size(); ++i)
                     theta.push_back(180.0 / TMath::Pi() * TMath::ACos(z[i] / sqrt(x[i]*x[i] + y[i]*y[i] + z[i]*z[i])));
@@ -302,18 +328,25 @@ void DrawCVTHitResponse(const int &selectedPid, const int &selecteddetector,
 }
 
 
-void analysisCVTFid() {
+void analysisCVTFid(double fraction = 0.5, ULong64_t randomSeed = 12345) {
+    if (fraction <= 0.0 || fraction > 1.0) {
+        std::cerr << "Error: fraction must satisfy 0 < fraction <= 1; got "
+                  << fraction << std::endl;
+        gApplication->Terminate(1);
+        return;
+    }
+
     ROOT::EnableImplicitMT();
 
-    std::string path = "../build/";
+    std::string path = "../build/File6395/";
 
     std::vector<int> layers = {1, 3, 5, 7, 12};
     std::vector<float> xmins = {-0.5, -0.5, -0.5, -4.0, -4.0};
     std::vector<float> xmaxs = {2.5, 2.5, 2.5, 20.0, 20.0};
-    std::vector<float> thetaCuts = {55, 85, 115};
-    //DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true);
-    //DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false);
-    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected.root", "dfSelected", false);
+    std::vector<float> thetaCuts = {50, 60, 80};
+    //DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    //DrawCVTHitResponse(2212, 5, layers, path + "dfSelected_afterFid_afterCorr.root", "dfSelected_afterFid_afterCorr", true, fraction, randomSeed);
+    DrawCVTChi2ndf_Optimized(2212, 5, 0, 60, 50, layers, xmins, xmaxs, thetaCuts, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
+    DrawCVTHitResponse(2212, 5, layers, path + "dfSelected.root", "dfSelected", false, fraction, randomSeed);
     gApplication->Terminate(0);
 }

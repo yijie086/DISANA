@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 EventCut::EventCut() = default;
 EventCut::~EventCut() = default;
@@ -56,6 +57,33 @@ void EventCut::AddParticleCut(const std::string& name, const ParticleCut& userCu
   fParticleCuts[name] = cut;
 }
 
+void EventCut::AddAlternativeTopology(
+    const std::string& name,
+    const std::vector<std::pair<std::string, int>>& requirements) {
+  if (requirements.empty()) {
+    throw std::invalid_argument("EventCut topology '" + name +
+                                "' has no particle requirements");
+  }
+  for (const auto& [particleName, minimum] : requirements) {
+    if (minimum < 0)
+      throw std::invalid_argument("EventCut topology '" + name +
+                                  "' has a negative minimum count");
+    if (fParticleCuts.find(particleName) == fParticleCuts.end())
+      throw std::invalid_argument("EventCut topology '" + name +
+                                  "' refers to unknown particle cut '" +
+                                  particleName + "'");
+  }
+  fAlternativeTopologies[name] = requirements;
+}
+
+std::vector<std::string> EventCut::GetAlternativeTopologyNames() const {
+  std::vector<std::string> names;
+  names.reserve(fAlternativeTopologies.size());
+  for (const auto& [name, requirements] : fAlternativeTopologies)
+    names.push_back(name);
+  return names;
+}
+
 void EventCut::AddParticleMotherCut(const std::string& name, const TwoBodyMotherCut& userCut) {
   TwoBodyMotherCut cut = userCut;
   if (name == "pi0") {
@@ -106,6 +134,7 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
   result.MotherMass.resize(pid.size(), -999);
 
   bool allCutsPassed = true;
+  std::map<std::string, int> acceptedCounts;
   float MaxEphotonEnergy = 0.0f;
   size_t MaxPhotonEnergyIndex = 0;
 
@@ -161,6 +190,25 @@ EventCutResult EventCut::operator()(const std::vector<int>& pid, const std::vect
     if (!IsInRange(count, cut.minCount, cut.maxCount)) {
       allCutsPassed = false;
     }
+    acceptedCounts[name] = count;
+  }
+
+  if (!fAlternativeTopologies.empty()) {
+    bool anyTopologyPassed = false;
+    result.topologyPass.reserve(fAlternativeTopologies.size());
+    for (const auto& [topologyName, requirements] : fAlternativeTopologies) {
+      bool topologyPassed = true;
+      for (const auto& [particleName, minimum] : requirements) {
+        const auto found = acceptedCounts.find(particleName);
+        if (found == acceptedCounts.end() || found->second < minimum) {
+          topologyPassed = false;
+          break;
+        }
+      }
+      result.topologyPass.push_back(topologyPassed ? 1 : 0);
+      anyTopologyPassed = anyTopologyPassed || topologyPassed;
+    }
+    allCutsPassed = allCutsPassed && anyTopologyPassed;
   }
 
   if (fAcceptEverything) {

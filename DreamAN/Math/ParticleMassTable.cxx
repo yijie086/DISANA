@@ -16,7 +16,9 @@ double getParticleMass(int pid) {
         {-13, 0.10566},    // Anti-Muon
         {111, 0.13498},    // Pi0
         {2112, 0.939565},  // Neutron
-        {-2112, 0.939565}  // Anti-Neutron
+        {-2112, 0.939565}, // Anti-Neutron
+        {49, 2.8083916},   // He3 nucleus (CLAS12 legacy nuclear PID)
+        {1000020030, 2.8083916} // He3 nucleus (PDG nuclear PID)
     };
 
     // Look up the mass corresponding to the pid

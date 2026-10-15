@@ -4,6 +4,7 @@
 
 #include <string>
 #include <map>
+#include <utility>
 #include <vector>
 #include <cfloat>
 #include <cmath>
@@ -44,6 +45,7 @@ struct TwoBodyMotherCut {
 
 struct EventCutResult {
   bool eventPass = false;
+  std::vector<int> topologyPass;
   /*std::vector<bool> particlePass;
   std::vector<bool> particleDaughterPass;
   std::vector<bool> MaxPhotonEnergyPass;*/
@@ -67,6 +69,7 @@ static inline float ParticleMassPDG(int pid) {
     case 321:  return 0.493677f;
     case 2112: return 0.939565413f;
     case 2212: return 0.938272081f;
+    case 49:   return 2.8083916f;
     case 113:  return 0.77526f;
     case 213:  return 0.77526f;
     case 323:  return 0.89166f;
@@ -82,6 +85,14 @@ class EventCut {
   virtual ~EventCut();
   void SetDoCutMotherInvMass(bool doCut) { fCutTwoBodyMotherDecay = doCut; }
   void AddParticleCut(const std::string& name, const ParticleCut& cut);
+  // Optional OR of named topologies. Each topology is an AND of minimum
+  // accepted-particle counts referring to cuts already added by name.
+  // With no alternative topologies configured, the historical all-cuts-AND
+  // behavior is unchanged.
+  void AddAlternativeTopology(
+      const std::string& name,
+      const std::vector<std::pair<std::string, int>>& requirements);
+  std::vector<std::string> GetAlternativeTopologyNames() const;
   void AddParticleMotherCut(const std::string& name, const TwoBodyMotherCut& cut);
   void AcceptEverything(bool accept) { fAcceptEverything = accept; }
 
@@ -105,6 +116,8 @@ class EventCut {
   bool fCutTwoBodyMotherDecay = false;
   bool fAcceptEverything = false;
   std::map<std::string, ParticleCut> fParticleCuts;
+  std::map<std::string, std::vector<std::pair<std::string, int>>>
+      fAlternativeTopologies;
   std::map<std::string, TwoBodyMotherCut> fTwoBodyMotherCuts;
 
   template <typename T>

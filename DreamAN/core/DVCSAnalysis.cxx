@@ -211,6 +211,15 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
   dfSelected = DefineOrRedefine(*dfSelected, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
+  const auto topologyNames = fEventCuts->GetAlternativeTopologyNames();
+  for (size_t i = 0; i < topologyNames.size(); ++i) {
+    dfSelected = DefineOrRedefine(
+        *dfSelected, "REC_Event_pass_" + topologyNames[i],
+        [i](const EventCutResult& result) {
+          return i < result.topologyPass.size() && result.topologyPass[i] != 0;
+        },
+        {"EventCutResult"});
+  }
 
   if (fDoInvMassCut) {
     fEventCuts->SetDoCutMotherInvMass(true);
@@ -226,6 +235,15 @@ void DVCSAnalysis::UserExec(ROOT::RDF::RNode& df) {
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Event_pass", [](const EventCutResult& result) { return result.eventPass; }, {"EventCutResult"});
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Particle_pass", [](const EventCutResult& result) { return result.particlePass; }, {"EventCutResult"});
     dfSelected_afterFid = DefineOrRedefine(*dfSelected_afterFid, "REC_Photon_MaxE", [](const EventCutResult& result) { return result.MaxPhotonEnergyPass; }, {"EventCutResult"});
+    for (size_t i = 0; i < topologyNames.size(); ++i) {
+      dfSelected_afterFid = DefineOrRedefine(
+          *dfSelected_afterFid, "REC_Event_pass_" + topologyNames[i],
+          [i](const EventCutResult& result) {
+            return i < result.topologyPass.size() &&
+                   result.topologyPass[i] != 0;
+          },
+          {"EventCutResult"});
+    }
     if (fDoInvMassCut) {
       fEventCuts->SetDoCutMotherInvMass(true);
       dfSelected_afterFid =
@@ -278,6 +296,11 @@ std::vector<std::string> DVCSAnalysis::MinimalColumns() const {
       "REC_DaughterParticle_pass"
   })
     cols.push_back(c);
+
+  if (fEventCuts) {
+    for (const auto& name : fEventCuts->GetAlternativeTopologyNames())
+      cols.push_back("REC_Event_pass_" + name);
+  }
   
   if (IsMC){
     for (const auto& c : V{"MC_Particle_pid", "MC_Particle_px", "MC_Particle_py", "MC_Particle_pz", "MC_Particle_vx", "MC_Particle_vy", "MC_Particle_vz", "MC_Particle_vt", "MC_Event_weight",
@@ -380,7 +403,8 @@ void DVCSAnalysis::SaveOutput() {
     if (IsReproc) {SafeSnapshot(*dfSelected_afterFid,"dfSelected_afterFid_reprocessed",
                                 Form("%s/%s", fOutputDir.c_str(),"dfSelected_afterFid_reprocessed.root"));
     } else {
-      if (!IsMinBooking) {
+      if (!IsMinBooking ||
+          (fWriteAfterFidWhenNoCorrection && !fDoMomentumCorrection)) {
         const std::string root_afterFid = Form("%s/%s", fOutputDir.c_str(), "dfSelected_afterFid.root");
         auto cnt_afterFid = dfSelected_afterFid->Count();
         dfSelected_afterFid->Snapshot("dfSelected_afterFid", root_afterFid, resolveColumns(*dfSelected_afterFid));

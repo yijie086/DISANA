@@ -1,4 +1,7 @@
-// Run with: root -l 'lund2rdf.cpp("dvcsgen*.dat","out.root")'
+// All matched files:
+//   root -l 'lund2rdf2.cpp("dvcsgen*.dat","out.root")'
+// First 100 matched files:
+//   root -l 'lund2rdf2.cpp("dvcsgen*.dat","out.root",100)'
 #include <TFile.h>
 #include <TTree.h>
 #include <ROOT/RDataFrame.hxx>
@@ -42,8 +45,9 @@ static std::vector<std::string> glob_files(const char* pattern) {
 }
 
 // Main function: read all files matching pattern, write a single ROOT file
-void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/km15gen/km15gen/output_7p5_1/*.txt",
-               const char* outPath   = "noradkm15_7546.root")
+void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/dvcsgen/norad6395P1/*.dat",
+               const char* outPath   = "nor6395P1.root",
+               int maxFiles = 1000000)
 {
     // Prepare output ROOT file
     TFile fout(outPath, "RECREATE");
@@ -71,8 +75,18 @@ void lund2rdf2(const char* inPattern = "/work/clas12/yijie/Simulation/DVCS/km15g
         return;
     }
 
+    // maxFiles <= 0 means no limit.  glob() provides a deterministic,
+    // lexicographically sorted file list, so a positive limit selects its
+    // first maxFiles entries.
+    if (maxFiles > 0 && static_cast<size_t>(maxFiles) < files.size()) {
+        files.resize(static_cast<size_t>(maxFiles));
+    }
+    std::cout << "Will process " << files.size() << " input file(s)"
+              << (maxFiles > 0 ? " (limited)" : " (all matched files)")
+              << "." << std::endl;
+
     // Loop over files
-    for (auto& fname : files) {
+    for (const auto& fname : files) {
         std::ifstream fin(fname);
         if (!fin.is_open()) {
             std::cerr << "WARNING: cannot open file: " << fname << std::endl;

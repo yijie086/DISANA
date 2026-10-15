@@ -9,23 +9,18 @@ setopt NO_NOMATCH
 # =========================
 K=40   # 并行 job 数
 MAX_CONCURRENT=40   # 同时最多跑多少个，防止机器打满
-OUTPUT_W_CSV=0      # 设为 1 或使用 --w-csv：只输出 corrected W CSV，不输出 ROOT
+OUTPUT_W_CSV=0     # 设为 1 或使用 --w-csv：只输出 corrected W CSV，不输出 ROOT
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 EXE="$SCRIPT_DIR/../build/AnalysisDVCS"
 OUTPUT_BASE="$SCRIPT_DIR/../build/dvcs_parallel_output"
 typeset -a INPUT_DIRS
 INPUT_DIRS=(
-    /volatile/clas12/osg/yijie/10854
-    /volatile/clas12/osg/yijie/10856
-    /volatile/clas12/osg/yijie/10857
-    /volatile/clas12/osg/yijie/10858
-    /volatile/clas12/osg/yijie/10859
-    /volatile/clas12/osg/yijie/10860
-    /volatile/clas12/osg/yijie/10861
-    /volatile/clas12/osg/yijie/10862
+    #/cache/clas12/rg-k/production/recon/spring2024/pass1/6395MeV/dst/recon/
+    #/cache/clas12/rg-k/production/recon/spring2024/pass1/8477MeV/dst/recon/
+    /volatile/clas12/osg/yijie/12012/
 )
-MAX_TOTAL_FILES=10000000000
+MAX_TOTAL_FILES=1000000000
 
 # AnalysisDVCS 第3个参数
 ARG3=1

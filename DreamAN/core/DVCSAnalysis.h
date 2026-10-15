@@ -47,6 +47,11 @@ class DVCSAnalysis : public AnalysisTask {
 
   void SetDoMomentumCorrection(bool do_correction) { fDoMomentumCorrection = do_correction; }
   void SetMomentumCorrection(std::shared_ptr<MomentumCorrection> corr) { fMomCorr = std::move(corr); }
+  // Opt-in for analyses that have no momentum-correction stage but still
+  // need the fiducial-selected RDF when minimal booking is enabled.
+  void SetWriteAfterFidWhenNoCorrection(bool write = true) {
+    fWriteAfterFidWhenNoCorrection = write;
+  }
 
   void SetQADBCuts(std::shared_ptr<QADBCuts> qadbcuts){ fQADBCuts = std::move(qadbcuts); };
   void SetDoQADBCuts(bool charge_output) { fIsQADBCut = charge_output; }
@@ -66,6 +71,7 @@ class DVCSAnalysis : public AnalysisTask {
   bool fFiducialCut = false;  // Flag to indicate if fiducial cut is applied
   bool fFTonConfig = true;
   bool fDoMomentumCorrection = false;  // Flag to indicate if momentum correction is applied
+  bool fWriteAfterFidWhenNoCorrection = false;
   bool fOptimizeColumns = false;  // Flag to indicate if column optimization is enabled
   bool fOutputWCSV = false;  // Output final corrected electron W CSV and skip ROOT snapshots
   std::string fOutputWCSVName = "electron_w_afterCorr.csv";

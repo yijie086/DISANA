@@ -32,7 +32,8 @@ class DISANAplotter {
                 std::optional<ROOT::RDF::RNode> df_gen_dvcsmc = std::nullopt, std::optional<ROOT::RDF::RNode> df_accept_dvcsmc = std::nullopt,
                 std::optional<ROOT::RDF::RNode> df_dvcsmc_bkg = std::nullopt, std::optional<ROOT::RDF::RNode> df_dvcsmc_nobkg = std::nullopt,
                 std::optional<ROOT::RDF::RNode> df_dvcsmc_rad = std::nullopt, std::optional<ROOT::RDF::RNode> df_dvcsmc_norad = std::nullopt,
-                std::optional<ROOT::RDF::RNode> df_dvcsmc_p1cut = std::nullopt)
+                std::optional<ROOT::RDF::RNode> df_dvcsmc_p1cut = std::nullopt,
+                std::optional<ROOT::RDF::RNode> df_dvcsmc_norad_p1 = std::nullopt)
       : rdf(std::move(df_dvcs_data)),
         rdf_pi0_data(std::move(df_pi0_data)),
         rdf_dvcs_pi0mc(std::move(df_dvcs_pi0mc)),
@@ -42,7 +43,13 @@ class DISANAplotter {
         rdf_dvcsmc_bkg(std::move(df_dvcsmc_bkg)),
         rdf_dvcsmc_nobkg(std::move(df_dvcsmc_nobkg)),
         rdf_dvcsmc_rad(std::move(df_dvcsmc_rad)),
-        rdf_dvcsmc_norad(std::move(df_dvcsmc_norad)),
+        rdf_dvcsmc_norad_rad(df_dvcsmc_norad),
+        // Backward compatibility: old callers provide one no-radiation sample
+        // for both corrections.  New callers can provide a dedicated P1
+        // reference as the final constructor argument.
+        rdf_dvcsmc_norad_p1(df_dvcsmc_norad_p1
+                                ? std::move(df_dvcsmc_norad_p1)
+                                : std::move(df_dvcsmc_norad)),
         rdf_dvcsmc_p1cut(std::move(df_dvcsmc_p1cut)),
         beam_energy(beamEnergy),
         luminosity_nb_inv(luminosity),
@@ -618,11 +625,11 @@ class DISANAplotter {
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> ComputeRadCorr(const BinManager& bins) {
-    if (!rdf_dvcsmc_rad || !rdf_dvcsmc_norad) {
+    if (!rdf_dvcsmc_rad || !rdf_dvcsmc_norad_rad) {
       std::cerr << "[ComputeRadCorr] Missing input RDFs.\n";
       return {};
     }
-    return kinCalc.CalcRadiativeCorr(*rdf_dvcsmc_rad, *rdf_dvcsmc_norad, bins);
+    return kinCalc.CalcRadiativeCorr(*rdf_dvcsmc_rad, *rdf_dvcsmc_norad_rad, bins);
   }
   std::vector<std::vector<std::vector<TH1D*>>> UseRadCorrection(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D,
                                                                 const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
@@ -679,11 +686,11 @@ class DISANAplotter {
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> ComputeP1CutEffect(const BinManager& bins) {
-    if (!rdf_dvcsmc_p1cut || !rdf_dvcsmc_norad) {
+    if (!rdf_dvcsmc_p1cut || !rdf_dvcsmc_norad_p1) {
       std::cerr << "[ComputeP1CutEffect] Missing input RDFs.\n";
       return {};
     }
-    return kinCalc.CalcP1Cut(*rdf_dvcsmc_p1cut, *rdf_dvcsmc_norad, bins);
+    return kinCalc.CalcP1Cut(*rdf_dvcsmc_p1cut, *rdf_dvcsmc_norad_p1, bins);
   }
 
   std::vector<std::vector<std::vector<TH1D*>>> UseP1Cut(const std::vector<std::vector<std::vector<TH1D*>>>& xs3D, const std::vector<std::vector<std::vector<TH1D*>>>& corr3D) {
@@ -2977,7 +2984,8 @@ class DISANAplotter {
   std::optional<ROOT::RDF::RNode> rdf_dvcsmc_bkg;
   std::optional<ROOT::RDF::RNode> rdf_dvcsmc_nobkg;
   std::optional<ROOT::RDF::RNode> rdf_dvcsmc_rad;
-  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_norad;
+  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_norad_rad;
+  std::optional<ROOT::RDF::RNode> rdf_dvcsmc_norad_p1;
   std::optional<ROOT::RDF::RNode> rdf_dvcsmc_p1cut;
   // rdfs for phi analysis
   std::optional<ROOT::RDF::RNode> rdf_gen_phimc;
